@@ -222,7 +222,7 @@ services.py     multi-step operations in transactions  ← business logic here
 serializers.py  validation and shape. No writes beyond the obvious.
 views.py        permission class, queryset, call the service. Thin.
 tasks.py        Celery entry points. Thin wrappers over services.
-signals.py      seeding only (branch → categories). Nothing else.
+signals.py      Avoid. Nothing in V1 uses one — see below.
 ```
 
 **Anything touching money or spanning two models goes in `services.py`, inside
@@ -230,6 +230,13 @@ signals.py      seeding only (branch → categories). Nothing else.
 `generate_monthly_fees()`, `save_attendance_register()`, `publish_results()`.
 Do not put these in a serializer's `create()`, and never in a signal — a signal
 that moves money is a signal that fires twice during a fixture load.
+
+**No signals in V1, including for seeding.** An earlier draft of this file said
+seeding was the one legitimate use; that was wrong, and for its own stated
+reason. `post_save` on `Branch` fires during fixture loads and test setup, so a
+branch gets seeded twice and `seed_categories` then looks broken. Branch seeding
+lives in `branches.services.create_branch()`, which is the only supported way to
+create an institution. If you think you need a signal, you need a service.
 
 ### 4.4 Number sequences
 

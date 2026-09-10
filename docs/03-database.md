@@ -62,9 +62,14 @@ The tenant boundary. Everything else hangs off it.
 | `default_language` | Char(2) | `bn` / `en` |
 | `is_active` | Bool | |
 
-Creating a Branch fires a signal that seeds its fee categories, income
-categories and expense categories (§5, §6). This is decision 1 of the
-"smart" list in `00-overview.md`.
+Creating a Branch seeds its streams, fee categories, income categories and
+expense categories (§2, §5, §6). This is decision 1 of the "smart" list in
+`00-overview.md`.
+
+**Seeded by `branches.services.create_branch()`, not by a signal.** A signal
+fires during fixture loads and test setup, which would seed a branch twice and
+leave `seed_categories` looking broken. The service is the only supported way to
+create an institution.
 
 ### `User`
 

@@ -438,7 +438,8 @@ either being bolted onto the other.
 
 ### Consequences
 
-- **V1 grows to 28 tables** — `Period` and `ClassRoutine`. (D8 then makes it 29.)
+- **V1 grows to 28 tables** — `Period` and `ClassRoutine`. (D8 then adds
+  `ActivityLog`, making it 29 — see '08' §5 for the final list.)
 - New screen **Academics → Routine**: a weekly grid per class, with clash
   detection surfaced as you edit rather than on save.
 - The teacher's dashboard replaces the generic overview for the `teacher` user
@@ -611,7 +612,7 @@ removes `StudentCategory`.
 | `exams` | Exam · ExamSchedule · Mark |
 | `forms` | FormTemplate · Question · AdmissionAnswer · PrintedForm |
 
-*(28 rows counting joins and lookups; 24 are the ones anyone thinks of as a
+*(33 rows counting joins and lookups; 29 are the ones anyone thinks of as a
 model.)* **`StudentCategory` is removed.**
 
 ---

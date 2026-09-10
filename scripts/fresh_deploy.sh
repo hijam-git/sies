@@ -210,9 +210,9 @@ else
 fi
 
 # ── 8. Seed ──────────────────────────────────────────────────────────────────
-# seed_categories is idempotent by design (signals.py seeds a branch's default
-# fee and finance categories). Running it twice is a no-op, which is why it is
-# safe to leave in a script people re-run.
+# seed_categories is idempotent by design: branches/seeding.py get_or_creates a
+# branch's streams and default fee and finance categories. Running it twice is a
+# no-op, which is why it is safe to leave in a script people re-run.
 step 8 "Seeding default categories"
 if [ "$SEED" = 0 ]; then
   info "skipped (--no-seed)"
