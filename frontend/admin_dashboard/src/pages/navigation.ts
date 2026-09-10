@@ -35,6 +35,11 @@ export interface NavItem {
   resource: Resource;
   /** Which build phase makes this screen real. 0–1 = it exists now. */
   phase: number;
+  /** Only for a teacher — somebody with a `Teacher` profile behind their
+   *  account. A principal's own routine is empty by construction, and a nav row
+   *  that always renders "nothing assigned" is a row that teaches people to
+   *  ignore the sidebar. */
+  teacherOnly?: boolean;
   /** Only for the platform admin — the operator of SIES, whose `user.branch` is
    *  null. An institution's own principal never sees these. */
   platformOnly?: boolean;
@@ -51,6 +56,16 @@ export const OVERVIEW: NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
+  // First, and above Students, because for the person who can see it this is
+  // the screen they open the system for (docs/08 D7).
+  {
+    path: '/my-routine',
+    label: 'My routine',
+    icon: 'clock',
+    resource: 'academics',
+    phase: 2,
+    teacherOnly: true,
+  },
   { path: '/students', label: 'Students', icon: 'students', resource: 'students', phase: 2 },
   { path: '/staff', label: 'Staff', icon: 'staff', resource: 'teachers', phase: 2 },
   { path: '/academics', label: 'Academics', icon: 'academics', resource: 'academics', phase: 2 },

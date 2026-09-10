@@ -141,9 +141,14 @@ export default function DashboardLayout() {
   const visibleItems: NavItem[] = useMemo(
     () =>
       NAV_ITEMS.filter(
-        (i) => (!i.platformOnly || isPlatformAdmin) && canView(i.resource),
+        (i) =>
+          (!i.platformOnly || isPlatformAdmin) &&
+          // A teacher-only row is hidden from everybody else rather than shown
+          // empty — see `NavItem.teacherOnly`.
+          (!i.teacherOnly || user?.user_type === 'teacher') &&
+          canView(i.resource),
       ),
-    [canView, isPlatformAdmin],
+    [canView, isPlatformAdmin, user],
   );
 
   /* The heading has to follow the switcher, not the account.

@@ -4,10 +4,13 @@
 // madrasah says জামাত where a school says শ্রেণি, and both read ক্লাস without
 // confusion, so the shared word wins.
 //
-// Twelve entries, matching `pages/navigation.ts`. The in-page tab labels live
+// Thirteen entries, matching `pages/navigation.ts`. The in-page tab labels live
 // in `dict/admin.ts` with the screens that draw them.
 const nav: Record<string, string> = {
   'Overview': 'ওভারভিউ',
+  // A teacher's own weekly timetable — রুটিন is the word every institution here
+  // uses for one; সময়সূচি reads as a bus schedule.
+  'My routine': 'আমার রুটিন',
   'Students': 'শিক্ষার্থী',
   'Staff': 'কর্মী',
   'Academics': 'শিক্ষা কার্যক্রম',

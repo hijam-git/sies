@@ -147,6 +147,17 @@ class ClassRoutineSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.name', read_only=True)
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     period_name = serializers.CharField(source='period.name', read_only=True)
+    # The Bangla labels and the class/section names ride along because the
+    # screens that draw a cell — the admin grid and a teacher's own week — have
+    # only the row, and joining four lookup lists client-side to render "Class 5
+    # · A" is four extra requests for names the join already had.
+    class_name = serializers.CharField(source='academic_class.name', read_only=True)
+    class_name_bn = serializers.CharField(source='academic_class.name_bn', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True)
+    subject_name_bn = serializers.CharField(source='subject.name_bn', read_only=True)
+    period_name_bn = serializers.CharField(source='period.name_bn', read_only=True)
+    period_order = serializers.IntegerField(source='period.order', read_only=True)
+    is_break = serializers.BooleanField(source='period.is_break', read_only=True)
     start_time = serializers.TimeField(source='period.start_time', read_only=True)
     end_time = serializers.TimeField(source='period.end_time', read_only=True)
     day_display = serializers.CharField(source='get_day_of_week_display', read_only=True)
@@ -156,7 +167,9 @@ class ClassRoutineSerializer(serializers.ModelSerializer):
         fields = ['id', 'session', 'academic_class', 'section', 'subject',
                   'teacher', 'period', 'day_of_week', 'room', 'is_active',
                   'teacher_name', 'subject_name', 'period_name',
-                  'start_time', 'end_time', 'day_display',
+                  'class_name', 'class_name_bn', 'section_name',
+                  'subject_name_bn', 'period_name_bn', 'period_order',
+                  'is_break', 'start_time', 'end_time', 'day_display',
                   'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 

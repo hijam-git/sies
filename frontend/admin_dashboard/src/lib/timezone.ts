@@ -76,6 +76,24 @@ export function todayInDhaka(): string {
   }).format(new Date());
 }
 
+/**
+ * The wall clock in Dhaka right now, as `"HH:MM"`.
+ *
+ * Compared against `Period.start_time` / `end_time`, which are institution wall
+ * times with no zone attached. Reading the browser's own clock instead would
+ * mark the wrong period live for a teacher travelling, or for a laptop somebody
+ * set to the wrong zone — and "which period is happening now" is the one thing
+ * on the routine screen that has to be right.
+ */
+export function nowTimeInDhaka(): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: DHAKA_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
 /** A date offset from today (`-1` yesterday, `-7` last week) as `YYYY-MM-DD`. */
 export function dateOffsetInDhaka(dayOffset: number): string {
   const d = new Date();

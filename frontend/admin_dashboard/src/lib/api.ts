@@ -563,9 +563,32 @@ export interface ClassRoutine {
   teacher_name: string;
   subject_name: string;
   period_name: string;
+  /** The names the cell prints, sent with the row rather than looked up: a
+   *  teacher's own week spans classes their picker lists never loaded. */
+  class_name: string;
+  class_name_bn: string;
+  section_name: string | null;
+  subject_name_bn: string;
+  period_name_bn: string;
+  period_order: number;
+  is_break: boolean;
   start_time: string;
   end_time: string;
   day_display: string;
+}
+
+/**
+ * A teacher's own week — `GET /class-routines/my-routine/`.
+ *
+ * A separate endpoint from the filtered list because it answers a different
+ * question: the list is scoped to the classes a teacher may reach, this is
+ * scoped to the teacher themselves. `?teacher=` is ignored by the server, so
+ * there is no id here for a client to change.
+ */
+export interface MyRoutine {
+  session: number | null;
+  session_name: string;
+  rows: ClassRoutine[];
 }
 
 /**
@@ -1914,6 +1937,12 @@ class ApiClient {
         cells: body.cells,
       }),
     });
+  }
+
+  getMyRoutine(session?: number | null): Promise<MyRoutine> {
+    return this.request<MyRoutine>(
+      `/class-routines/my-routine/${session ? `?session=${session}` : ''}`,
+    );
   }
 
   getMyDay(date?: string): Promise<MyDay> {

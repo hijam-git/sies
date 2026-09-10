@@ -1,4 +1,5 @@
 import type { AcademicClass, Period, Session, Stream, Teacher } from '../../lib/api';
+import { todayInDhaka } from '../../lib/timezone';
 
 /**
  * What the four academics tabs all need, fetched once by the page.
@@ -36,9 +37,13 @@ export const WEEK_DAYS: { value: 0 | 1 | 2 | 3 | 4 | 5 | 6; label: string }[] = 
 /** Today's index in the week above, for defaulting the phone day picker to the
  *  day the user is actually standing in. */
 export function todayWeekIndex(): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+  // Dhaka's day, not the browser's: the institution's week is what the routine
+  // is drawn in, and a device an hour either side of midnight would otherwise
+  // open on yesterday.
+  const [y, m, d] = todayInDhaka().split('-').map(Number);
   // `getDay()` is Sunday=0; the routine is Saturday=0, so Saturday's 6 maps to
   // 0 and everything else shifts up by one.
-  const sundayFirst = new Date().getDay();
+  const sundayFirst = new Date(y, m - 1, d).getDay();
   return ((sundayFirst + 1) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
 }
 

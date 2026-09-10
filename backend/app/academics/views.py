@@ -151,6 +151,81 @@ class ClassRoutineViewSet(TeacherScopedMixin, AcademicsViewSet):
 
         return Response(self.get_serializer(rows, many=True).data)
 
+    @action(detail=False, methods=['get'], url_path='my-routine')
+    def my_routine(self, request):
+        """`GET /api/class-routines/my-routine/?session=` — the caller's week.
+
+        The other half of the today board: a teacher wants to know when they
+        teach and what, not only what is left today. Unpaginated for the same
+        reason `today` is — one teacher's week is at most seven days of a bell
+        schedule, and it is drawn as a grid that needs every cell at once.
+
+        **`?teacher=` is ignored here, deliberately.** The list endpoint accepts
+        it and is narrowed by `TeacherScopedMixin`, which means a class teacher
+        can legitimately see who else teaches *their* class. This action answers
+        a different question — *my* week — so it is filtered to the caller's own
+        `Teacher` row and nothing a client sends can widen it. Passing another
+        teacher's id returns the caller's own rows, never theirs.
+
+        Built off `ClassRoutine.objects` rather than `self.get_queryset()`
+        because the D6 class scope is the wrong gate for this: a routine row is
+        already the narrowest possible claim on a class, and a teacher whose
+        routine row has no matching `SubjectAssignment` would otherwise lose a
+        period off their own timetable. `teacher.branch_id` keeps it branch-safe
+        without the mixin — a teacher belongs to exactly one institution.
+        """
+        teacher = teacher_for_user(request.user)
+        if teacher is None:
+            # A principal or an accountant has no routine of their own. Empty
+            # rather than 403: "nothing is assigned to you" is the honest answer
+            # to a question about *your* week, and the screen says who assigns it.
+            return Response({'session': None, 'rows': []})
+
+        session, addressable = self._routine_session(request, teacher)
+        if not addressable:
+            # A session id that is not this institution's names no week of
+            # theirs. Empty and 200, not 404: the id came from a query string,
+            # and confirming which ids exist is what a probe is after.
+            return Response({'session': None, 'session_name': '', 'rows': []})
+
+        rows = (ClassRoutine.objects
+                .filter(branch_id=teacher.branch_id, teacher=teacher, is_active=True)
+                .select_related('session', 'academic_class', 'section', 'subject',
+                                'teacher', 'period'))
+        if session is not None:
+            rows = rows.filter(session=session)
+
+        rows = rows.order_by('day_of_week', 'period__order')
+        return Response({
+            'session': session.pk if session is not None else None,
+            'session_name': session.name if session is not None else '',
+            'rows': self.get_serializer(rows, many=True).data,
+        })
+
+    @staticmethod
+    def _routine_session(request, teacher):
+        """`(session, addressable)` — `?session=` if named, else the current one.
+
+        Defaulting server-side keeps the screen free of a session picker the
+        teacher would have to understand before seeing anything — and a routine
+        without a session is every year's timetable stacked in one grid.
+
+        The flag separates the two ways of having no session: an institution
+        that has not opened one yet (show the whole timetable) from a caller who
+        named a session that is not theirs (show nothing). Returning bare None
+        for both would turn a foreign session id into "every session you have".
+        """
+        from branches.models import Session
+
+        requested = request.query_params.get('session', '').strip()
+        sessions = Session.objects.filter(branch_id=teacher.branch_id)
+        if requested:
+            if not requested.isdigit():
+                raise ValidationError({'session': 'Not a session id · সঠিক শিক্ষাবর্ষ নয়।'})
+            found = sessions.filter(pk=requested).first()
+            return found, found is not None
+        return sessions.filter(is_current=True).first(), True
+
 
 class EnrolmentViewSet(TeacherScopedMixin, AcademicsViewSet):
     """Students in classes.

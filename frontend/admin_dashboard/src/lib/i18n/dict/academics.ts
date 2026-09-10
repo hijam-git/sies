@@ -105,6 +105,16 @@ const academics: Record<string, string> = {
     'হাজিরা, ফি ও পরীক্ষার হিসাব নিজ নিজ মডিউলের সঙ্গে আসবে।',
   'Nothing is being hidden — the phases that raise fees, take attendance and publish results have not been built yet, so those figures are honestly zero.':
     'কিছু লুকানো হয়নি — ফি, হাজিরা ও ফলাফলের ধাপগুলো এখনো তৈরি হয়নি, তাই ঐ সংখ্যাগুলো সত্যিই শূন্য।',
+
+  // ── My routine — a teacher's own week (docs/08 D7) ─────────────────────
+  'Periods a week': 'সাপ্তাহিক পিরিয়ড',
+  'Free': 'ফাঁকা',
+  'Now': 'এখন',
+  'Could not load your routine.': 'আপনার রুটিন আনা যায়নি।',
+  'No classes have been assigned to you yet.':
+    'আপনাকে এখনো কোনো ক্লাস দেওয়া হয়নি।',
+  'The office builds the weekly routine under Academics → Routine. Ask them to add your periods.':
+    'অফিস শিক্ষা কার্যক্রম → রুটিন থেকে সাপ্তাহিক রুটিন তৈরি করে। আপনার পিরিয়ডগুলো যোগ করতে বলুন।',
 };
 
 export default academics;

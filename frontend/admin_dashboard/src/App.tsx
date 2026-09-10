@@ -18,6 +18,7 @@ import AttendancePage from './pages/AttendancePage';
 import ExamsPage from './pages/ExamsPage';
 import ReportsPage from './pages/ReportsPage';
 import TeacherDashboard from './pages/TeacherDashboard';
+import MyRoutinePage from './pages/MyRoutinePage';
 import { PLACEHOLDER_ITEMS } from './pages/navigation';
 import './App.css';
 
@@ -87,6 +88,10 @@ function App() {
               <Route path="students" element={<StudentsPage />} />
               <Route path="staff" element={<StaffPage />} />
               <Route path="academics" element={<AcademicsPage />} />
+              {/* The teacher's own week (`docs/08` D7). Routed for everyone —
+                  the sidebar hides it from non-teachers, but a typed URL must
+                  still resolve, and the page says plainly whose screen it is. */}
+              <Route path="my-routine" element={<MyRoutinePage />} />
 
               {/* Phase 3. Fees gates `fees.collect` on its own tab — taking
                   money is a bigger decision than seeing what is owed, and the
