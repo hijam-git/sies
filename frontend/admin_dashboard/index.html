@@ -13,8 +13,15 @@
       every time a madrasah opens its own dashboard.
     -->
     <!-- Runtime configuration — written by the container at start, never baked
-         into the bundle, so one built image promotes between environments. -->
-    <script src="/myadmin/config.js"></script>
+         into the bundle, so one built image promotes between environments.
+
+         `/config.js`, NOT `/myadmin/config.js`: Vite prepends `base` to every
+         root-relative src, so writing the full path produced a request for
+         /myadmin/myadmin/config.js, which 404'd on every page load. It went
+         unnoticed because window.ENV then stayed undefined and api.ts fell back
+         to '/api' — which happens to be right in dev, and would be wrong the
+         moment an environment sets a different API URL. -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>

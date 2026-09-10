@@ -79,7 +79,7 @@ export function LanguageToggle({ className = '' }: { className?: string }) {
       <button
         type="button"
         onClick={() => setLang('bn')}
-        className={`px-2.5 py-1.5 transition-colors ${
+        className={`flex min-h-[44px] items-center px-3 transition-colors ${
           lang === 'bn' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
         }`}
         aria-pressed={lang === 'bn'}
@@ -89,7 +89,7 @@ export function LanguageToggle({ className = '' }: { className?: string }) {
       <button
         type="button"
         onClick={() => setLang('en')}
-        className={`px-2.5 py-1.5 transition-colors ${
+        className={`flex min-h-[44px] items-center px-3 transition-colors ${
           lang === 'en' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
         }`}
         aria-pressed={lang === 'en'}

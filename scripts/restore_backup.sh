@@ -61,7 +61,19 @@ DB_CONTAINER="${DB_CONTAINER:-sies-db}"
 BACKEND_CONTAINER="${BACKEND_CONTAINER:-sies-backend}"
 compose() { docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"; }
 
-envget() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" ; }
+# A key that is ABSENT must yield an empty string, not kill the script.
+#
+# `grep` returns 1 when it matches nothing, `pipefail` promotes that to the
+# pipeline's status, and `set -e` then exits — in auto_backup.sh that happened
+# BEFORE the logging trap was installed, so a single missing optional variable
+# produced a backup run that did nothing, wrote no log, and said nothing. A
+# backup script that silently declines to run is worse than no backup script,
+# because the cron entry still looks healthy.
+#
+# `|| true` is the whole fix: a missing key is a normal state, not an error.
+envget() {
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" || true
+}
 [ -f "$ENV_FILE" ] || die "$ENV_FILE not found"
 
 DB_NAME=$(envget DB_NAME); DB_NAME="${DB_NAME:-sies}"
@@ -107,18 +119,37 @@ docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER" \
   || die "${DB_CONTAINER} is not running; start it first: docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d ${DB_CONTAINER}"
 
 # ── Verify the archive ───────────────────────────────────────────────────────
+# The archive is staged INSIDE the container and read from a real path.
+#
+# It cannot be piped. A custom-format dump is read by seeking to its table of
+# contents, so `pg_restore --list /dev/stdin` fails on every archive however
+# healthy — which made this script declare every good backup unreadable, and
+# made auto_backup.sh rename each one .corrupt. Both halves had the same flaw,
+# and only running a restore surfaced it.
+STAGED="/tmp/sies_restore_$$.dump"
+cleanup_staged() { docker exec "$DB_CONTAINER" rm -f "$STAGED" >/dev/null 2>&1 || true; }
+trap cleanup_staged EXIT
+if ! docker cp "$FILE" "$DB_CONTAINER:$STAGED" >/dev/null 2>&1; then
+  echo "Could not copy the archive into ${DB_CONTAINER}." >&2
+  exit 1
+fi
+
 # pg_restore --list parses the whole archive header and table of contents. A
 # truncated or corrupted dump fails here, which is the entire point of the
 # dry run.
 printf '\n%bVerifying the archive…%b\n' "$BOLD" "$NC"
-if ! docker exec -i "$DB_CONTAINER" pg_restore --list /dev/stdin < "$FILE" > /tmp/sies_restore_toc.$$ 2>/dev/null; then
+if ! docker exec "$DB_CONTAINER" pg_restore --list "$STAGED" > /tmp/sies_restore_toc.$$ 2>/dev/null; then
   rm -f "/tmp/sies_restore_toc.$$"
   die "this file is NOT a readable pg_restore archive. It will not restore. Take a fresh backup and investigate."
 fi
 TABLES=$(grep -c 'TABLE DATA' "/tmp/sies_restore_toc.$$" || true)
 ok "archive is readable — ${TABLES} table(s) with data"
-info "largest entries:"
-grep 'TABLE DATA' "/tmp/sies_restore_toc.$$" | awk '{print $NF}' | head -10 | sed 's/^/        /'
+# A pg_restore TOC line reads:
+#   NNN; oid oid TABLE DATA <schema> <table> <owner>
+# so $NF is the OWNER and every line printed the same word. The table name
+# is the second-to-last field.
+info "tables in the archive:"
+grep 'TABLE DATA' "/tmp/sies_restore_toc.$$" | awk '{print $(NF-1)}' | sort | head -12 | sed 's/^/        /'
 rm -f "/tmp/sies_restore_toc.$$"
 
 if [ -n "$MEDIA_FILE" ]; then
@@ -139,7 +170,7 @@ fi
 # For a PLAIN-SQL dump, restored below with psql, there is no such translation,
 # so the offending line is stripped on the way in. DO NOT DELETE THAT sed: it
 # looks like cruft and it is the difference between a restore and an outage.
-ARCHIVE_VER=$(docker exec -i "$DB_CONTAINER" pg_restore --list /dev/stdin < "$FILE" 2>/dev/null \
+ARCHIVE_VER=$(docker exec "$DB_CONTAINER" pg_restore --list "$STAGED" 2>/dev/null \
   | grep -oE 'Dumped by pg_dump version: [0-9]+' | grep -oE '[0-9]+$' | head -1 || true)
 SERVER_MAJOR=$(docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -tAc 'SHOW server_version;' 2>/dev/null \
   | grep -oE '[0-9]+' | head -1)
@@ -218,7 +249,7 @@ case "$FILE" in
     # --no-owner --no-privileges: the dump's role names need not exist here,
     # and on a rebuilt server they often do not.
     if ! docker exec -i "$DB_CONTAINER" pg_restore -U "$DB_USER" -d "$DB_NAME" \
-           --no-owner --no-privileges --exit-on-error /dev/stdin < "$FILE"; then
+           --no-owner --no-privileges --exit-on-error "$STAGED"; then
       die "restore FAILED. The database is now EMPTY. Your previous data is in ${SAFETY}"
     fi
     ;;

@@ -47,7 +47,19 @@ BACKEND_CONTAINER="${BACKEND_CONTAINER:-sies-backend}"
 # Read a variable out of the env file without sourcing it — sourcing would
 # execute whatever is in there, and would also clobber this script's own
 # variables with values that happen to share a name.
-envget() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" ; }
+# A key that is ABSENT must yield an empty string, not kill the script.
+#
+# `grep` returns 1 when it matches nothing, `pipefail` promotes that to the
+# pipeline's status, and `set -e` then exits — in auto_backup.sh that happened
+# BEFORE the logging trap was installed, so a single missing optional variable
+# produced a backup run that did nothing, wrote no log, and said nothing. A
+# backup script that silently declines to run is worse than no backup script,
+# because the cron entry still looks healthy.
+#
+# `|| true` is the whole fix: a missing key is a normal state, not an error.
+envget() {
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" || true
+}
 
 [ -f "$ENV_FILE" ] || { echo "ERROR: $ENV_FILE not found" >&2; exit 1; }
 
@@ -153,11 +165,26 @@ chmod 600 "$DUMP"
 # A pg_dump that fails partway can still exit 0 if the failure was on the write
 # side. Reading the archive's table of contents proves the file is a complete,
 # parseable archive — the cheapest real verification available.
-if ! docker exec -i "$DB_CONTAINER" pg_restore --list /dev/stdin < "$DUMP" >/dev/null 2>&1; then
+#
+# The archive is copied INTO the container and read from a real path. It cannot
+# be piped: a custom-format archive is read by seeking to its table of contents,
+# and `pg_restore --list /dev/stdin` therefore fails on every dump, however
+# healthy. That turned this check into one that condemned good backups — the
+# script renamed each one .corrupt and exited 1, so the nightly job looked
+# broken while the dumps beside it were perfectly restorable.
+VERIFY_PATH="/tmp/$(basename "$DUMP")"
+if ! docker cp "$DUMP" "$DB_CONTAINER:$VERIFY_PATH" >/dev/null 2>&1; then
+  log ERROR "could not copy the dump into ${DB_CONTAINER} to verify it"
+  mv "$DUMP" "${DUMP}.unverified"
+  exit 1
+fi
+if ! docker exec "$DB_CONTAINER" pg_restore --list "$VERIFY_PATH" >/dev/null 2>&1; then
+  docker exec "$DB_CONTAINER" rm -f "$VERIFY_PATH" >/dev/null 2>&1 || true
   log ERROR "the dump is not a readable pg_restore archive — treating it as failed"
   mv "$DUMP" "${DUMP}.corrupt"
   exit 1
 fi
+docker exec "$DB_CONTAINER" rm -f "$VERIFY_PATH" >/dev/null 2>&1 || true
 log INFO "database: $(basename "$DUMP") ($(du -h "$DUMP" | cut -f1)), archive verified"
 
 # ── Media ────────────────────────────────────────────────────────────────────

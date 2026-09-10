@@ -78,6 +78,23 @@ const staff: Record<string, string> = {
   'Could not load the assignments.': 'দায়িত্ব বণ্টন আনা যায়নি।',
   'Could not save this assignment.': 'দায়িত্বটি সংরক্ষণ করা যায়নি।',
   'Could not save the class teacher.': 'শ্রেণিশিক্ষক সংরক্ষণ করা যায়নি।',
+
+  // ── The assignment board ───────────────────────────────────────────────
+  'class teacher': 'শ্রেণিশিক্ষক',
+  'Unassigned work': 'দায়িত্বহীন কাজ',
+  'Nobody covers these yet.': 'এগুলোর দায়িত্বে এখনও কেউ নেই।',
+  'Everything is assigned.': 'সব দায়িত্ব বণ্টন হয়েছে।',
+  'Nothing assigned yet.': 'এখনও কোনো দায়িত্ব নেই।',
+  'Nobody yet': 'এখনও কেউ নয়',
+  'No class teacher yet': 'শ্রেণিশিক্ষক এখনও নেই',
+  'Every class has a class teacher.': 'প্রতিটি শ্রেণিতে শ্রেণিশিক্ষক আছেন।',
+  'Drag a card onto a teacher — or tap the card, then tap the teacher.':
+    'কার্ডটি শিক্ষকের ওপর টেনে আনুন — অথবা কার্ডে চাপ দিয়ে তারপর শিক্ষকে চাপ দিন।',
+  'assign here': 'এখানে দিন',
+  'Now tap a teacher.': 'এবার একজন শিক্ষকে চাপ দিন।',
+  'picked up. Choose a teacher.': 'হাতে নেওয়া হয়েছে। একজন শিক্ষক বাছুন।',
+  'Cancelled.': 'বাতিল করা হয়েছে।',
+  'That did not save — the card went back.': 'সংরক্ষণ হয়নি — কার্ডটি ফিরিয়ে দেওয়া হয়েছে।',
 };
 
 export default staff;

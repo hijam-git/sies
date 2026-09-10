@@ -60,7 +60,19 @@ else
   WORKER="sies-celery-worker-dev"; BEAT="sies-celery-beat-dev"; ADMIN="sies-admin-dev"; PROXY="sies-traefik-dev"
 fi
 
-envget() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" ; }
+# A key that is ABSENT must yield an empty string, not kill the script.
+#
+# `grep` returns 1 when it matches nothing, `pipefail` promotes that to the
+# pipeline's status, and `set -e` then exits — in auto_backup.sh that happened
+# BEFORE the logging trap was installed, so a single missing optional variable
+# produced a backup run that did nothing, wrote no log, and said nothing. A
+# backup script that silently declines to run is worse than no backup script,
+# because the cron entry still looks healthy.
+#
+# `|| true` is the whole fix: a missing key is a normal state, not an error.
+envget() {
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"'"'" || true
+}
 DOMAIN=$(envget DOMAIN); DOMAIN="${DOMAIN:-localhost}"
 DB_NAME=$(envget DB_NAME); DB_NAME="${DB_NAME:-sies}"
 DB_USER=$(envget DB_USER); DB_USER="${DB_USER:-sies}"

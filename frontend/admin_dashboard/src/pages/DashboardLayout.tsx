@@ -58,7 +58,7 @@ function BranchSwitcher({ className = '' }: { className?: string }) {
       <select
         value={activeBranchId ?? ''}
         onChange={(e) => setActiveBranchId(e.target.value ? Number(e.target.value) : null)}
-        className="min-h-[44px] w-full min-w-0 truncate rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="min-h-[44px] w-full min-w-0 truncate rounded-lg border border-gray-200 bg-white px-2 text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
         title={t('Viewing institution')}
       >
         <option value="">{t('All institutions (platform view)')}</option>
@@ -74,7 +74,7 @@ function BranchSwitcher({ className = '' }: { className?: string }) {
 
 export default function DashboardLayout() {
   const { t } = useT();
-  const { user, logout } = useAuth();
+  const { user, logout, branches, activeBranchId } = useAuth();
   const { canView } = usePermissions();
   const location = useLocation();
   const badges = useNavBadges();
@@ -146,7 +146,20 @@ export default function DashboardLayout() {
     [canView, isPlatformAdmin],
   );
 
-  const institutionName = user?.branch_name || t('All institutions (platform view)');
+  /* The heading has to follow the switcher, not the account.
+   *
+   * `user.branch_name` is the right answer for someone tied to an institution,
+   * and it is EMPTY for a platform admin — whose branch is null by definition
+   * (`docs/01` §5.2). Reading only that field meant the header said "All
+   * institutions" no matter which institution the switcher had selected, so
+   * every screen below it showed one institution's figures under a heading
+   * claiming to show all of them. */
+  const selectedBranch =
+    activeBranchId == null ? undefined : branches.find((b) => b.id === activeBranchId);
+  const institutionName =
+    user?.branch_name
+    || (selectedBranch && (selectedBranch.name_bn || selectedBranch.name))
+    || t('All institutions (platform view)');
 
   const sidebar = (
     <>

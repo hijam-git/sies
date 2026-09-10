@@ -195,7 +195,13 @@ export default function StudentsTab({
         const primary = s.guardians.find((g) => g.is_primary) ?? s.guardians[0];
         if (!primary) return '—';
         return (
-          <a href={`tel:${primary.guardian_phone}`} className="font-mono text-blue-700">
+          // A guardian's number on a phone is the link people actually tap —
+          // it is how the office rings a parent. It gets a real 44px target
+          // rather than a 16px line of text (`CLAUDE.md` §7a rule 4).
+          <a
+            href={`tel:${primary.guardian_phone}`}
+            className="inline-flex min-h-[44px] items-center font-mono text-blue-700"
+          >
             {primary.guardian_phone}
           </a>
         );
