@@ -276,6 +276,44 @@ the stack runs on Postgres.
 
 ---
 
+---
+
+## Phase 2 — academics · students · staff · forms
+
+### Findings
+
+**F23 — two counter models arrived at once, and only one may ship.**
+Parallel agents each invented a sequence table: `staff.NumberSequence`,
+branch-scoped `(branch, kind, scope)`, and `students.NumberSequence`, global with
+`next_value(scope)`.
+
+**Keep `staff.NumberSequence`.** It sits lower in the dependency chain
+(`staff ← academics ← students`), and it is branch-scoped, which is the
+requirement — receipt, admission and voucher numbers are *per institution*
+(`CLAUDE.md` §4.4). A global counter would make two institutions share one
+sequence, so Dhaka issuing receipt 412 would push Chittagong to 413 and neither
+institution's books would run 1..n. `students` is rewritten onto it.
+
+**F24 — `NumberSequence` is a real table that `docs/03` never listed.**
+`CLAUDE.md` §4.4 requires per-branch gapless numbers issued under
+`SELECT … FOR UPDATE`, which needs a counter row to lock — but no table for it
+appears in the database design. Added to `docs/03` §5. **V1 is 30 tables.**
+
+**F25 — `admission_number` is per *enrolment*, not per person, and that is
+correct.** `docs/03` §3 says gapless per branch+session, so `promote_enrolment()`
+issues a **new** number each session rather than carrying the old one forward.
+The permanent per-person identifier is `Student.student_id` (`SIES-000123`),
+which never changes and is never reused. This is the D-level distinction from
+`docs/02` §4.2 working as designed: identity is stable, enrolment is not.
+
+**F26 — migration order for Phase 2.** `academics ↔ students` are mutually
+dependent through `Enrolment.student`, exactly as F17 predicted. Generate
+`staff academics students` in **one** `makemigrations` run, and put them in
+`_SIES_APPS` in dependency order: `staff` → `academics` → `students`.
+`settings.py` still lists `staff` as Phase 3; that is wrong and must move.
+
+---
+
 ### Carried into Phase 1 as tasks *(from Phase 0 — now done)*
 
 - **Make `AUTH_USER_MODEL` unconditional** once `accounts` exists (F5).

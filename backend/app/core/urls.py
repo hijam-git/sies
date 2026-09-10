@@ -23,11 +23,11 @@ from core.health import health
 _MODULE_URLS = [
     path('api/', include('accounts.urls')),     # Phase 1 — auth, users, roles, activity
     path('api/', include('branches.urls')),     # Phase 1 — branches, streams, sessions
-    # path('api/', include('academics.urls')),    Phase 2 — classes, sections, subjects,
+    path('api/', include('staff.urls')),        # Phase 2 — teachers, employees
+    path('api/', include('academics.urls')),    # Phase 2 — classes, sections, subjects,
     #                                                       enrolment, periods, routine
-    # path('api/', include('students.urls')),     Phase 2 — students, guardians, admissions
+    path('api/', include('students.urls')),     # Phase 2 — students, guardians, admissions
     # path('api/', include('forms.urls')),        Phase 3 — admission form templates
-    # path('api/', include('staff.urls')),        Phase 3 — teachers, employees, assignments
     # path('api/', include('attendance.urls')),   Phase 4 — register and period attendance
     # path('api/', include('fees.urls')),         Phase 5 — categories, fees, payments
     # path('api/', include('finance.urls')),      Phase 5 — income, expense

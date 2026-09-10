@@ -90,11 +90,14 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()
 _SIES_APPS = [
     'accounts',     # Phase 1 — User, Role, ActivityLog
     'branches',     # Phase 1 — Branch, Stream, Session
-    # 'academics',    Phase 2 — AcademicClass, Section, Subject, Enrolment,
-    #                           Period, ClassRoutine
-    # 'students',     Phase 2 — Student, Guardian, Admission, Document
-    # 'forms',        Phase 3 — FormTemplate, Question, AdmissionAnswer
-    # 'staff',        Phase 3 — Teacher, Employee, TeacherQualification
+    # Dependency order matters here: academics points at staff.Teacher, and
+    # students points at academics.Enrolment. Appending a new app to the bottom
+    # is how that order gets quietly inverted (docs/06 §2).
+    'staff',        # Phase 2 — Teacher, Employee, TeacherQualification
+    'academics',    # Phase 2 — AcademicClass, Section, Subject, Enrolment,
+                    #           Period, ClassRoutine, SubjectAssignment
+    'students',     # Phase 2 — Student, Guardian, Admission, Document
+    # 'forms',        Phase 2 — FormTemplate, Question, AdmissionAnswer
     # 'attendance',   Phase 4 — DailyAttendance, ClassAttendance
     # 'fees',         Phase 5 — FeeCategory, Fee, Payment
     # 'finance',      Phase 5 — Income, Expense and their categories
