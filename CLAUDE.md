@@ -430,6 +430,12 @@ browser devtools device toolbar; do not assume Tailwind classes did the job.
    stop and ask.
 2. **One phase at a time**, in the order of `docs/05` §8. Do not start Phase 3
    because Phase 2 is boring.
+2a. **A phase is not done until its SCREENS work.** Backend + migrations +
+   tests is half a phase. If a platform admin cannot do the thing by clicking
+   in `/myadmin`, the feature does not exist as far as the institution using it
+   is concerned. Every phase ships: models → API → **screens** → seed data that
+   demonstrates it. A nav entry still pointing at `PhasePlaceholder` when its
+   backend is live is a bug, not a pending task.
 3. **Migrations:** one per logical change, named meaningfully. Never edit a
    migration that has run anywhere. Never drop a column in the same release that
    stops using it (§3.4).
