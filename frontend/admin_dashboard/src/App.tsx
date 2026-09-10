@@ -6,6 +6,9 @@ import DashboardLayout from './pages/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import LoginPage from './pages/LoginPage';
 import PhasePlaceholder from './pages/PhasePlaceholder';
+import BranchesPage from './pages/BranchesPage';
+import SettingsPage from './pages/SettingsPage';
+import UsersPage from './pages/UsersPage';
 import { PLACEHOLDER_ITEMS } from './pages/navigation';
 import './App.css';
 
@@ -14,10 +17,11 @@ import './App.css';
  * not written out beside it. Two hand-maintained lists of the same paths drift
  * within a phase, and the failure mode is a sidebar entry that 404s.
  *
- * Only two screens are real in phase 0 — login and the overview. Every other
- * nav item resolves to a placeholder naming the phase that builds it, because
- * a link that quietly goes nowhere reads as a broken product rather than an
- * unfinished one.
+ * Real now: login, the overview, Institutions, Settings and Users. Everything
+ * else resolves to a placeholder naming the phase that builds it, because a
+ * link that quietly goes nowhere reads as a broken product rather than an
+ * unfinished one — and a screen stubbed over a backend that does not exist is
+ * worse than either.
  */
 function App() {
   return (
@@ -47,6 +51,14 @@ function App() {
               }
             >
               <Route index element={<DashboardHome />} />
+
+              {/* Phase 1's real screens. Each gates its own data — a typed URL
+                  must not be a way past `canView()`, and the sidebar hiding a
+                  row is a convenience, not the enforcement. */}
+              <Route path="branches" element={<BranchesPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="users" element={<UsersPage />} />
+
               {PLACEHOLDER_ITEMS.map((item) => (
                 <Route
                   key={item.path}

@@ -1,23 +1,27 @@
+import { useEffect, useState } from 'react';
+import { apiClient } from '../lib/api';
 import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT } from '../lib/i18n';
 import { formatBDT, formatNumber } from '../lib/format';
 import { formatDhakaDate, todayInDhaka } from '../lib/timezone';
 import StatCard, { StatIcon } from '../components/common/StatCard';
+import CompactActivityFeed from '../components/users/ActivityFeed';
 
 /**
  * The overview.
  *
- * **Every figure here is zero, and that is the truth rather than a placeholder.**
- * The modules that produce them — enrolment, attendance, fees, payroll — are
- * phases 2 to 4. Phase 1 adds `GET /api/dashboard/summary/`, and this page then
- * reads the numbers from it; the cards, their tones and their gating do not
- * change, only the source.
+ * Two halves, and the difference between them is stated on the screen rather
+ * than left to be discovered.
  *
- * Drawing the cards now rather than an empty page is deliberate: it fixes what
- * the institution's first screen says and what a permission hides, so the later
- * phases fill a shape that has already been agreed. The note at the foot says
- * plainly why the numbers are zero, so nobody reads a working system as a
- * broken one.
+ * **Real:** institutions, accounts and current sessions, counted from the phase
+ * 1 endpoints, plus the five-row activity feed (`docs/08` D8).
+ *
+ * **Honestly zero:** students, attendance, fees and staff. The modules that
+ * produce those are phases 2 to 4. The cards are drawn now anyway because doing
+ * so fixes what the institution's first screen says and what a permission
+ * hides, so the later phases fill a shape that has already been agreed — and
+ * the note at the foot says why the figures are zero, so nobody reads a working
+ * system as a broken one.
  *
  * A teacher signing in gets a different home from phase 4 — their day's classes
  * (`docs/08` D7) — which is why nothing here assumes a whole-institution view.
@@ -38,6 +42,43 @@ const PHASE_0_SUMMARY = {
   marks_pending: 0,
 };
 
+/**
+ * The counts phase 1 can honestly answer.
+ *
+ * Read as three list requests rather than from a summary endpoint: each is
+ * `?page_size`-independent because DRF's `count` is the total before
+ * pagination, so asking for page 1 and reading `count` costs one row of
+ * transfer and no new backend. When `GET /api/dashboard/summary/` exists these
+ * three calls collapse into it and the cards do not change.
+ */
+function usePhase1Counts(enabled: { branches: boolean; users: boolean; sessions: boolean }) {
+  const [counts, setCounts] = useState<{
+    branches: number | null;
+    users: number | null;
+    sessions: number | null;
+  }>({ branches: null, users: null, sessions: null });
+
+  const { branches, users, sessions } = enabled;
+
+  useEffect(() => {
+    let alive = true;
+    const read = async () => {
+      const [b, u, s] = await Promise.all([
+        branches ? apiClient.listBranches('?page=1').then((p) => p.count).catch(() => null) : null,
+        users ? apiClient.listUsers('?page=1&is_active=true').then((p) => p.count).catch(() => null) : null,
+        sessions ? apiClient.listSessions(null).then((rows) => rows.filter((x) => x.is_current).length).catch(() => null) : null,
+      ]);
+      if (alive) setCounts({ branches: b, users: u, sessions: s });
+    };
+    void read();
+    return () => {
+      alive = false;
+    };
+  }, [branches, users, sessions]);
+
+  return counts;
+}
+
 export default function DashboardHome() {
   const { t } = useT();
   const { user } = useAuth();
@@ -47,6 +88,14 @@ export default function DashboardHome() {
   // A platform admin with no institution selected is looking across all of
   // them, and "your institution today" would be the wrong sentence.
   const platformWide = user?.branch === null;
+
+  const counts = usePhase1Counts({
+    branches: platformWide && canView('branches'),
+    users: canView('users'),
+    sessions: canView('academics'),
+  });
+
+  const shown = (n: number | null) => (n === null ? '—' : formatNumber(n));
 
   return (
     <div className="space-y-6">
@@ -61,6 +110,42 @@ export default function DashboardHome() {
           {formatDhakaDate(todayInDhaka())}
         </p>
       </header>
+
+      {/* The figures phase 1 can actually answer. Kept above the phase 2–4
+          cards so the first thing on the screen is a number that is real. */}
+      {(platformWide || canView('users') || canView('academics')) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {platformWide && canView('branches') && (
+            <StatCard
+              tone="blue"
+              icon={<StatIcon d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />}
+              label={t('Institutions')}
+              value={shown(counts.branches)}
+              sub={t('On the platform')}
+            />
+          )}
+          {canView('users') && (
+            <StatCard
+              tone="gray"
+              icon={<StatIcon d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />}
+              label={t('Accounts')}
+              value={shown(counts.users)}
+              sub={t('Active logins')}
+            />
+          )}
+          {canView('academics') && (
+            <StatCard
+              tone="green"
+              icon={<StatIcon d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
+              label={t('Current sessions')}
+              value={shown(counts.sessions)}
+              sub={t('Academic years running now')}
+            />
+          )}
+        </div>
+      )}
+
+      {canView('activity') && <CompactActivityFeed />}
 
       {/* One column at 360px, two from sm, four from xl. Never a fixed width:
           four cards across a phone is four unreadable cards. */}
@@ -159,11 +244,12 @@ export default function DashboardHome() {
         </section>
       )}
 
-      {/* Removed in phase 1, when the numbers above become real. Until then,
-          saying nothing would let a working screen be read as a broken one. */}
+      {/* The institution, account and session counts above are real. These four
+          are not, and saying so is what stops a working screen being read as a
+          broken one. Removed as each module lands. */}
       <aside className="rounded-xl border border-blue-100 bg-blue-50 p-4 sm:p-5">
         <p className="text-sm font-medium text-blue-900">
-          {t('These figures arrive with the modules that produce them.')}
+          {t('Student, attendance, fee and exam figures arrive with their modules.')}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-blue-800">
           {t(

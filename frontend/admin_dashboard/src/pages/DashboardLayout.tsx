@@ -3,8 +3,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT, LanguageToggle } from '../lib/i18n';
 import NavIcon from '../components/common/NavIcon';
-import { ALL_NAV_PATHS, NAV_GROUPS, OVERVIEW } from './navigation';
-import type { NavGroup, NavItem } from './navigation';
+import { ALL_NAV_PATHS, NAV_ITEMS, OVERVIEW } from './navigation';
+import type { NavItem } from './navigation';
 
 /**
  * The number on a sidebar row.
@@ -36,76 +36,6 @@ function NavBadge({ count }: { count: number }) {
  */
 function useNavBadges(): Record<string, number> {
   return useMemo(() => ({}), []);
-}
-
-/** A collapsible parent section. Auto-expands when one of its children is the
- *  active route; the user can still toggle it manually. */
-function NavGroupSection({
-  group,
-  activePath,
-  t,
-  onNavigate,
-  badges,
-}: {
-  group: NavGroup;
-  activePath: string | null;
-  t: (s: string) => string;
-  onNavigate: () => void;
-  badges: Record<string, number>;
-}) {
-  const hasActive = group.items.some((i) => i.path === activePath);
-  const [open, setOpen] = useState(hasActive);
-  const expanded = open || hasActive;
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={expanded}
-        className={`flex min-h-[44px] w-full items-center gap-3 rounded-lg px-4 transition-colors ${
-          hasActive ? 'text-blue-700' : 'text-gray-700 hover:bg-gray-100'
-        }`}
-      >
-        <NavIcon name={group.icon} />
-        <span className="flex-1 text-left font-medium">{t(group.label)}</span>
-        <svg
-          className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-
-      {expanded && (
-        <div className="ml-5 mt-1 space-y-1 border-l border-gray-200 pl-3">
-          {group.items.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={onNavigate}
-              aria-current={item.path === activePath ? 'page' : undefined}
-              className={`flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
-                item.path === activePath
-                  ? 'bg-blue-100 font-medium text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <NavIcon name={item.icon} className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 truncate">{t(item.label)}</span>
-              <NavBadge count={badges[item.path] ?? 0} />
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -206,22 +136,17 @@ export default function DashboardLayout() {
     };
   }, [drawerOpen]);
 
-  /** A group survives only if the user can see at least one of its rows —
-   *  otherwise the sidebar grows headings that open onto nothing. */
-  const visibleGroups: NavGroup[] = useMemo(() => {
-    return NAV_GROUPS.filter((g) => !g.platformOnly || isPlatformAdmin)
-      .map((g) => ({
-        ...g,
-        items: g.items.filter(
-          (i: NavItem) => (!i.platformOnly || isPlatformAdmin) && canView(i.resource),
-        ),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [canView, isPlatformAdmin]);
+  /** The rows this person may actually open. Gated here as well as on the
+   *  screen itself, so the sidebar never offers a 403. */
+  const visibleItems: NavItem[] = useMemo(
+    () =>
+      NAV_ITEMS.filter(
+        (i) => (!i.platformOnly || isPlatformAdmin) && canView(i.resource),
+      ),
+    [canView, isPlatformAdmin],
+  );
 
-  const institutionName = user?.branch
-    ? user.branch.name_bn || user.branch.name
-    : t('All institutions (platform view)');
+  const institutionName = user?.branch_name || t('All institutions (platform view)');
 
   const sidebar = (
     <>
@@ -242,15 +167,22 @@ export default function DashboardLayout() {
           </Link>
         )}
 
-        {visibleGroups.map((group) => (
-          <NavGroupSection
-            key={group.label}
-            group={group}
-            activePath={activePath}
-            t={t}
-            onNavigate={() => setDrawerOpen(false)}
-            badges={badges}
-          />
+        {visibleItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => setDrawerOpen(false)}
+            aria-current={item.path === activePath ? 'page' : undefined}
+            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-4 transition-colors ${
+              item.path === activePath
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <NavIcon name={item.icon} />
+            <span className="min-w-0 flex-1 truncate font-medium">{t(item.label)}</span>
+            <NavBadge count={badges[item.path] ?? 0} />
+          </Link>
         ))}
       </nav>
 

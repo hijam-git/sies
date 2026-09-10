@@ -15,6 +15,7 @@
 export type Resource =
   | 'dashboard'
   | 'branches'
+  | 'academics'
   | 'students'
   | 'admissions'
   | 'teachers'
@@ -62,6 +63,9 @@ export type Action =
 export const PERMISSION_CATALOG: Record<Resource, readonly Action[]> = {
   dashboard: ['view'],
   branches: ['view', 'create', 'update'],
+  // Classes, sections, subjects, sessions, streams and the routine — one
+  // resource because they are edited by the same person on the same screens.
+  academics: ['view', 'create', 'update', 'delete'],
   students: ['view', 'create', 'update', 'delete'],
   admissions: ['view', 'create', 'update'],
   teachers: ['view', 'create', 'update', 'delete'],
@@ -71,7 +75,10 @@ export const PERMISSION_CATALOG: Record<Resource, readonly Action[]> = {
   finance: ['view', 'create', 'update'],
   salary: ['view', 'manage'],
   exams: ['view', 'create', 'update', 'publish'],
-  marks: ['enter', 'update'],
+  // `view` is real here, not implied by the other two: the backend catalogue
+  // carries it, and a fallback that says "any action implies view" is the kind
+  // of rule that later hides a genuine gap.
+  marks: ['view', 'enter', 'update'],
   reports: ['view', 'export'],
   notices: ['view', 'create', 'delete'],
   documents: ['view', 'upload', 'delete'],
@@ -106,8 +113,9 @@ export type RolePreset =
 
 const TEACHER_PRESET: string[] = flatten({
   dashboard: ['view'],
+  academics: ['view'],
   attendance: ['view', 'take'],
-  marks: ['enter', 'update'],
+  marks: ['view', 'enter', 'update'],
   students: ['view'],
   exams: ['view'],
 });
@@ -143,6 +151,7 @@ export const ROLE_PERMISSIONS: Record<RolePreset, readonly string[]> = {
     finance: ['view', 'create', 'update'],
     reports: ['view', 'export'],
     students: ['view'],
+    academics: ['view'],
   }),
 
   admission_officer: flatten({
@@ -182,7 +191,15 @@ export const ROLE_PERMISSIONS: Record<RolePreset, readonly string[]> = {
 /** Just enough of a user to answer a permission question. */
 export interface PermissionSubject {
   permissions?: string[] | null;
+  /** The preset's NAME — `"Platform Admin"` — not its id. The API keys its
+   *  presets by name, and the ids differ between one deployment and the next. */
   role?: string | null;
+}
+
+/** `"Class Teacher"` → `"class_teacher"`. The API names its presets the way an
+ *  admin reads them; this file keys them the way code does. */
+function presetKey(name: string): RolePreset {
+  return name.trim().toLowerCase().replace(/\s+/g, '_') as RolePreset;
 }
 
 /**
@@ -204,7 +221,7 @@ export interface PermissionSubject {
 export function effectivePermissions(user: PermissionSubject | null | undefined): string[] {
   if (!user) return [];
   if (user.permissions && user.permissions.length > 0) return user.permissions;
-  const preset = ROLE_PERMISSIONS[user.role as RolePreset];
+  const preset = user.role ? ROLE_PERMISSIONS[presetKey(user.role)] : undefined;
   return preset ? [...preset] : [];
 }
 

@@ -11,6 +11,7 @@ import nav from './dict/nav';
 import auth from './dict/auth';
 import dashboard from './dict/dashboard';
 import errors from './dict/errors';
+import admin from './dict/admin';
 
 export const BN: Record<string, string> = {
   ...common,
@@ -18,4 +19,5 @@ export const BN: Record<string, string> = {
   ...auth,
   ...dashboard,
   ...errors,
+  ...admin,
 };

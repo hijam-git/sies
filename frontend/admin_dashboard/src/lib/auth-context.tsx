@@ -175,7 +175,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.reload();
   }, []);
 
-  const permissions = useMemo(() => effectivePermissions(user), [user]);
+  // `role_name`, not `role`: the preset table here is keyed by name, and the
+  // API's `role` is a database id that differs between deployments.
+  const permissions = useMemo(
+    () => effectivePermissions(user && { permissions: user.permissions, role: user.role_name }),
+    [user],
+  );
 
   const value: AuthContextType = useMemo(() => ({
     user,

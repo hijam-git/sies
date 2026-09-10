@@ -40,7 +40,20 @@ class BranchScopedMixin:
         fails as a database type error — a 500 with a traceback, for what is
         really a missing parameter. So it is caught here and answered as the 400
         it is, in a sentence the caller can act on.
+
+        A platform admin who DID pass `?branch=5` has `request.branch` as the
+        string `'5'` — the middleware deliberately does not resolve it, because
+        it runs before authentication and must not query (docs/01 §5.2). So it
+        is saved as `branch_id`, which is what a raw key is, rather than as
+        `branch`, which expects an instance. Getting this wrong is a 500 on
+        every create a platform admin attempts, while a branch user's identical
+        request succeeds — the two paths differ only in the type of this value,
+        which is exactly the kind of bug that reaches production.
         """
+        # Imported here, not at module scope: core is imported BY branches, and
+        # the reverse at import time would be a cycle (docs/06 §2).
+        from branches.models import Branch
+
         branch = get_branch(self.request)
         if branch is None or branch == ALL_BRANCHES:
             raise ValidationError({
@@ -49,7 +62,23 @@ class BranchScopedMixin:
                     'Add ?branch=<id> to the request.'
                 ),
             })
-        serializer.save(branch=branch, created_by=self.request.user)
+
+        if isinstance(branch, Branch):
+            serializer.save(branch=branch, created_by=self.request.user)
+            return
+
+        # A raw id off the query string. Validate it here rather than letting
+        # the FK reject it: an unknown institution is a 400 the caller can act
+        # on, not an integrity error with a traceback.
+        try:
+            branch_id = int(branch)
+        except (TypeError, ValueError):
+            raise ValidationError({'branch': 'Not a valid institution id.'})
+
+        if not Branch.objects.filter(pk=branch_id).exists():
+            raise ValidationError({'branch': 'No institution with that id.'})
+
+        serializer.save(branch_id=branch_id, created_by=self.request.user)
 
     def perform_update(self, serializer):
         # branch is not re-stamped: moving a student between institutions is not
