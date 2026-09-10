@@ -16,12 +16,23 @@ import { useT } from '../../lib/i18n';
  */
 export default function ExportCsvButton({
   endpoint,
+  rows,
   params,
   filename,
   label,
 }: {
-  /** API path, e.g. `/fees/collections/export/`. */
-  endpoint: string;
+  /** API path, e.g. `/fees/collections/export/`. Ignored when `rows` is given. */
+  endpoint?: string;
+  /**
+   * The sheet, built on the client: `[[header…], [cell…]…]`.
+   *
+   * For the report screens, which have no export endpoint behind them — every
+   * figure they show is aggregated here from the list endpoints, so the only
+   * way for the CSV to match what is on the screen is to build it from the same
+   * rows. A server export of the raw list would download something the reader
+   * would then have to re-aggregate by hand to reconcile.
+   */
+  rows?: () => (string | number)[][];
   /** Usually the period and filters the screen is showing, so the sheet covers
    *  the same rows as the figures beside this button. */
   params?: Record<string, string | undefined>;
@@ -33,11 +44,43 @@ export default function ExportCsvButton({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  /** One CSV cell. Quoted always, and inner quotes doubled — a student's name
+   *  with a comma in it must not become two columns. */
+  const cell = (value: string | number) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+  const saveBlob = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const download = async () => {
     if (busy) return;
     setBusy(true);
     setFailed(false);
     try {
+      if (rows) {
+        const body = rows()
+          .map((line) => line.map(cell).join(','))
+          .join('\r\n');
+        // The BOM is not decoration: Excel on a Bangladeshi office machine
+        // opens a UTF-8 CSV without one as mojibake, and every name in these
+        // reports is Bangla.
+        saveBlob(
+          // Written as an escape, not as a literal BOM character, so the byte is
+          // unambiguous in the source and `no-irregular-whitespace` is satisfied.
+          new Blob([`\uFEFF${body}`], { type: 'text/csv;charset=utf-8' }),
+          filename ?? 'export.csv',
+        );
+        return;
+      }
+      if (!endpoint) throw new Error('no source');
+
       const query = new URLSearchParams(
         Object.entries(params ?? {}).filter(([, v]) => v) as [string, string][],
       ).toString();
@@ -49,14 +92,7 @@ export default function ExportCsvButton({
       const disposition = res.headers.get('Content-Disposition') || '';
       const name = disposition.match(/filename="?([^";]+)"?/)?.[1] || filename || 'export.csv';
 
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, name);
     } catch {
       // Inline rather than an alert(): an alert on a phone covers the screen
       // and has to be dismissed before the user can even see the button again.

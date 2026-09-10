@@ -610,6 +610,665 @@ export interface SubjectAssignment {
   subject_name: string;
 }
 
+// ── Attendance (phase 4) ──────────────────────────────────────────────────
+
+/** `late` counts as present, `half_day` as half — the server's own rule
+ *  (`attendance/services.py::_totals`), mirrored in the grid's live totals. */
+export type AttendanceStatus =
+  | 'present'
+  | 'absent'
+  | 'late'
+  | 'leave'
+  | 'holiday'
+  | 'half_day';
+
+export type AttendanceSource = 'web' | 'mobile' | 'biometric' | 'import';
+
+/** Why a date or a period cannot be marked. Sent alongside the flag so the
+ *  screen never re-derives the rule (`docs/02` §4.4). */
+export interface Markability {
+  is_markable: boolean;
+  /** `future` · `weekly_off` · `window_closed` · … Empty when markable. */
+  reason: string;
+  reason_text: string;
+  reason_text_bn: string;
+}
+
+export interface RegisterDay extends Markability {
+  /** `2026-03-01`. */
+  date: string;
+}
+
+export interface RegisterCell {
+  status: AttendanceStatus;
+  taken_by: number | null;
+  taken_by_name: string;
+  taken_at: string | null;
+  remarks: string;
+}
+
+export interface RegisterStudent {
+  /** The student's primary key — what `register/bulk/` expects back. */
+  student: number;
+  /** The printed identifier, `SIES-000123`. Not the key. */
+  student_code: string;
+  enrolment: number;
+  name: string;
+  name_bn: string;
+  roll: number | null;
+  /** Keyed by ISO date. A date with no key was never marked. */
+  cells: Record<string, RegisterCell>;
+  present: number;
+  absent: number;
+  late: number;
+  leave: number;
+  half_day: number;
+  holiday: number;
+  marked_days: number;
+  percent: number | null;
+}
+
+export interface MonthRegister {
+  month: string;
+  class: number;
+  section: number | null;
+  days: RegisterDay[];
+  students: RegisterStudent[];
+}
+
+/** One dirty cell. `student` is the primary key, never the printed code. */
+export interface RegisterCellInput {
+  student: number;
+  date: string;
+  status: AttendanceStatus;
+  remarks?: string;
+}
+
+/** A cell the server refused, with its own reason — shown as it came, because
+ *  "some cells were not saved" is not something a teacher can act on. */
+export interface SkippedCell {
+  student: number;
+  date: string;
+  reason: string;
+  reason_text: string;
+  reason_text_bn: string;
+}
+
+export interface BulkSaveResult {
+  saved: number;
+  skipped: SkippedCell[];
+}
+
+export interface RosterStudent {
+  student: number;
+  student_code: string;
+  enrolment: number;
+  name: string;
+  name_bn: string;
+  roll: number | null;
+  status: AttendanceStatus;
+  remarks: string;
+  taken_by: number | null;
+  taken_at: string | null;
+  /** False when this row is the defaulted-to-present placeholder rather than
+   *  something somebody actually recorded. */
+  is_taken: boolean;
+}
+
+export interface PeriodRoster extends Markability {
+  date: string;
+  class: number;
+  section: number | null;
+  period: number;
+  student_count: number;
+  students: RosterStudent[];
+}
+
+export type PeriodState = 'taken' | 'live' | 'upcoming' | 'missed';
+
+/** One card on the teacher's today board (`docs/08` D7). */
+export interface MyDayPeriod extends Markability {
+  routine: number;
+  class: number;
+  class_name: string;
+  class_name_bn: string;
+  section: number | null;
+  section_name: string;
+  subject: number | null;
+  subject_name: string;
+  subject_name_bn: string;
+  period: number;
+  period_name: string;
+  period_name_bn: string;
+  period_order: number;
+  /** `"08:00"` — minutes, not seconds, unlike `Period.start_time`. */
+  start_time: string;
+  end_time: string;
+  room: string;
+  student_count: number;
+  state: PeriodState;
+}
+
+export interface MyDay {
+  date: string;
+  periods: MyDayPeriod[];
+}
+
+// ── Exams (phase 5) ───────────────────────────────────────────────────────
+
+export type ExamType = 'monthly' | 'half_yearly' | 'annual' | 'test' | 'sabaq' | 'board';
+
+/** Only `publish` moves an exam, and only a principal may call it — the
+ *  serializer keeps `status` read-only for exactly that reason. */
+export type ExamStatus = 'draft' | 'scheduled' | 'ongoing' | 'marks_entry' | 'published';
+
+export interface Exam {
+  id: number;
+  session: number;
+  session_name: string;
+  stream: number | null;
+  stream_name: string;
+  name: string;
+  name_bn: string;
+  exam_type: ExamType;
+  starts_on: string;
+  ends_on: string;
+  status: ExamStatus;
+  published_by: number | null;
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface ExamClass {
+  id: number;
+  exam: number;
+  academic_class: number;
+  class_name: string;
+}
+
+export interface ExamSchedule {
+  id: number;
+  exam: number;
+  academic_class: number;
+  class_name: string;
+  subject: number;
+  subject_name: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  full_marks: string;
+  pass_marks: string;
+  room: string;
+  invigilator: number | null;
+}
+
+export interface Mark {
+  id: number;
+  exam: number;
+  student: number;
+  student_name: string;
+  enrolment: number;
+  subject: number;
+  subject_name: string;
+  obtained: string | null;
+  practical_obtained: string | null;
+  total: string;
+  is_absent: boolean;
+  entered_by: number | null;
+  entered_at: string | null;
+  is_active: boolean;
+}
+
+/** One row of the entry grid. Keyed on the **enrolment**, not the student: a
+ *  student who repeated a year has two, and only the enrolment says which
+ *  year's mark this is. */
+export interface MarkRowInput {
+  enrolment: number;
+  obtained?: string | null;
+  practical_obtained?: string | null;
+  is_absent?: boolean;
+}
+
+export interface MarksSaveResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+}
+
+/** The result endpoints assemble plain dicts, so their Decimals arrive as JSON
+ *  NUMBERS — unlike the model serializers, which render a Decimal as a string.
+ *  Both are accepted here rather than guessed at, and every screen reads them
+ *  through `Number()`. */
+export interface ResultSubjectLine {
+  subject: number;
+  subject_name: string;
+  subject_name_bn: string;
+  full_marks: string | number;
+  pass_marks: string | number;
+  obtained: string | number | null;
+  practical_obtained: string | number | null;
+  total: string | number;
+  is_absent: boolean;
+  is_passed: boolean;
+}
+
+export interface StudentResult {
+  exam: number;
+  student: number;
+  student_name: string;
+  subjects: ResultSubjectLine[];
+  total_marks: string | number;
+  obtained_marks: string | number;
+  percentage: string | number;
+  gpa: string | number;
+  grade: string;
+  grade_bn: string;
+  is_passed: boolean;
+  failed_subjects: string[];
+  is_published: boolean;
+}
+
+export interface TabulationRow {
+  enrolment: number;
+  student: number;
+  student_name: string;
+  roll: number | null;
+  /** Keyed by subject id. */
+  marks: Record<string, { obtained: string | number | null; practical_obtained: string | number | null; total: string | number; is_absent: boolean }>;
+  total_marks: string | number;
+  obtained_marks: string | number;
+  percentage: string | number;
+  gpa: string | number;
+  grade: string;
+  grade_bn: string;
+  is_passed: boolean;
+  failed_subjects: string[];
+  rank_in_class: number | null;
+}
+
+export interface Tabulation {
+  exam: number;
+  academic_class: number;
+  /** Marks are not visible to students until this is true (`docs/06` #12). */
+  is_published: boolean;
+  rows: TabulationRow[];
+}
+
+// ── The printable admission form — `docs/07` ──────────────────────────────
+//
+// The SERVER renders the form; this dashboard only displays and prints what it
+// sends back (`docs/07` §8). Nothing here describes how a block LOOKS — that
+// would be a second renderer, and the day the two disagree is the day a printed
+// stack of two hundred forms is wrong.
+
+export type FormType = 'admission' | 'undertaking' | 'id_card' | 'certificate';
+
+/** The block types `forms/blocks.py` accepts. Anything else is a 400 on save. */
+export type FormBlockType =
+  | 'letterhead'
+  | 'meta_row'
+  | 'prose'
+  | 'field_grid'
+  | 'question_set'
+  | 'bullet_list'
+  | 'office_box'
+  | 'signature_row'
+  | 'spacer'
+  | 'divider'
+  | 'page_break';
+
+/** `{label, value}` — what a meta row and a field grid are made of. `value`
+ *  carries the placeholders; `label` is the printed caption. */
+export interface FormLabelledPair {
+  label?: string;
+  label_bn?: string;
+  value?: string;
+  width?: string;
+}
+
+export interface FormOfficePanel {
+  title?: string;
+  title_bn?: string;
+  lines?: string[];
+}
+
+/**
+ * One block of a template.
+ *
+ * A single wide interface rather than a discriminated union because the
+ * backend's schema is per-type `(required, optional)` key sets and the editor
+ * has to hold a half-edited block that the schema would reject — the union
+ * would make "the user has not typed the text yet" a type error.
+ */
+export interface FormBlock {
+  type: FormBlockType;
+  text?: string;
+  text_bn?: string;
+  align?: string;
+  indent?: boolean;
+  fields?: FormLabelledPair[];
+  columns?: number;
+  title?: string;
+  title_bn?: string;
+  section?: string;
+  items?: string[];
+  style?: string;
+  panels?: FormOfficePanel[];
+  lines?: string[];
+  lines_ar?: string[];
+  show_logo?: boolean;
+  captions?: string[];
+  height?: string;
+}
+
+export interface FormTemplate {
+  id: number;
+  name: string;
+  name_bn: string;
+  form_type: FormType;
+  blocks: FormBlock[];
+  paper: 'A4' | 'Legal';
+  /** CSS margin shorthand, passed straight to `@page { margin: … }`. */
+  margins: string;
+  is_default: boolean;
+  is_active: boolean;
+  /**
+   * The closed placeholder set, served WITH the template so the editor's picker
+   * is generated from the same table the validator enforces (`docs/07` §4). A
+   * local copy would be right until the day somebody adds one to the backend.
+   */
+  placeholder_groups: Record<string, string[]>;
+  created_at: string;
+}
+
+export type QuestionType =
+  | 'single_choice'
+  | 'multi_choice'
+  | 'description'
+  | 'short_text'
+  | 'number'
+  | 'date'
+  | 'yes_no';
+
+export type QuestionPrintStyle = 'inline' | 'block' | 'checkbox';
+
+export interface QuestionOption {
+  value: string;
+  label: string;
+  label_bn: string;
+}
+
+export interface FormQuestion {
+  id: number;
+  /** Null means reusable across every template of the institution — the common
+   *  case, and why the question bank is its own screen. */
+  template: number | null;
+  section: string;
+  text: string;
+  text_bn: string;
+  type: QuestionType;
+  options: QuestionOption[];
+  is_required: boolean;
+  print_style: QuestionPrintStyle;
+  answer_lines: number;
+  /** A question that writes a student field stores no answer (`docs/07` §5.2).
+   *  Empty string means it stores one. */
+  maps_to: string;
+  order: number;
+  is_active: boolean;
+  /** The closed list of bindable student fields, from the server. */
+  mappable_fields: string[];
+}
+
+/**
+ * A form that was printed. `snapshot` is deliberately not in the list shape —
+ * it is a whole document, and the reprint endpoint renders it.
+ */
+export interface PrintedForm {
+  id: number;
+  admission: number;
+  template: number | null;
+  form_no: string;
+  printed_by: number | null;
+  printed_at: string;
+  reprint_count: number;
+}
+
+// ── Phase 3 — fees and accounts ───────────────────────────────────────────
+//
+// Read off the running API, not inferred from the models. Four things here are
+// not what a reader would guess, and every one of them shapes a screen:
+//
+//  - **Every amount is a string.** `"1200.00"`, never `1200`. `lib/money.ts`
+//    adds them in integer poisha where the API gives no total; nothing here is
+//    ever parsed into a JS number for arithmetic.
+//  - **`status` and `balance` are derived server-side** and read-only. There is
+//    no request body that marks an invoice paid (`docs/06` #8).
+//  - **`FeeCategory` does not carry `default_amount`.** The model has the
+//    column; the live serializer does not expose it. The field is optional here
+//    for that reason, and the setup screen says so rather than editing a value
+//    the API will silently drop — see `components/fees/FeeSetupTab.tsx`.
+//  - **A fee cannot be filtered by class or by a date range.** `FeeViewSet`'s
+//    filterset is `student, category, session, status, period, enrolment,
+//    generated_by, is_active` and nothing else, so class and due-date narrowing
+//    happen over an enrolment map on the client, exactly as `StudentsTab` does.
+
+export type Recurrence = 'one_time' | 'monthly' | 'session' | 'exam' | 'custom';
+
+/** `docs/06` #8. Derived from `paid_amount` against `payable`, never hand-set. */
+export type FeeStatus = 'unpaid' | 'partial' | 'paid' | 'overdue' | 'waived';
+
+/** The eight ways money arrives. The wallets are separate values because
+ *  reconciliation is per wallet — a bKash statement and a Nagad statement are
+ *  two documents that have to tie out separately. */
+export type PaymentMethod =
+  | 'cash' | 'bkash' | 'nagad' | 'rocket' | 'bank' | 'cheque' | 'card' | 'online';
+
+/** Deliberately the same eight values as `PaymentMethod`, so the auto-posted
+ *  income row carries the receipt's own method unchanged. */
+export type LedgerMethod = PaymentMethod;
+
+/** Who wrote a ledger row, and therefore who may change it. Only `manual` is
+ *  editable — the API refuses a PATCH on the other two with a 400. */
+export type EntrySource = 'manual' | 'fee_payment' | 'payroll';
+
+export type GeneratedBy = 'manual' | 'auto' | 'admission';
+
+/** Which students a fee head is charged to. A small fixed shape, not free-form
+ *  JSON: `generate_monthly_fees()` is the only reader and a blob nobody can
+ *  enumerate is a filter nobody can debug. Empty `streams` means every stream. */
+export interface FeeAppliesTo {
+  streams: number[];
+  hostel_only: boolean;
+  transport_only: boolean;
+}
+
+export interface FeeCategory {
+  id: number;
+  code: string;
+  name: string;
+  name_bn: string;
+  note: string;
+  note_bn: string;
+  recurrence: Recurrence;
+  /** Optional because the live serializer does not send it. See the note above
+   *  this block — an invoice cannot be raised for a head with no amount, and
+   *  the setup screen has to be able to say so. */
+  default_amount?: string | null;
+  is_refundable: boolean;
+  is_mandatory: boolean;
+  applies_to: FeeAppliesTo;
+  /** Seeded. A system head is deactivated, never deleted. */
+  is_system: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One invoice — what a single student owes under one head, once. */
+export interface Fee {
+  id: number;
+  student: number;
+  student_name: string;
+  /** From the enrolment, so it is blank on an invoice raised before one exists. */
+  student_admission_no: string;
+  enrolment: number | null;
+  category: number;
+  category_code: string;
+  category_name: string;
+  session: number;
+  /** `"2026-03"` for a monthly charge, `""` otherwise. Part of the uniqueness
+   *  key that makes the monthly job safe to run twice. */
+  period: string;
+  invoice_no: string;
+  amount: string;
+  discount: string;
+  fine: string;
+  /** `amount - discount + fine`, computed and stored server-side. */
+  payable: string;
+  paid_amount: string;
+  /** `payable - paid_amount`. Read-only, and the number the counter works from. */
+  balance: string;
+  due_date: string;
+  status: FeeStatus;
+  waived_by: number | null;
+  waived_at: string | null;
+  waive_reason: string;
+  generated_by: GeneratedBy;
+  note: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A receipt. Entirely read-only — written by `collect_fee()` and by nothing
+ *  else, and corrected by reversal rather than by an edit. */
+export interface Payment {
+  id: number;
+  fee: number;
+  invoice_no: string;
+  student: number;
+  student_name: string;
+  category_name: string;
+  receipt_no: string;
+  amount: string;
+  method: PaymentMethod;
+  transaction_id: string;
+  paid_at: string;
+  collected_by: number | null;
+  collected_by_name: string;
+  /** The income row this collection posted, written in the same transaction. */
+  income: number | null;
+  note: string;
+  is_reversed: boolean;
+  reversed_at: string | null;
+  reversed_by: number | null;
+  reverse_reason: string;
+  created_at: string;
+}
+
+export interface CollectFeeBody {
+  /** A decimal STRING. Sending a JS number here is how a float gets into the
+   *  books; `CollectSerializer` takes a Decimal. */
+  amount: string;
+  method: PaymentMethod;
+  transaction_id?: string;
+  /** ISO 8601. Omit for "now", which is the normal case at a counter. */
+  paid_at?: string;
+  note?: string;
+}
+
+export interface CollectResult {
+  payment: Payment;
+  fee: Fee;
+}
+
+/** One row of `GET /api/fees/summary/`. Strings, so nothing becomes a float. */
+export interface FeeSummaryRow {
+  status: FeeStatus;
+  count: number;
+  payable: string;
+  paid: string;
+  balance: string;
+}
+
+export interface LedgerCategory {
+  id: number;
+  code: string;
+  name: string;
+  name_bn: string;
+  note: string;
+  note_bn: string;
+  is_system: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** An income head, optionally tied to the fee head that posts into it. */
+export interface IncomeCategory extends LedgerCategory {
+  fee_category: number | null;
+  fee_category_code: string;
+}
+
+export type ExpenseCategory = LedgerCategory;
+
+/** The fields Income and Expense share. */
+export interface LedgerEntry {
+  id: number;
+  category: number;
+  category_code: string;
+  category_name: string;
+  voucher_no: string;
+  amount: string;
+  date: string;
+  method: LedgerMethod;
+  reference: string;
+  description: string;
+  attachment: string | null;
+  session: number | null;
+  /** Read-only. `manual` is the only value this API writes; anything else was
+   *  posted by a service and the row refuses to be edited. */
+  source: EntrySource;
+  recorded_by: number | null;
+  recorded_by_name: string;
+  is_approved: boolean;
+  approved_by: number | null;
+  approved_at: string | null;
+  is_reversed: boolean;
+  reversed_at: string | null;
+  reversed_by: number | null;
+  reverse_reason: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Income extends LedgerEntry {
+  /** The receipt this row was posted from, when `source === 'fee_payment'`. */
+  payment: number | null;
+  payment_receipt_no: string;
+}
+
+export type Expense = LedgerEntry;
+
+export type LedgerPath = '/income/' | '/expenses/';
+
+/** `GET /api/{income,expenses}/summary/` — reversed rows excluded, because a
+ *  total that counted them would overstate the month. */
+export interface LedgerSummary {
+  total: string;
+  by_category: {
+    category: number | null;
+    code: string;
+    name: string;
+    count: number;
+    total: string;
+  }[];
+}
+
 export class ApiError extends Error {
   status: number;
   /** The stable identifier — `fee_already_paid`, not a sentence. */
@@ -1219,6 +1878,241 @@ class ApiClient {
     fields: Record<string, string>,
   ): Promise<StoredDocument> {
     return this.upload<StoredDocument>('/documents/', file, 'file', fields);
+  }
+
+  // ── Attendance ──────────────────────────────────────────────────────────
+  // Named methods rather than `list()` calls, because none of these four is
+  // CRUD: the register is a month of one class in ONE response and the save is
+  // a batch — 1,800 cells cannot be 1,800 requests (`docs/02` §5.1).
+
+  getMonthRegister(params: {
+    academicClass: number;
+    section?: number | null;
+    month: string;
+  }): Promise<MonthRegister> {
+    // The query parameter is `class` — a reserved word in TypeScript, which is
+    // why the argument is not called that, and the API's contract, which is why
+    // the parameter still is.
+    const section = params.section ? `&section=${params.section}` : '';
+    return this.request<MonthRegister>(
+      `/attendance/register/?class=${params.academicClass}${section}&month=${params.month}`,
+    );
+  }
+
+  saveMonthRegister(body: {
+    academicClass: number;
+    section?: number | null;
+    month: string;
+    cells: RegisterCellInput[];
+  }): Promise<BulkSaveResult> {
+    return this.request<BulkSaveResult>('/attendance/register/bulk/', {
+      method: 'POST',
+      body: JSON.stringify({
+        class: body.academicClass,
+        section: body.section ?? null,
+        month: body.month,
+        cells: body.cells,
+      }),
+    });
+  }
+
+  getMyDay(date?: string): Promise<MyDay> {
+    return this.request<MyDay>(`/attendance/my-day/${date ? `?date=${date}` : ''}`);
+  }
+
+  getPeriodRoster(params: {
+    academicClass: number;
+    section?: number | null;
+    period: number;
+    date: string;
+  }): Promise<PeriodRoster> {
+    const section = params.section ? `&section=${params.section}` : '';
+    return this.request<PeriodRoster>(
+      `/attendance/class/?class=${params.academicClass}${section}` +
+        `&period=${params.period}&date=${params.date}`,
+    );
+  }
+
+  savePeriodAttendance(body: {
+    academicClass: number;
+    section?: number | null;
+    subject?: number | null;
+    period: number;
+    date: string;
+    cells: RegisterCellInput[];
+  }): Promise<BulkSaveResult> {
+    return this.request<BulkSaveResult>('/attendance/class/', {
+      method: 'POST',
+      body: JSON.stringify({
+        class: body.academicClass,
+        section: body.section ?? null,
+        subject: body.subject ?? null,
+        period: body.period,
+        date: body.date,
+        cells: body.cells,
+      }),
+    });
+  }
+
+  // ── Exams ───────────────────────────────────────────────────────────────
+
+  /** One paper's whole grid, in one request and one transaction — the same
+   *  shape as the attendance batch, and idempotent for the same reason. */
+  saveMarks(examId: number, subject: number, rows: MarkRowInput[]): Promise<MarksSaveResult> {
+    return this.request<MarksSaveResult>(`/exams/${examId}/marks/`, {
+      method: 'POST',
+      body: JSON.stringify({ subject, rows }),
+    });
+  }
+
+  getTabulation(examId: number, academicClass: number): Promise<Tabulation> {
+    return this.request<Tabulation>(
+      `/exams/${examId}/tabulation/?academic_class=${academicClass}`,
+    );
+  }
+
+  getStudentResult(examId: number, student: number): Promise<StudentResult> {
+    return this.request<StudentResult>(`/exams/${examId}/result/?student=${student}`);
+  }
+
+  /** Principal-only, and the moment results become visible to students. There
+   *  is no route back: `status` is read-only everywhere else. */
+  publishExam(examId: number): Promise<Exam> {
+    return this.request<Exam>(`/exams/${examId}/publish/`, { method: 'POST' });
+  }
+
+  // ── The printable form — `docs/07` §8 ───────────────────────────────────
+  //
+  // These three answer with an HTML DOCUMENT rather than JSON, because the page
+  // IS the deliverable. `fetchRaw` carries the JWT and the active institution
+  // like every other call — a bare `<iframe src>` cannot send an Authorization
+  // header, which is why the HTML is fetched and then written into the frame.
+
+  /** An HTML document, or the API's own error turned into an `ApiError` so the
+   *  screens handle it exactly like a JSON failure. */
+  private async html(endpoint: string): Promise<string> {
+    const res = await this.fetchRaw(endpoint, { headers: { Accept: 'text/html' } });
+    if (!res.ok) {
+      // A failure from this endpoint is still the project's JSON error shape —
+      // only the success path is HTML.
+      const body = (await res.json().catch(() => null)) as Partial<ApiErrorBody> | null;
+      throw new ApiError(
+        res.status,
+        body?.message || `${res.status} ${res.statusText}`,
+        body ?? undefined,
+      );
+    }
+    return res.text();
+  }
+
+  /**
+   * One applicant's form, print-ready.
+   *
+   * **`mode: 'filled'` records the print and issues a form number** — that is
+   * what `PrintedForm` is for (`docs/07` §6), and it is why the preview fetches
+   * once and reuses the result rather than re-fetching on every render.
+   */
+  admissionFormHtml(
+    admissionId: number,
+    options: { template?: number | null; mode?: 'filled' | 'blank' } = {},
+  ): Promise<string> {
+    const query = new URLSearchParams({ mode: options.mode ?? 'filled' });
+    if (options.template) query.set('template', String(options.template));
+    return this.html(`/admissions/${admissionId}/form/?${query}`);
+  }
+
+  /**
+   * A template with no applicant behind it — the editor's live A4 preview, and
+   * the blank stack a madrasah prints at admission season (`docs/07` §7).
+   *
+   * A blank comes from HERE rather than from some applicant's `mode=blank`, so
+   * printing one needs no application to exist and burns no form number.
+   */
+  templatePreviewHtml(templateId: number, mode: 'blank' | 'filled' = 'blank'): Promise<string> {
+    return this.html(`/form-templates/${templateId}/preview/?mode=${mode}`);
+  }
+
+  /** A printed form re-rendered **from its stored snapshot** — what was signed,
+   *  not what the record says today (`docs/07` §6). Counts as a reprint. */
+  reprintFormHtml(printedFormId: number): Promise<string> {
+    return this.html(`/printed-forms/${printedFormId}/reprint/`);
+  }
+
+  // ── Phase 3 — fees and accounts ─────────────────────────────────────────
+  //
+  // The four below are named methods rather than `create()` calls because none
+  // of them is CRUD. Each is a service behind one POST (`CLAUDE.md` §4.3), and
+  // each answers with something other than the row it wrote.
+
+  /**
+   * Take money against one invoice — `docs/06` #10, the most-used endpoint.
+   *
+   * The response is `{payment, fee}`: the receipt to print, and the invoice
+   * with its recomputed balance. The `finance.Income` row is written by the
+   * same transaction and is **never** posted by the client — that is the whole
+   * property `docs/02` §4.6 buys.
+   */
+  collectFee(feeId: number, body: CollectFeeBody): Promise<CollectResult> {
+    return this.request<CollectResult>(`/fees/${feeId}/collect/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** Write off an invoice's balance. The reason is required by the API and by
+   *  the screen — an unexplained waiver is indistinguishable from a theft. */
+  waiveFee(feeId: number, reason: string): Promise<Fee> {
+    return this.request<Fee>(`/fees/${feeId}/waive/`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  /** Every receipt against one invoice, reversed ones included — a bare array,
+   *  not a page. The counter has to be able to explain a balance that moved
+   *  back, so a reversed receipt is shown rather than hidden. */
+  feePayments(feeId: number): Promise<Payment[]> {
+    return this.request<Payment[]>(`/fees/${feeId}/payments/`);
+  }
+
+  /** Totals per status over the current filters. **The server is the authority
+   *  for these figures** — screens print them rather than adding rows up. */
+  feeSummary(query = ''): Promise<FeeSummaryRow[]> {
+    return this.request<FeeSummaryRow[]>(`/fees/summary/${query}`);
+  }
+
+  /** Un-take money. Never a delete: the receipt stays, marked reversed, and its
+   *  income row is reversed in the same transaction. */
+  reversePayment(paymentId: number, reason: string): Promise<Payment> {
+    return this.request<Payment>(`/payments/${paymentId}/reverse/`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  /** Ledger totals over the current filters, reversed rows excluded. */
+  ledgerSummary(path: LedgerPath, query = ''): Promise<LedgerSummary> {
+    return this.request<LedgerSummary>(`${path}summary/${query}`);
+  }
+
+  /** Reverse a MANUAL income row. An auto-posted one is refused by the API —
+   *  reverse its receipt instead, which reverses both. */
+  reverseIncome(id: number, reason: string): Promise<Income> {
+    return this.request<Income>(`/income/${id}/reverse/`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  /**
+   * Attach a scanned voucher to a ledger row.
+   *
+   * A second request after the row exists, for the same reason a student photo
+   * is: a file cannot ride along in the JSON body the rest of the form is sent
+   * as, and the row has to exist before there is a URL to PATCH.
+   */
+  uploadLedgerAttachment<T>(path: LedgerPath, id: number, file: File): Promise<T> {
+    return this.upload<T>(`${path}${id}/`, file, 'attachment', undefined, 'PATCH');
   }
 }
 

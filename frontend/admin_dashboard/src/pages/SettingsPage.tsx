@@ -9,6 +9,8 @@ import TabStrip from '../components/common/TabStrip';
 import type { TabDef } from '../components/common/TabStrip';
 import PhasePlaceholder from './PhasePlaceholder';
 import StreamsSessionsTab from '../components/settings/StreamsSessionsTab';
+import FormTemplatesTab from '../components/forms/FormTemplatesTab';
+import QuestionsTab from '../components/forms/QuestionsTab';
 import BranchForm from '../components/settings/BranchForm';
 import { draftFrom, draftToPayload, emptyDraft } from '../components/settings/branchDraft';
 import type { BranchDraft } from '../components/settings/branchDraft';
@@ -23,9 +25,15 @@ import type { BranchDraft } from '../components/settings/branchDraft';
  * the feature exists.
  */
 
-type Tab = 'institution' | 'streams' | 'fee-categories' | 'form-templates';
+type Tab = 'institution' | 'streams' | 'fee-categories' | 'form-templates' | 'questions';
 
-const TABS: Tab[] = ['institution', 'streams', 'fee-categories', 'form-templates'];
+const TABS: Tab[] = [
+  'institution',
+  'streams',
+  'fee-categories',
+  'form-templates',
+  'questions',
+];
 
 /**
  * The institution's own record.
@@ -164,6 +172,10 @@ export default function SettingsPage() {
     { key: 'streams', label: t('Streams & Sessions') },
     { key: 'fee-categories', label: t('Fee categories') },
     { key: 'form-templates', label: t('Form templates') },
+    // The question bank sits beside the templates rather than inside one: a
+    // question with no template is reusable across every form this institution
+    // prints, which is the common case (`docs/07` §5).
+    { key: 'questions', label: t('Questions') },
   ];
 
   return (
@@ -185,7 +197,8 @@ export default function SettingsPage() {
         </div>
       )}
       {tab === 'fee-categories' && <PhasePlaceholder labelKey="Fee categories" phase={3} />}
-      {tab === 'form-templates' && <PhasePlaceholder labelKey="Form templates" phase={2} />}
+      {tab === 'form-templates' && <FormTemplatesTab />}
+      {tab === 'questions' && <QuestionsTab />}
     </div>
   );
 }

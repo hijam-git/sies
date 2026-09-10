@@ -15,6 +15,12 @@ import admin from './dict/admin';
 import students from './dict/students';
 import staff from './dict/staff';
 import academics from './dict/academics';
+import fees from './dict/fees';
+import finance from './dict/finance';
+import attendance from './dict/attendance';
+import exams from './dict/exams';
+import forms from './dict/forms';
+import reports from './dict/reports';
 
 export const BN: Record<string, string> = {
   ...common,
@@ -26,4 +32,10 @@ export const BN: Record<string, string> = {
   ...students,
   ...staff,
   ...academics,
+  ...attendance,
+  ...exams,
+  ...forms,
+  ...reports,
+  ...fees,
+  ...finance,
 };

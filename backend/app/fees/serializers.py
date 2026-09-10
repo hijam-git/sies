@@ -28,6 +28,11 @@ class FeeCategorySerializer(serializers.ModelSerializer):
         model = FeeCategory
         fields = [
             'id', 'code', 'name', 'name_bn', 'note', 'note_bn', 'recurrence',
+            # default_amount is what an invoice for this head costs. It was on
+            # the model but missing here, so a PATCH carrying it was silently
+            # dropped and every head stayed unpriced — and an unpriced head
+            # cannot raise an invoice at all.
+            'default_amount',
             'is_refundable', 'is_mandatory', 'applies_to', 'is_system',
             'display_order', 'is_active', 'created_at', 'updated_at',
         ]

@@ -80,11 +80,25 @@ class AttendanceView(TeacherScopedMixin, BranchScopedMixin, generics.GenericAPIV
         A platform admin who has not chosen an institution gets a 404 and not a
         400, because "the register of every institution at once" names no class
         and no register — there is nothing here to answer with.
+
+        `hasattr(branch, 'pk')` is NOT the test. `resolve_branch` hands a
+        platform admin the raw string from `?branch=6` — the middleware
+        deliberately does not resolve it, since it runs before authentication and
+        must not query (docs/01 §5.2). Testing for `.pk` therefore 404'd every
+        attendance endpoint for the platform admin while the identical request
+        from a principal worked. That is the fourth place this exact mistake was
+        made, which is why the resolving now happens in one shared helper.
         """
-        branch = get_branch(self.request)
-        if branch is None or branch == ALL_BRANCHES or not hasattr(branch, 'pk'):
+        from core.viewsets import writable_branch
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            return writable_branch(self.request)
+        except ValidationError:
+            # This view answers 404 rather than 400 where the branch cannot be
+            # resolved: "the register of every institution at once" names no
+            # class and no register, so there is nothing here to answer with.
             raise Http404
-        return branch
 
     def scoped_class(self, class_id):
         """The requested class, if this caller may reach it. Otherwise 404.

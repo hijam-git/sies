@@ -1,0 +1,103 @@
+// Bangla for the examination screens: exams and their schedule, marks entry,
+// and results.
+//
+// নম্বর, not মার্ক — a marksheet in Bangladesh is নম্বরপত্র, and every teacher
+// entering marks says নম্বর তোলা.
+const exams: Record<string, string> = {
+  'Exams': 'পরীক্ষা',
+  'Exams and their schedule, marks entry, and results.':
+    'পরীক্ষা ও সময়সূচি, নম্বর এন্ট্রি এবং ফলাফল।',
+  'An exam, the classes that sit it, and its paper-by-paper schedule.':
+    'একটি পরীক্ষা, অংশগ্রহণকারী শ্রেণিসমূহ এবং বিষয়ভিত্তিক সময়সূচি।',
+  'New exam': 'নতুন পরীক্ষা',
+  'Edit exam': 'পরীক্ষা সম্পাদনা',
+  'No exams yet.': 'কোনো পরীক্ষা নেই।',
+  'Could not load this exam.': 'পরীক্ষাটি লোড করা যায়নি।',
+  'Could not save this exam.': 'পরীক্ষাটি সেভ করা যায়নি।',
+  'Could not add this class to the exam.': 'শ্রেণিটি পরীক্ষায় যোগ করা যায়নি।',
+  'Classes sitting this exam': 'যেসব শ্রেণি অংশ নিচ্ছে',
+  'No classes added yet.': 'এখনো কোনো শ্রেণি যোগ করা হয়নি।',
+  'Add a class': 'শ্রেণি যোগ করুন',
+  'Schedule': 'সময়সূচি',
+  'Add a paper': 'বিষয় যোগ করুন',
+  'Edit paper': 'বিষয় সম্পাদনা',
+  'No papers scheduled yet.': 'এখনো কোনো বিষয়ের সময়সূচি নেই।',
+  'Could not save this paper.': 'বিষয়টির সময়সূচি সেভ করা যায়নি।',
+  'Name (Bangla)': 'নাম (বাংলা)',
+  'Type': 'ধরন',
+  'Dates': 'তারিখ',
+  'Starts on': 'শুরু',
+  'Ends on': 'শেষ',
+  'Starts at': 'শুরুর সময়',
+  'Ends at': 'শেষের সময়',
+  'Time': 'সময়',
+  'Room': 'কক্ষ',
+  'Marks': 'নম্বর',
+  'Full marks': 'পূর্ণমান',
+  'Pass marks': 'পাস নম্বর',
+  'Left empty, the subject’s own marks are used.': 'ফাঁকা রাখলে বিষয়ের নিজস্ব নম্বর ব্যবহার হবে।',
+  'Invigilator': 'পরিদর্শক',
+  'Not assigned': 'নির্ধারিত নয়',
+  'All streams': 'সব বিভাগ',
+  'Stream': 'বিভাগ',
+  'Leave empty for the whole institution.': 'পুরো প্রতিষ্ঠানের জন্য ফাঁকা রাখুন।',
+  'Session': 'শিক্ষাবর্ষ',
+  'Exam': 'পরীক্ষা',
+  'Subject': 'বিষয়',
+
+  // ── Exam types and status ──────────────────────────────────────────────
+  'Monthly': 'মাসিক',
+  'Half-yearly': 'অর্ধবার্ষিক',
+  'Annual': 'বার্ষিক',
+  'Test': 'টেস্ট',
+  'Sabaq': 'সবক',
+  'Board': 'বোর্ড পরীক্ষা',
+  'Draft': 'খসড়া',
+  'Scheduled': 'সময়সূচি হয়েছে',
+  'Ongoing': 'চলমান',
+  'Marks entry': 'নম্বর এন্ট্রি',
+  'Published': 'ফল প্রকাশিত',
+
+  // ── Marks entry ────────────────────────────────────────────────────────
+  'Could not load the marks grid.': 'নম্বরের তালিকা লোড করা যায়নি।',
+  'Could not save these marks.': 'নম্বর সেভ করা যায়নি।',
+  'Practical': 'ব্যবহারিক',
+  'entered': 'জনের নম্বর দেওয়া হয়েছে',
+  'new': 'নতুন',
+  'changed': 'পরিবর্তিত',
+  'unchanged': 'অপরিবর্তিত',
+  'Reset': 'আগের অবস্থায়',
+  'Some marks are above the full marks.': 'কিছু নম্বর পূর্ণমানের চেয়ে বেশি।',
+  'You can read these marks but not change them.':
+    'আপনি নম্বর দেখতে পারবেন, পরিবর্তন করতে পারবেন না।',
+  'Results are published, so marks can no longer be changed.':
+    'ফল প্রকাশিত, তাই নম্বর আর পরিবর্তন করা যাবে না।',
+  'Results are published. Marks and the schedule can no longer be changed.':
+    'ফল প্রকাশিত। নম্বর ও সময়সূচি আর পরিবর্তন করা যাবে না।',
+
+  // ── Results ────────────────────────────────────────────────────────────
+  'Results': 'ফলাফল',
+  'Could not load the tabulation sheet.': 'ট্যাবুলেশন শিট লোড করা যায়নি।',
+  'Could not load this marksheet.': 'নম্বরপত্র লোড করা যায়নি।',
+  'Could not publish these results.': 'ফল প্রকাশ করা যায়নি।',
+  'Marksheet': 'নম্বরপত্র',
+  'Grade': 'গ্রেড',
+  'Rank': 'মেধাক্রম',
+  'Percentage': 'শতকরা',
+  'GPA': 'জিপিএ',
+  'Result': 'ফলাফল',
+  'Passed': 'উত্তীর্ণ',
+  'Failed': 'অনুত্তীর্ণ',
+  'Failed subjects': 'অনুত্তীর্ণ বিষয়',
+  'Publish results': 'ফল প্রকাশ করুন',
+  'Publish': 'প্রকাশ করুন',
+  'Publishing…': 'প্রকাশ করা হচ্ছে…',
+  'Published — students can see these results.':
+    'ফল প্রকাশিত — শিক্ষার্থীরা এই ফল দেখতে পাচ্ছে।',
+  'Not published — students cannot see these marks yet.':
+    'ফল প্রকাশিত হয়নি — শিক্ষার্থীরা এখনো এই নম্বর দেখতে পাচ্ছে না।',
+  'Publishing makes these results visible to students, and marks can no longer be changed afterwards.':
+    'ফল প্রকাশ করলে শিক্ষার্থীরা তা দেখতে পাবে, এবং এরপর নম্বর আর পরিবর্তন করা যাবে না।',
+};
+
+export default exams;

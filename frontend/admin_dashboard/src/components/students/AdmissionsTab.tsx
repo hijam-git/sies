@@ -5,6 +5,7 @@ import type {
   Admission,
   AdmissionStatus,
   AdmitResult,
+  FormTemplate,
   Gender,
   Section,
   Session,
@@ -21,6 +22,8 @@ import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import FormPreviewModal from '../forms/FormPreviewModal';
+import type { PreviewRequest } from '../forms/FormPreviewModal';
 
 /**
  * Applications, and the one click that turns one into a student.
@@ -137,6 +140,99 @@ export default function AdmissionsTab({
 
   const mayCreate = can('admissions', 'create');
   const mayUpdate = can('admissions', 'update');
+  // Printing a form is a `documents` action, not an `admissions` one: the form
+  // is a document about the applicant, and an admission officer who may capture
+  // an application does not automatically get to issue paper (`docs/02` §2.1).
+  const mayPrint = can('documents', 'view');
+
+  // ── Printing (`docs/07` §9) ──────────────────────────────────────────────
+  const [preview, setPreview] = useState<PreviewRequest | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  const [templateId, setTemplateId] = useState('');
+
+  useEffect(() => {
+    if (!mayPrint) return;
+    // The template list is gated on `settings.view`, which a counter clerk does
+    // not hold. An empty list is not a failure: printing without naming one
+    // uses the institution's default template server-side, which is what the
+    // clerk wants every time anyway.
+    void apiClient
+      .listAll<FormTemplate>('/form-templates/', '?form_type=admission&is_active=true')
+      .then(setTemplates)
+      .catch(() => setTemplates([]));
+  }, [mayPrint]);
+
+  const chosenTemplate = templateId ? Number(templateId) : null;
+
+  /** One applicant's filled form. */
+  const printOne = (row: Admission) =>
+    setPreview({
+      key: `filled-${row.id}-${Date.now()}`,
+      title: `${t('Admission form')} · ${row.applicant_name_bn || row.applicant_name}`,
+      note: t('This copy is recorded and given a form number. Reprint it later from the student’s Documents.'),
+      load: async () => [
+        await apiClient.admissionFormHtml(row.id, { template: chosenTemplate, mode: 'filled' }),
+      ],
+    });
+
+  /** Several filled forms, one trip to the printer (`docs/07` §9). */
+  const printSelected = () => {
+    const chosen = rows.filter((r) => selected.includes(r.id));
+    if (chosen.length === 0) return;
+    setPreview({
+      key: `batch-${chosen.map((r) => r.id).join('-')}-${Date.now()}`,
+      title: `${t('Admission forms')} · ${chosen.length}`,
+      note: t('Each of these is recorded and given its own form number.'),
+      load: () =>
+        // Sequential rather than Promise.all: each one takes a row lock to
+        // issue its form number, and firing twenty at once at a counter PC
+        // only queues them somewhere less visible.
+        chosen.reduce<Promise<string[]>>(
+          async (soFar, row) => [
+            ...(await soFar),
+            await apiClient.admissionFormHtml(row.id, {
+              template: chosenTemplate,
+              mode: 'filled',
+            }),
+          ],
+          Promise.resolve([]),
+        ),
+    });
+  };
+
+  /**
+   * The blank stack (`docs/07` §7) — printed in bulk at admission season and
+   * filled in by hand.
+   *
+   * From the template's own preview endpoint when the user may read templates,
+   * because a blank needs no applicant to exist. Anyone else falls back to any
+   * application with `mode=blank`, which renders the SAME template with an
+   * empty context, records nothing and issues no form number.
+   */
+  const printBlank = () => {
+    const template = templates.find((x) => String(x.id) === templateId) ?? templates[0];
+    const fallback = rows[0];
+    if (!template && !fallback) return;
+    setPreview({
+      key: `blank-${template?.id ?? 'any'}-${Date.now()}`,
+      title: t('Blank admission form'),
+      note: t('A blank form to print in a stack and fill in by hand. Nothing is recorded and no form number is issued.'),
+      load: async () => [
+        template
+          ? await apiClient.templatePreviewHtml(template.id, 'blank')
+          : await apiClient.admissionFormHtml(fallback.id, { mode: 'blank' }),
+      ],
+    });
+  };
+
+  const toggle = (id: number) =>
+    setSelected((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+    );
+
+  const pageIds = rows.map((r) => r.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
   const defaultSession = useMemo(
     () => String((sessions.find((s) => s.is_current) ?? sessions[0])?.id ?? ''),
@@ -286,6 +382,33 @@ export default function AdmissionsTab({
   );
 
   const columns: Column<Admission>[] = [
+    ...(mayPrint
+      ? ([
+          {
+            key: 'select',
+            label: t('Select'),
+            // `action` so the card layout puts it in the footer row with the
+            // buttons rather than as a labelled field, where a bare checkbox
+            // reads as data the application contains.
+            action: true,
+            cellClass: 'px-4 py-3 w-10',
+            headClass: 'px-4 py-3 w-10',
+            render: (a) => (
+              <label className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(a.id)}
+                  onChange={() => toggle(a.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-5 w-5 rounded border-gray-300 text-blue-600"
+                  aria-label={`${t('Select')} ${a.application_no}`}
+                />
+                <span className="text-xs text-gray-500 md:hidden">{t('Select')}</span>
+              </label>
+            ),
+          },
+        ] as Column<Admission>[])
+      : []),
     {
       key: 'applicant',
       label: t('Applicant'),
@@ -341,7 +464,12 @@ export default function AdmissionsTab({
       cellClass: 'px-4 py-3 text-right',
       headClass: 'px-4 py-3 text-right',
       render: (a) => (
-        <span className="inline-flex gap-2">
+        <span className="inline-flex flex-wrap justify-end gap-2">
+          {mayPrint && (
+            <button type="button" onClick={() => printOne(a)} className={btnSecondary}>
+              {t('Print form')}
+            </button>
+          )}
           {mayUpdate && a.status !== 'admitted' && (
             <button type="button" onClick={() => openEdit(a)} className={btnSecondary}>
               {t('Edit')}
@@ -363,12 +491,80 @@ export default function AdmissionsTab({
         <p className="text-sm text-gray-500">
           {t('Applications. Admitting one creates the student, the enrolment and its numbers in a single step.')}
         </p>
-        {mayCreate && (
-          <button type="button" onClick={openCreate} className={btnPrimary}>
-            {t('New application')}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {mayPrint && (templates.length > 0 || rows.length > 0) && (
+            <button type="button" onClick={printBlank} className={btnSecondary}>
+              {t('Print blank form')}
+            </button>
+          )}
+          {mayCreate && (
+            <button type="button" onClick={openCreate} className={btnPrimary}>
+              {t('New application')}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Which template, when the institution has more than one. Hidden for the
+          single-template case, which is nearly every institution: a select with
+          one option is a question with no answer. */}
+      {mayPrint && templates.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          <label htmlFor="admission-form-template">{t('Form template')}</label>
+          <select
+            id="admission-form-template"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className={filterSelectCls}
+          >
+            <option value="">{t('The default form')}</option>
+            {templates.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name_bn || x.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* ── Multi-select print (`docs/07` §9) ───────────────────────────── */}
+      {mayPrint && rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+          <label className="inline-flex min-h-[44px] items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={allOnPageSelected}
+              onChange={() =>
+                setSelected((current) =>
+                  allOnPageSelected
+                    ? current.filter((id) => !pageIds.includes(id))
+                    : [...new Set([...current, ...pageIds])],
+                )
+              }
+              className="h-5 w-5 rounded border-gray-300 text-blue-600"
+            />
+            {t('Select all on this page')}
+          </label>
+          <span className="text-sm text-gray-500">
+            {`${selected.length} ${t('selected')}`}
+          </span>
+          <div className="ml-auto flex flex-wrap gap-2">
+            {selected.length > 0 && (
+              <button type="button" onClick={() => setSelected([])} className={btnSecondary}>
+                {t('Clear')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={printSelected}
+              disabled={selected.length === 0}
+              className={btnPrimary}
+            >
+              {t('Print selected forms')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <FilterBar
         search={
@@ -821,6 +1017,8 @@ export default function AdmissionsTab({
           </div>
         )}
       </BaseModal>
+
+      <FormPreviewModal request={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

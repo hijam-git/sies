@@ -17,6 +17,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -398,7 +399,42 @@ CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
 # that does not exist yet, and an entry naming a task Celery cannot import makes
 # beat crash-loop rather than skip it. Each entry is added by the phase that
 # writes its task, so the schedule and the code land together.
-CELERY_BEAT_SCHEDULE = {}
+CELERY_BEAT_SCHEDULE = {
+    # The clock behind the "smart" claim in docs/00 §2. Nobody clicks any of
+    # these, and an institution that never opens the Fees screen still has its
+    # month raised and its fines accrued.
+    #
+    # Entries name a task by its registered string rather than importing it: an
+    # entry pointing at an unimportable task makes beat crash-loop at startup
+    # instead of skipping it, so a typo here takes the whole scheduler down.
+
+    # Decision 2 of the smart list. Safe to fire twice — the invoice's unique key
+    # on (branch, student, category, period, session) is what makes a retried
+    # run write nothing rather than double-charging a guardian.
+    'fees.generate-monthly': {
+        'task': 'fees.generate_monthly_fees',
+        'schedule': crontab(minute=15, hour=0, day_of_month='1'),
+        'options': {'queue': 'default'},
+    },
+
+    # Decision 3. Depends on the passage of time rather than on a user action,
+    # which is precisely why it cannot live in a request.
+    'fees.accrue-fines': {
+        'task': 'fees.accrue_fines',
+        'schedule': crontab(minute=30, hour=0),
+        'options': {'queue': 'default'},
+    },
+
+    # A branch whose fine_rule has per_day = 0 never enters the fine job, so its
+    # invoices would sit at `unpaid` past their due date forever and the Dues
+    # screen would quietly under-report. This moves them to `overdue` on time
+    # regardless of whether a fine applies.
+    'fees.mark-overdue': {
+        'task': 'fees.mark_overdue',
+        'schedule': crontab(minute=40, hour=0),
+        'options': {'queue': 'default'},
+    },
+}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

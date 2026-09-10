@@ -74,18 +74,32 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-/** The last phase whose screens exist. Everything above it still routes to
- *  `PhasePlaceholder`; raising it is what turns a placeholder into a real page,
- *  and it is a single edit rather than a `phase` rewritten per item — the phase
- *  a screen was built in stays true after it is built. */
-export const BUILT_THROUGH_PHASE = 2;
+/** The last phase whose screens exist.
+ *
+ *  Six: every V1 screen is built, so `PLACEHOLDER_ITEMS` is empty and nothing
+ *  routes to `PhasePlaceholder` any more. The constant stays because the next
+ *  feature will arrive the same way — built behind a nav entry before it is
+ *  finished — and because `CLAUDE.md` §2a makes a nav row pointing at a
+ *  placeholder while its backend is live a bug rather than a pending task.
+ *
+ *  `phase` on each item stays the phase it was BUILT in, which is still true
+ *  afterwards; this is the single edit that turns placeholders into pages. */
+export const BUILT_THROUGH_PHASE = 6;
+
+/** Screens finished ahead of their phase's turn.
+ *
+ *  Empty now. It existed because attendance (4) and exams (5) landed while fees
+ *  (3) was still a placeholder, so raising the number alone would have claimed
+ *  screens that did not exist yet. Keep the escape hatch; that ordering will
+ *  happen again. */
+export const BUILT_PATHS: string[] = [];
 
 /** Every item whose module is a later phase, for `App` to turn into placeholder
  *  routes. Permission gating is NOT applied here — a route the user cannot see
  *  in the sidebar still has to resolve if they type it, and a placeholder is a
  *  harmless thing to land on. Real screens gate their own data. */
 export const PLACEHOLDER_ITEMS: NavItem[] = NAV_ITEMS.filter(
-  (i) => i.phase > BUILT_THROUGH_PHASE,
+  (i) => i.phase > BUILT_THROUGH_PHASE && !BUILT_PATHS.includes(i.path),
 );
 
 /** Every path the sidebar can reach, for the layout's active-item lookup. */

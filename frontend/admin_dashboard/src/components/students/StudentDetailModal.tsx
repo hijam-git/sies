@@ -9,6 +9,7 @@ import { formatDhakaDate } from '../../lib/timezone';
 import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import PrintedFormsSection from '../forms/PrintedFormsSection';
 
 /**
  * One student's whole record: who they are, who to call, where they have been,
@@ -376,6 +377,12 @@ export default function StudentDetailModal({
                 )}
               </ul>
             </section>
+
+            {/* The forms printed for this student, reprintable from their
+                snapshots — the paper in the office file, not today's record
+                (`docs/07` §6). Its own component because the reprint rule is a
+                rule, not a list. */}
+            <PrintedFormsSection studentId={studentId} />
 
             {/* ── Documents ─────────────────────────────────────────────── */}
             {maySeeDocuments && (

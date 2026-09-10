@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../lib/api';
+import type { Expense, Income } from '../lib/api';
 import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT } from '../lib/i18n';
-import { formatBDT, formatNumber } from '../lib/format';
-import { formatDhakaDate, todayInDhaka } from '../lib/timezone';
+import { formatNumber, formatBDTExact, toBanglaDigits } from '../lib/format';
+import { sumMoney } from '../lib/money';
+import { currentMonthInDhaka, formatDhakaDate, todayInDhaka } from '../lib/timezone';
 import StatCard, { StatIcon } from '../components/common/StatCard';
 import CompactActivityFeed from '../components/users/ActivityFeed';
 
@@ -30,13 +32,82 @@ import CompactActivityFeed from '../components/users/ActivityFeed';
 // Phase 1 replaces this object with the API response. The shape is the
 // contract, so writing it down now is what lets the endpoint be built against
 // something rather than invented alongside it.
+//
+// The three fee and finance figures have moved out of it — `useMoneyFigures`
+// below reads them from the live phase 3 endpoints. What is left is phases 4
+// and 5, and the note at the foot of the page still says so.
 const PHASE_0_SUMMARY = {
   present_today: 0,
   attendance_pending_classes: 0,
-  collected_this_month: 0,
-  outstanding_dues: 0,
   marks_pending: 0,
 };
+
+/** The three statuses that mean money is owed. `paid` and `waived` are settled. */
+const OWING = ['unpaid', 'partial', 'overdue'];
+
+/**
+ * The money a principal opens this page for: **collected this month,
+ * outstanding, and this month's expenses.**
+ *
+ * Only one of the three comes back as a single server total, and the reason is
+ * worth knowing before reading the numbers:
+ *
+ *  - **Outstanding** is `GET /api/fees/summary/`, totalled per status in the
+ *    database. The three owing rows are added here in integer poisha.
+ *  - **Collected this month** and **this month's expenses** have no server-side
+ *    date filter to ask for. `LedgerEntryViewSet`'s filterset carries `date` as
+ *    an *exact* lookup and nothing else — no `date__gte`, no `from`/`to`. So the
+ *    month's rows are read and added here, exactly, in poisha. When a dashboard
+ *    summary endpoint exists these collapse into it and the cards do not change.
+ */
+function useMoneyFigures(enabled: { fees: boolean; finance: boolean }) {
+  const [figures, setFigures] = useState<{
+    collected: string | null;
+    outstanding: string | null;
+    expenses: string | null;
+  }>({ collected: null, outstanding: null, expenses: null });
+
+  const { fees, finance } = enabled;
+
+  useEffect(() => {
+    let alive = true;
+    const { year, month } = currentMonthInDhaka();
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    const inThisMonth = (row: { date: string; is_reversed: boolean }) =>
+      row.date.startsWith(prefix) && !row.is_reversed;
+
+    const read = async () => {
+      const [summary, income, expenses] = await Promise.all([
+        fees ? apiClient.feeSummary('?is_active=true').catch(() => null) : null,
+        finance
+          ? apiClient
+              .listAll<Income>('/income/', '?is_active=true&source=fee_payment&ordering=-date')
+              .catch(() => null)
+          : null,
+        finance
+          ? apiClient
+              .listAll<Expense>('/expenses/', '?is_active=true&ordering=-date')
+              .catch(() => null)
+          : null,
+      ]);
+
+      if (!alive) return;
+      setFigures({
+        outstanding: summary
+          ? sumMoney(summary.filter((r) => OWING.includes(r.status)).map((r) => r.balance))
+          : null,
+        collected: income ? sumMoney(income.filter(inThisMonth).map((r) => r.amount)) : null,
+        expenses: expenses ? sumMoney(expenses.filter(inThisMonth).map((r) => r.amount)) : null,
+      });
+    };
+    void read();
+    return () => {
+      alive = false;
+    };
+  }, [fees, finance]);
+
+  return figures;
+}
 
 /**
  * The counts phase 1 can honestly answer.
@@ -134,7 +205,12 @@ export default function DashboardHome() {
     admissions: canView('admissions'),
   });
 
+  const money = useMoneyFigures({ fees: canView('fees'), finance: canView('finance') });
+
   const shown = (n: number | null) => (n === null ? '—' : formatNumber(n));
+  /** `null` means the request has not landed, or the permission withheld it —
+   *  an em dash, never a zero that reads as "nothing was collected". */
+  const taka = (v: string | null) => (v === null ? '—' : toBanglaDigits(formatBDTExact(v)));
 
   return (
     <div className="space-y-6">
@@ -233,21 +309,35 @@ export default function DashboardHome() {
           />
         )}
 
-        {canView('fees') && (
+        {canView('finance') && (
           <StatCard
-            tone="amber"
+            tone="green"
             icon={<StatIcon d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />}
             label={t('Collected this month')}
-            value={formatBDT(s.collected_this_month)}
-            sub={t('Across every fee category')}
-            footer={[
-              {
-                label: t('Outstanding dues'),
-                value: formatBDT(s.outstanding_dues),
-                cls: s.outstanding_dues > 0 ? 'text-red-600' : 'text-gray-700',
-                hint: t('Owed by students still enrolled'),
-              },
-            ]}
+            value={taka(money.collected)}
+            sub={t('Fee receipts, posted automatically to income')}
+            valueCls="text-emerald-600"
+          />
+        )}
+
+        {canView('fees') && (
+          <StatCard
+            tone="red"
+            icon={<StatIcon d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+            label={t('Outstanding dues')}
+            value={taka(money.outstanding)}
+            sub={t('Owed across every unpaid, part-paid and overdue invoice')}
+            valueCls="text-red-600"
+          />
+        )}
+
+        {canView('finance') && (
+          <StatCard
+            tone="amber"
+            icon={<StatIcon d="M19 14l-7 7m0 0l-7-7m7 7V3" />}
+            label={t('Expenses this month')}
+            value={taka(money.expenses)}
+            sub={t('Entered by hand in Accounts')}
           />
         )}
 
@@ -295,11 +385,11 @@ export default function DashboardHome() {
           Removed as each module lands. */}
       <aside className="rounded-xl border border-blue-100 bg-blue-50 p-4 sm:p-5">
         <p className="text-sm font-medium text-blue-900">
-          {t('Attendance, fee and exam figures arrive with their modules.')}
+          {t('Attendance and exam figures arrive with their modules.')}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-blue-800">
           {t(
-            'Nothing is being hidden — the phases that raise fees, take attendance and publish results have not been built yet, so those figures are honestly zero.',
+            'Nothing is being hidden — the phases that take attendance and publish results have not been built yet, so those figures are honestly zero. The money figures above are live.',
           )}
         </p>
       </aside>
