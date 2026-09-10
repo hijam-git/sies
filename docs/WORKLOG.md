@@ -340,6 +340,29 @@ nullable FKs" after D5 made it three. Both fixed, and §4.4 now says where the
 history actually lives: not in the attendance table, but in the `ActivityLog`
 entry, which carries before and after (D8).
 
+**F30 — `NumberSequence.Kind` was missing three kinds.** `form`, `receipt` and
+`voucher` counters are all needed and none were declared. Choices are not
+DB-enforced, so the counters worked with literal strings — only the admin label
+was missing — but a closed enum that quietly does not close is worse than no
+enum. All three added.
+
+**F31 — `Mark.grade` / `grade_point` are columns nothing can write.**
+`docs/03` §9 lists them as "filled at publish from the grade scale", but
+`GradeScale` is V2 (`05` §5.4). Omitted from the model; V1 computes grades on
+read, and `publish_exam`'s docstring names the exact slot where the stored
+`Result` lands when the grade scale arrives.
+
+**F32 — `branch.head_title` is a placeholder with no column, and stays that
+way.** `docs/07` §4 lists it, and the honest implementation derives it from
+`institution_type` — মুহতামিম for a madrasah, প্রধান শিক্ষক for a school, অধ্যক্ষ
+for a college — rather than adding a field an admin would have to fill in
+correctly for the letterhead to read right.
+
+**F33 — blank forms issue no number.** A madrasah prints a stack of blank
+admission forms at admission season. Allocating a gapless `form_no` for each
+would burn the series on paper that may never be filled in, so blank mode writes
+no `PrintedForm` and takes no number. Only a filled form is a record.
+
 **F29 — `branches.seeding` breaks `create_branch()` while `fees` is uninstalled.**
 The plug-in point imports `fees.models` inside the function, so `manage.py check`
 stays clean and the failure only appears at call time —

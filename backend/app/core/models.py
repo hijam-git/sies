@@ -123,6 +123,9 @@ class NumberSequence(BaseModel):
         EMPLOYEE = 'employee', 'Employee id · কর্মচারী আইডি'
         STUDENT = 'student', 'Student id · শিক্ষার্থী আইডি'
         APPLICATION = 'application', 'Application number · আবেদন নম্বর'
+        FORM = 'form', 'Printed form number · ফরম নম্বর'
+        RECEIPT = 'receipt', 'Receipt number · রসিদ নম্বর'
+        VOUCHER = 'voucher', 'Voucher number · ভাউচার নম্বর'
 
     # PROTECT: deleting an institution while its counter still exists would let
     # a fresh counter restart at 1 and re-issue numbers already printed on

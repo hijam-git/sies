@@ -285,7 +285,7 @@ and the questions, not drag text boxes to arbitrary coordinates.
 
 ## 10. Seeding
 
-The branch-creation signal already seeds fee, income and expense categories
+`branches.services.create_branch()` already seeds fee, income and expense categories
 (`docs/03` §1). **It also seeds a default `admission` FormTemplate reproducing
 the reference form** — letterhead, the বিনীত নিবেদন letter, the তথ্যাবলী grid, the
 three standard questions, the office panel, and both page-2 bullet lists with
