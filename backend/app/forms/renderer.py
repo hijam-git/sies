@@ -28,16 +28,50 @@ from django.utils.html import escape
 
 from .placeholders import resolve
 
-# Self-hosted faces, never a Google Fonts link: a form must print correctly on a
-# school computer with no internet (§8). The files ship in
-# `frontend/admin_dashboard/public/fonts/`; the stack degrades to whatever the
-# machine has rather than to a Latin fallback that cannot draw Bangla.
-BANGLA_STACK = "'SolaimanLipi', 'Kalpurush', 'Nirmala UI', sans-serif"
+# Self-hosted faces, never a Google Fonts link: a form must print correctly on
+# a school computer with no internet (docs/07 §8).
+#
+# The @font-face rules are NOT optional decoration. An earlier version named
+# SolaimanLipi and Kalpurush -- faces nobody had shipped -- and declared no
+# @font-face at all, so the browser silently fell back to a system font. The
+# one document in this system that MUST look right on paper was the one
+# rendering in whatever the machine happened to pick.
+#
+# The files are real and committed under the SPA's public/fonts, served from
+# the same origin as this HTML, so the absolute paths resolve whether the
+# form is previewed in an iframe or opened on its own.
+FONT_BASE = '/myadmin/fonts'
+
+# One face per weight. The unicode-range slices the SPA uses are deliberately
+# NOT used here: a printed form is two pages and fetches everything anyway, and
+# leaving the ranges out means a missing slice cannot drop a glyph mid-sentence
+# on a document someone is about to sign.
+_FACES = [
+    ('Hind Siliguri', 400, 'HindSiliguri-400-0.woff2'),
+    ('Hind Siliguri', 400, 'HindSiliguri-400-2.woff2'),
+    ('Hind Siliguri', 600, 'HindSiliguri-600-0.woff2'),
+    ('Hind Siliguri', 600, 'HindSiliguri-600-2.woff2'),
+    ('Hind Siliguri', 700, 'HindSiliguri-700-0.woff2'),
+    ('Hind Siliguri', 700, 'HindSiliguri-700-2.woff2'),
+    ('Amiri', 400, 'Amiri-400-0.woff2'),
+    ('Amiri', 400, 'Amiri-400-2.woff2'),
+    ('Amiri', 700, 'Amiri-700-0.woff2'),
+]
+
+FONT_FACES = '\n'.join(
+    "@font-face {{ font-family: '%s'; font-weight: %d; font-style: normal; "
+    "font-display: swap; src: url('%s/%s') format('woff2'); }}"
+    % (family, weight, FONT_BASE, filename)
+    for family, weight, filename in _FACES
+)
+
+BANGLA_STACK = "'Hind Siliguri', 'Kohinoor Bangla', 'Noto Sans Bengali', sans-serif"
 ARABIC_STACK = "'Amiri', 'Scheherazade New', 'Traditional Arabic', serif"
 
 
 def _css(paper='A4', margins='12mm 14mm'):
     return f"""
+{FONT_FACES}
 @page {{ size: {paper}; margin: {margins}; }}
 * {{ box-sizing: border-box; }}
 body {{
