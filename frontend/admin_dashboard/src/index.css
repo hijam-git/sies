@@ -227,7 +227,7 @@
   /* Minimum touch target (`CLAUDE.md` §7a rule 4). A 24px icon button is a
      desktop-only control, and half these screens are used standing up. */
   .tap {
-    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center touch-manipulation;
+    @apply inline-flex min-h-[36px] min-w-[36px] items-center justify-center touch-manipulation sm:min-h-[32px] sm:min-w-[32px];
   }
 }
 

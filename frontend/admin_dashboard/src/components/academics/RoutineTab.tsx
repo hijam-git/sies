@@ -281,7 +281,7 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
               type="button"
               onClick={() => setScope(s.key)}
               aria-pressed={scope === s.key}
-              className={`min-h-[40px] whitespace-nowrap rounded-lg px-3 text-sm font-medium ${
+              className={`min-h-[36px] whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-colors sm:min-h-[32px] ${
                 scope === s.key
                   ? 'bg-gray-900 text-white'
                   : 'border border-gray-200 bg-white text-gray-600'
@@ -382,7 +382,7 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
                     type="button"
                     onClick={() => setDay(d.value)}
                     aria-pressed={day === d.value}
-                    className={`min-h-[44px] whitespace-nowrap rounded-lg px-4 text-sm font-medium ${
+                    className={`min-h-[36px] whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-colors sm:min-h-[32px] ${
                       day === d.value
                         ? 'bg-blue-600 text-white'
                         : 'border border-gray-200 bg-white text-gray-600'

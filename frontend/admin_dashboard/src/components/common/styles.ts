@@ -24,20 +24,31 @@ export const inputCls =
 
 export const selectCls = inputCls;
 
-/* The buttons keep their 44px at every width on purpose: a Save button is the
-   one control a mis-tap costs something, and the density win is in the fields,
-   not in the two buttons at the foot of the sheet. */
+/* Buttons are small and quiet: 32px from `sm` up, 36px on a phone, 13px text,
+   a 6px radius and a hairline shadow. The owner asked for compact buttons
+   across the whole panel (2026-09-10), which overrides the earlier 44px rule —
+   see `CLAUDE.md` §7a rule 4. The phone keeps 4px more because a thumb is
+   less precise than a cursor, and `touch-manipulation` (in `.tap`) removes
+   the double-tap delay that makes a small button feel unresponsive. */
+const btnBase =
+  'tap gap-1.5 rounded-md px-3 text-[13px] font-medium leading-none whitespace-nowrap ' +
+  'transition-[background-color,border-color,box-shadow,transform] duration-150 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1 ' +
+  'active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100';
+
 export const btnPrimary =
-  'tap gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors ' +
-  'hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50';
+  btnBase + ' bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700';
 
 export const btnSecondary =
-  'tap gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 ' +
-  'transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50';
+  btnBase + ' border border-gray-200 bg-white text-gray-700 shadow-sm shadow-gray-900/5 ' +
+  'hover:border-gray-300 hover:bg-gray-50';
 
-/* The same button, inside a table row.
-   It keeps its 44px — it is still a touch target, at every width — but from
-   `md` up it overhangs the cell's `py-2` instead of adding to it, so a row with
-   an Edit button is the same 44px tall as a row without one. Below `md` there
-   is no table: it is a card footer button and needs the whole 44px of space. */
-export const btnRowAction = btnSecondary + ' md:-my-2';
+export const btnDanger =
+  btnBase + ' border border-red-200 bg-white text-red-700 shadow-sm shadow-gray-900/5 ' +
+  'hover:border-red-300 hover:bg-red-50';
+
+/* The same button inside a table row: a notch smaller again (28px from `md`),
+   and pulled into the cell's padding so a row with an Edit button is no taller
+   than a row without one. Below `md` there is no table — it is a card footer
+   button — so it keeps the ordinary phone size. */
+export const btnRowAction = btnSecondary + ' md:-my-1 md:min-h-[28px] md:px-2.5 md:text-xs';

@@ -1,4 +1,4 @@
-import type { Resource } from '../lib/permissions';
+import type { Action, Resource } from '../lib/permissions';
 
 /**
  * The navigation model — `docs/02` §6, trimmed to what V1 actually builds.
@@ -7,12 +7,15 @@ import type { Resource } from '../lib/permissions';
  * `App` builds the route table from it. Two copies of this list would drift
  * within a phase, and the failure mode is a sidebar entry that 404s.
  *
- * **Twelve entries, flat — no sub-items.** An earlier version listed forty
- * rows, most of them V2 features `docs/05` §5.4 defers; a sidebar advertising
- * things that will never exist buries the handful of screens that do. Where a
- * section has several views they are in-page tabs (`lib/useTabParam`), which is
- * also the reference project's pattern: a tab strip shows the alternatives
- * beside what you are looking at, a nested menu hides them behind a click.
+ * **Twelve sections, most with sub-items.** A sub-item is not a new screen:
+ * it is one of the section's in-page tabs (`lib/useTabParam`), linked as
+ * `path?tab=key`. The sidebar and the tab strip are two doors to the same view,
+ * so a sub-item can never point somewhere the page does not render. Sections
+ * with one view (Staff, My routine, Institutions) have none — a group holding
+ * one row is a click that does nothing.
+ *
+ * An earlier version listed forty rows, most of them V2 features `docs/05`
+ * §5.4 defers. That rule still holds: a sub-item is only ever a tab that exists.
  *
  * Deliberately absent, and not to be re-added without a scope decision:
  * Salary · Ledger · Discounts · Notices · Grade scale · attendance reports ·
@@ -24,6 +27,18 @@ import type { Resource } from '../lib/permissions';
  * above 1 routes to `PhasePlaceholder`, which says so plainly — a link that
  * quietly goes nowhere reads as a broken product rather than an unfinished one.
  */
+
+/** One of a section's in-page tabs, offered in the sidebar. */
+export interface NavChild {
+  /** The page's `?tab=` value. Must be one the page's `useTabParam` accepts. */
+  tab: string;
+  /** English source string; the sidebar runs it through `t()`. */
+  label: string;
+  /** Shown when ANY of these passes; omitted means the parent's gate is
+   *  enough. Mirrors the page's own tab gating, so the sidebar never offers a
+   *  tab the page would silently swap for another. */
+  anyOf?: Array<[Resource, Action]>;
+}
 
 export interface NavItem {
   path: string;
@@ -43,6 +58,9 @@ export interface NavItem {
   /** Only for the platform admin — the operator of SIES, whose `user.branch` is
    *  null. An institution's own principal never sees these. */
   platformOnly?: boolean;
+  /** The section's tabs, in the page's own order. The first one the reader may
+   *  open is the page's default and links to the bare path. */
+  children?: NavChild[];
 }
 
 /** Overview sits above the rest, on its own. It is the screen nearly everybody
@@ -66,17 +84,133 @@ export const NAV_ITEMS: NavItem[] = [
     phase: 2,
     teacherOnly: true,
   },
-  { path: '/students', label: 'Students', icon: 'students', resource: 'students', phase: 2 },
-  { path: '/teachers', label: 'Teachers', icon: 'staff', resource: 'teachers', phase: 2 },
+  {
+    path: '/students',
+    label: 'Students',
+    icon: 'students',
+    resource: 'students',
+    phase: 2,
+    children: [
+      { tab: 'students', label: 'Students', anyOf: [['students', 'view']] },
+      { tab: 'admissions', label: 'Admissions', anyOf: [['admissions', 'view']] },
+    ],
+  },
+  {
+    path: '/teachers',
+    label: 'Teachers',
+    icon: 'staff',
+    resource: 'teachers',
+    phase: 2,
+    children: [
+      { tab: 'list', label: 'Teachers', anyOf: [['teachers', 'view']] },
+      { tab: 'assignments', label: 'Assignments', anyOf: [['academics', 'view']] },
+    ],
+  },
   { path: '/staff', label: 'Staff', icon: 'employees', resource: 'employees', phase: 2 },
-  { path: '/academics', label: 'Academics', icon: 'academics', resource: 'academics', phase: 2 },
-  { path: '/attendance', label: 'Attendance', icon: 'attendance', resource: 'attendance', phase: 4 },
-  { path: '/fees', label: 'Fees', icon: 'fees', resource: 'fees', phase: 3 },
-  { path: '/accounts', label: 'Accounts', icon: 'accounts', resource: 'finance', phase: 3 },
-  { path: '/exams', label: 'Exams', icon: 'exams', resource: 'exams', phase: 5 },
-  { path: '/reports', label: 'Reports', icon: 'reports', resource: 'reports', phase: 6 },
-  { path: '/settings', label: 'Settings', icon: 'settings', resource: 'settings', phase: 1 },
-  { path: '/users', label: 'Users', icon: 'users', resource: 'users', phase: 1 },
+  {
+    path: '/academics',
+    label: 'Academics',
+    icon: 'academics',
+    resource: 'academics',
+    phase: 2,
+    children: [
+      { tab: 'classes', label: 'Classes' },
+      { tab: 'sections', label: 'Sections' },
+      { tab: 'subjects', label: 'Subjects' },
+      { tab: 'routine', label: 'Routine' },
+    ],
+  },
+  {
+    path: '/attendance',
+    label: 'Attendance',
+    icon: 'attendance',
+    resource: 'attendance',
+    phase: 4,
+    children: [
+      { tab: 'register', label: 'Month register' },
+      { tab: 'class', label: 'Class attendance' },
+    ],
+  },
+  {
+    path: '/fees',
+    label: 'Fees',
+    icon: 'fees',
+    resource: 'fees',
+    phase: 3,
+    children: [
+      { tab: 'collect', label: 'Collect fee', anyOf: [['fees', 'collect']] },
+      { tab: 'invoices', label: 'Invoices' },
+      { tab: 'dues', label: 'Dues' },
+      { tab: 'setup', label: 'Fee setup', anyOf: [['fees', 'update']] },
+    ],
+  },
+  {
+    path: '/accounts',
+    label: 'Accounts',
+    icon: 'accounts',
+    resource: 'finance',
+    phase: 3,
+    children: [
+      { tab: 'income', label: 'Income' },
+      { tab: 'expenses', label: 'Expenses' },
+    ],
+  },
+  {
+    path: '/exams',
+    label: 'Exams',
+    icon: 'exams',
+    resource: 'exams',
+    phase: 5,
+    children: [
+      { tab: 'exams', label: 'Exams', anyOf: [['exams', 'view']] },
+      {
+        tab: 'marks',
+        label: 'Marks entry',
+        anyOf: [['marks', 'enter'], ['marks', 'update'], ['marks', 'view']],
+      },
+      { tab: 'results', label: 'Results', anyOf: [['exams', 'view']] },
+    ],
+  },
+  {
+    path: '/reports',
+    label: 'Reports',
+    icon: 'reports',
+    resource: 'reports',
+    phase: 6,
+    children: [
+      { tab: 'students', label: 'Students' },
+      { tab: 'attendance', label: 'Attendance' },
+      { tab: 'fees', label: 'Fees' },
+      { tab: 'finance', label: 'Accounts' },
+      { tab: 'exams', label: 'Exams' },
+    ],
+  },
+  {
+    path: '/settings',
+    label: 'Settings',
+    icon: 'settings',
+    resource: 'settings',
+    phase: 1,
+    children: [
+      { tab: 'institution', label: 'Institution' },
+      { tab: 'streams', label: 'Streams & Sessions' },
+      { tab: 'fee-categories', label: 'Fee categories' },
+      { tab: 'form-templates', label: 'Form templates' },
+      { tab: 'questions', label: 'Questions' },
+    ],
+  },
+  {
+    path: '/users',
+    label: 'Users',
+    icon: 'users',
+    resource: 'users',
+    phase: 1,
+    children: [
+      { tab: 'accounts', label: 'Accounts', anyOf: [['users', 'view']] },
+      { tab: 'roles', label: 'Roles', anyOf: [['users', 'view']] },
+      { tab: 'activity', label: 'Live activity', anyOf: [['activity', 'view']] },
+    ],
+  },
   // The operator's own screen. `platformOnly` and not just `branches.view`,
   // because a principal holds `branches.view` for their own institution's
   // settings and must still never meet the list of everybody else's.

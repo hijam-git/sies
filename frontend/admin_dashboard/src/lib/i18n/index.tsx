@@ -73,29 +73,27 @@ export function useT(): I18nContextType {
 export function LanguageToggle({ className = '' }: { className?: string }) {
   const { lang, setLang } = useT();
   return (
+    // A segmented control: a quiet grey track with the chosen language as a
+    // raised white chip. The old solid-blue half drew the eye harder than
+    // anything else in the header, for the control people touch least.
     <div
-      className={`inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs font-semibold ${className}`}
+      className={`inline-flex h-8 items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 text-xs font-semibold ${className}`}
     >
-      <button
-        type="button"
-        onClick={() => setLang('bn')}
-        className={`flex min-h-[44px] items-center px-3 transition-colors ${
-          lang === 'bn' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-        }`}
-        aria-pressed={lang === 'bn'}
-      >
-        বাংলা
-      </button>
-      <button
-        type="button"
-        onClick={() => setLang('en')}
-        className={`flex min-h-[44px] items-center px-3 transition-colors ${
-          lang === 'en' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-        }`}
-        aria-pressed={lang === 'en'}
-      >
-        EN
-      </button>
+      {(['bn', 'en'] as const).map((code) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => setLang(code)}
+          aria-pressed={lang === code}
+          className={`flex h-7 min-w-[40px] items-center justify-center rounded-md px-2.5 transition-all ${
+            lang === code
+              ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-900/5'
+              : 'text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          {code === 'bn' ? 'বাংলা' : 'EN'}
+        </button>
+      ))}
     </div>
   );
 }

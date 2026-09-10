@@ -329,7 +329,7 @@ export default function FeeSetupTab({
                         type="button"
                         onClick={() => toggleStream(s.id)}
                         aria-pressed={appliesStreams.includes(s.id)}
-                        className={`min-h-[44px] rounded-lg border px-3 text-sm font-medium ${
+                        className={`min-h-[36px] rounded-md border px-3 text-[13px] font-medium transition-colors sm:min-h-[32px] ${
                           appliesStreams.includes(s.id)
                             ? 'border-blue-600 bg-blue-50 text-blue-700'
                             : 'border-gray-200 bg-white text-gray-600'

@@ -264,7 +264,7 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
               type="button"
               onClick={() => setGrouping(g)}
               aria-pressed={grouping === g}
-              className={`min-h-[44px] px-4 text-sm font-medium transition-colors ${
+              className={`min-h-[36px] px-3 text-[13px] font-medium transition-colors sm:min-h-[32px] ${
                 grouping === g ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >

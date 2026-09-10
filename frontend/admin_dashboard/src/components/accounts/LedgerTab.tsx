@@ -608,7 +608,7 @@ function LedgerEntryModal({
                 type="file"
                 accept="image/*,application/pdf"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:min-h-[44px] file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:text-sm file:font-medium file:text-gray-700"
+                className="block w-full text-sm text-gray-600 file:mr-3 file:min-h-[32px] file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:text-[13px] file:font-medium file:text-gray-700"
               />
             </Field>
             {entry?.attachment && !file && (

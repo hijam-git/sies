@@ -373,8 +373,13 @@ leaves something broken.
    (§ below). A five-column table squeezed onto a phone is unreadable; the same
    row as a stacked card with labels is fine. Build one `<ResponsiveTable>` in
    `components/common/` and use it everywhere rather than solving this per page.
-4. **Touch targets ≥ 44px.** Buttons, checkboxes, table row actions, the
-   attendance cells. A 24px icon button is a desktop-only control.
+4. **Compact controls, still tappable.** The owner asked for small, modern
+   buttons across the whole panel (2026-09-10), replacing the earlier 44px
+   rule. Buttons are **36px on a phone, 32px from `sm`**, 13px text — take them
+   from `components/common/styles.ts` (`btnPrimary`, `btnSecondary`,
+   `btnDanger`, `btnRowAction`) or the `.tap` class, never a hand-written
+   `min-h-[44px]`. Nothing interactive goes below 28px, and the attendance
+   cells keep their own larger size: a teacher marks forty of them standing up.
 5. **Forms are single-column on phone.** Two-column field grids collapse; no
    side-by-side inputs below `sm`.
 6. **Modals are full-screen sheets on phone**, centred dialogs from `md` up.

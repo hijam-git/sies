@@ -452,7 +452,7 @@ export default function CollectFeeTab() {
               <button
                 type="button"
                 onClick={() => setAmount(selectedFee.balance)}
-                className={`${btnSecondary} min-h-[44px]`}
+                className={btnSecondary}
               >
                 {t('Full balance')} · {money(selectedFee.balance)}
               </button>
