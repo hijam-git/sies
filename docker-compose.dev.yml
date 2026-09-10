@@ -1,0 +1,199 @@
+# SIES — development stack
+#
+#   scripts/dev.sh up      →  http://localhost:5000/myadmin
+#
+# Port 5000 is Traefik's dev entrypoint and the ONLY published app port.
+# Backend, SPA, Postgres and Redis are internal-only — reaching them means
+# going through Traefik, which keeps dev honest about the routing production
+# also has to do. (Same discipline as awliaa/docker-compose.dev.yml.)
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: sies-traefik-dev
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=sies-network"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "5000:80"      # the app
+      - "8081:8080"    # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sies-network
+
+  # ── Data ────────────────────────────────────────────────────────────────
+  sies-db:
+    image: postgres:16-alpine
+    container_name: sies-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sies_dev}
+      POSTGRES_USER: ${DB_USER:-sies}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sies_dev_password}
+      TZ: Asia/Dhaka
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sies} -d ${DB_NAME:-sies_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sies-network
+
+  sies-redis:
+    image: redis:7-alpine
+    container_name: sies-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data-dev:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sies-network
+
+  # ── Backend ─────────────────────────────────────────────────────────────
+  sies-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: sies-backend-dev
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    env_file:
+      - .env.development
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings
+      DEBUG: "1"
+      DB_HOST: sies-db
+      REDIS_URL: redis://sies-redis:6379/0
+      CELERY_BROKER_URL: redis://sies-redis:6379/2
+      TZ: Asia/Dhaka
+    volumes:
+      - ./backend/app:/app          # autoreload on edit
+      - media-dev:/app/media
+    expose:
+      - "8000"
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sies-network"
+      # Backend owns /api, /admin (Django admin), /static and /media.
+      # Higher priority than the SPA's catch-all rule below.
+      - "traefik.http.routers.sies-api.rule=PathPrefix(`/api`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`)"
+      - "traefik.http.routers.sies-api.entrypoints=web"
+      - "traefik.http.routers.sies-api.priority=100"
+      - "traefik.http.services.sies-api.loadbalancer.server.port=8000"
+    networks:
+      - sies-network
+
+  sies-celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: sies-celery-worker-dev
+    restart: unless-stopped
+    command: celery -A core worker -l info -Q default,slow --concurrency=2
+    env_file:
+      - .env.development
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings
+      DB_HOST: sies-db
+      REDIS_URL: redis://sies-redis:6379/0
+      CELERY_BROKER_URL: redis://sies-redis:6379/2
+      TZ: Asia/Dhaka
+    volumes:
+      - ./backend/app:/app
+      - media-dev:/app/media
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    networks:
+      - sies-network
+
+  sies-celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: sies-celery-beat-dev
+    restart: unless-stopped
+    # The clock: monthly fee generation, nightly fines. See docs/06 §14.
+    command: celery -A core beat -l info --schedule=/tmp/celerybeat-schedule
+    env_file:
+      - .env.development
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings
+      DB_HOST: sies-db
+      REDIS_URL: redis://sies-redis:6379/0
+      CELERY_BROKER_URL: redis://sies-redis:6379/2
+      TZ: Asia/Dhaka
+    volumes:
+      - ./backend/app:/app
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    networks:
+      - sies-network
+
+  # ── Frontend ────────────────────────────────────────────────────────────
+  sies-admin:
+    build:
+      context: ./frontend/admin_dashboard
+      dockerfile: Dockerfile.dev
+    container_name: sies-admin-dev
+    restart: unless-stopped
+    # Vite dev server with HMR. base is /myadmin/ to match the SPA basename.
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    environment:
+      VITE_API_URL: /api
+      NODE_ENV: development
+    volumes:
+      - ./frontend/admin_dashboard:/app
+      - /app/node_modules            # keep the image's node_modules
+    expose:
+      - "5173"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sies-network"
+      # Catch-all: everything the backend did not claim. Includes /myadmin
+      # and the Vite HMR websocket.
+      - "traefik.http.routers.sies-admin.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.sies-admin.entrypoints=web"
+      - "traefik.http.routers.sies-admin.priority=1"
+      - "traefik.http.services.sies-admin.loadbalancer.server.port=5173"
+    networks:
+      - sies-network
+
+volumes:
+  postgres-data-dev:
+  redis-data-dev:
+  media-dev:
+
+networks:
+  sies-network:
+    name: sies-network
+    driver: bridge

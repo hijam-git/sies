@@ -1,0 +1,60 @@
+# Line endings are decided here, not by whoever's machine last wrote a file.
+#
+# This project is edited from Windows (\\wsl.localhost\...) and runs entirely in
+# Linux containers. Without this file a shell script written from the Windows
+# side reaches the container with CRLF endings and bash refuses it outright —
+# `/bin/bash^M: bad interpreter` — and `scripts/dev.sh` simply will not run.
+# Nothing in the error points at line endings, so it costs an hour to find.
+#
+# eol=lf means git stores LF and checks out LF on every platform. Shell scripts
+# are the ones that FAIL; everything else is listed because a file that flips
+# endings shows up as a whole-file diff, which buries the three lines that
+# actually changed and makes review worthless.
+#
+# Carried over from the reference project, which learned it the hard way.
+
+* text=auto eol=lf
+
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+*.py        text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+*.sql       text eol=lf
+*.toml      text eol=lf
+*.cfg       text eol=lf
+*.ini       text eol=lf
+*.env*      text eol=lf
+.env*       text eol=lf
+Dockerfile* text eol=lf
+*.conf      text eol=lf
+Makefile    text eol=lf
+
+# Binary — never normalise, never diff as text.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.otf       binary
+*.eot       binary
+*.zip       binary
+*.gz        binary
+*.tar       binary
+*.dump      binary
+*.sqlite3   binary
