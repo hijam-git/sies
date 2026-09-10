@@ -1,0 +1,52 @@
+# Build context is ./backend (see docker-compose.*.yml), so THIS file is the one
+# Docker reads — the repo-root .dockerignore never applies to this image.
+#
+# Without it, `docker build ./backend` copies a local venv, every __pycache__ and
+# any .env sitting here straight into the image: a slower build, a fatter image,
+# and secrets baked into a layer that survives even if the file is deleted later.
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local interpreters — never belongs in an image that installs from requirements.
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets. The image gets its configuration from the environment at runtime.
+.env
+.env.*
+!.env.example
+
+# Runtime data, not source. Media is a mounted volume in every environment.
+media/
+staticfiles/
+static_root/
+backups/
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+
+# Logs
+logs/
+*.log
+
+# Editor / OS noise
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

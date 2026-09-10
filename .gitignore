@@ -1,0 +1,85 @@
+# SIES — what never enters the repository.
+#
+# Line-ending policy lives in .gitattributes, not here.
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# Deny every .env, then re-allow the committed templates. Written this way round
+# on purpose: a new .env.<something> added later is ignored by default, rather
+# than committed because nobody remembered to add a line.
+.env
+.env.*
+!.env.development.example
+!.env.production.example
+
+# Traefik credentials and the ACME account key.
+traefik/traefik.env
+traefik/acme.json
+traefik/certs/
+
+# ── Data that is not source ──────────────────────────────────────────────────
+# The whole student and fee database in readable form. Committing one of these
+# publishes every record in the system.
+backups/
+*.dump
+*.sql
+*.sql.gz
+
+# Uploaded student photos and guardian documents. Private records (docs/01 §8).
+media/
+backend/media/
+
+# collectstatic output — generated at deploy time from source that IS committed.
+staticfiles/
+backend/staticfiles/
+
+logs/
+*.log
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Django's dev fallback database. There is no path on which SIES should have
+# one, so its presence is a mistake worth not compounding.
+*.sqlite3
+*.sqlite3-journal
+
+# ── Node / frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Editors and OS ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Local overrides ──────────────────────────────────────────────────────────
+# The documented way to change compose behaviour on one machine without
+# changing it for everyone.
+docker-compose.override.yml
+
+# Claude Code local state.
+.claude/
+.claude-kanban/
+
+*.tmp
+*.temp

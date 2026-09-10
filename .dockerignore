@@ -1,0 +1,81 @@
+# SIES — what never enters a build context.
+#
+# Two reasons a line is here. Either it makes the build slower (node_modules and
+# .git are the two that matter — the daemon copies the whole context before the
+# first instruction runs), or it must not end up in an image at all.
+#
+# The second kind is the important kind: an image is pushed, pulled, cached and
+# read by anyone who can run `docker run`. A .env.production baked into a layer
+# is a secret that cannot be recalled, because deleting it in a later layer
+# leaves it in the earlier one.
+#
+# SCOPE: Docker reads the .dockerignore that sits in the BUILD CONTEXT. Our two
+# contexts are ./backend and ./frontend/admin_dashboard, so each of those needs
+# its own file; this one covers builds run from the repository root and is the
+# pattern the other two should follow. If backend/.dockerignore does not exist,
+# `docker build ./backend` sends everything under backend/ — including media/
+# and any .env sitting there — into the image.
+
+# ── Must not be in an image ──────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+traefik/traefik.env
+traefik/acme.json
+backups/
+*.dump
+*.sql
+*.sql.gz
+media/
+backend/media/
+logs/
+*.log
+*.pem
+*.key
+
+# ── Slows the build down ─────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+node_modules/
+**/node_modules/
+dist/
+build/
+.vite/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Not needed at runtime ────────────────────────────────────────────────────
+# Documentation, the compose files themselves, and the deploy scripts run on the
+# HOST, not inside a container. An image that carries pull_and_deploy.sh is an
+# image that carries the ability to redeploy the system.
+docs/
+scripts/
+*.md
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+traefik/
+
+# collectstatic runs during the deploy and writes into the image's own volume;
+# a stale copy from the developer's machine would shadow it.
+staticfiles/
+backend/staticfiles/
+
+# ── Editors and OS ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

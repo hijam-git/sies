@@ -51,9 +51,9 @@ sies/
 ├── .env.development(.example)
 ├── .env.production(.example)
 ├── traefik/
-│   ├── traefik.dev.yml
-│   ├── dynamic.dev.yml
-│   └── traefik.yml              (prod)
+│   ├── dynamic/config.yml       middlewares (headers, retry, cache)
+│   ├── traefik.env.example
+│   └── README.md                routing model + why there is no traefik.yml
 ├── scripts/                     §6
 ├── backend/
 │   ├── Dockerfile / Dockerfile.dev

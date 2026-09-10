@@ -15,7 +15,7 @@ promoted into `08-decisions.md`; this file is the trail.
 |-------|----------|-------|
 | 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
 | 0b | Frontend shell — SPA ported from Awliaa myadmin | 🔄 in progress |
-| 0c | Infra — Traefik, env, scripts, prod compose | 🔄 in progress |
+| 0c | Infra — Traefik, env, scripts, prod compose | ✅ done |
 | 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ⬜ |
 | 2 | `academics` + `students` + `staff` + `forms` | ⬜ |
 | 3 | `fees` + `finance` | ⬜ |
@@ -129,6 +129,41 @@ institution before creating this. Add ?branch=&lt;id&gt; to the request."*
 **F8 — `docs/02` §3.3 pointed cross-branch reads at a `reports/` app** that
 `docs/05` §6 says is not created in V1. Corrected: platform-admin report views
 live in each module in V1.
+
+**F9 — the repo-root `.dockerignore` was inert.** Build contexts are
+`./backend` and `./frontend/admin_dashboard`, so Docker never reads a root-level
+one. Without a per-context file, `docker build ./backend` copies a local venv,
+every `__pycache__` and any stray `.env` into the image — a fatter image and
+secrets baked into a layer that survives deleting the file. Created
+`backend/.dockerignore` and `frontend/admin_dashboard/.dockerignore`, each
+saying in its header why it, and not the root file, is the one that applies.
+
+**F10 — no `traefik.yml`, deliberately.** Traefik's static-config sources (CLI
+flags, `traefik.yml`, env vars) are mutually exclusive. Both compose files
+configure it with **CLI flags** — the only form Compose interpolates
+`${ACME_EMAIL}` into — so a mounted `traefik.yml` would be silently ignored
+while looking authoritative, which is worse than absent. `CLAUDE.md` §2's layout
+listed those files; corrected to match reality, and `traefik/README.md` explains
+the choice.
+
+**F11 — backup retention is asymmetric, and correctly so.** With **no** remote
+configured, old backups are still pruned: a full disk takes Postgres down, which
+is worse than a gap in backup history. With a remote **configured but failing**,
+nothing is pruned — those local copies are all that exist. Getting this the
+obvious way round (always prune) means a week of silent copy failures ends with
+the old backups gone and nothing anywhere saying so.
+
+### Carried into Phase 1 as tasks
+
+- **Make `AUTH_USER_MODEL` unconditional** once `accounts` exists (F5).
+- **Write the management commands the deploy scripts already call:**
+  `create_admin`, `seed_categories`, `seed_demo`, and `check_schema`.
+  `pull_and_deploy.sh` detects their absence and skips — so until `check_schema`
+  and `test_migration_safety.py` exist, **the two-release column rule is
+  advisory only** and the rollback has no schema guard behind it.
+- **Rollback restores images, never the database.** That is by design, but it
+  means the column rule is the only thing standing between a rollback and a
+  broken schema. Treat the guard as load-bearing, not as a nicety.
 
 **F2 — Divergence from Awliaa, deliberate.** Awliaa stores roles as **Django
 Groups**; SIES uses the `Role` model from `docs/03` §1. Reason: the catalogue is

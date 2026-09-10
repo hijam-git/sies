@@ -1,0 +1,455 @@
+# SIES — production stack
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# but in practice always through the scripts:
+#
+#   scripts/fresh_deploy.sh       first deploy on a new server
+#   scripts/pull_and_deploy.sh    every deploy after that
+#
+# Seven containers, same shape as docker-compose.dev.yml, with four differences
+# that matter: gunicorn instead of runserver, no source bind-mount anywhere
+# (the code is baked into the image, so `git pull` alone changes nothing until
+# a rebuild), TLS on 443, and resource limits.
+#
+# TRAEFIK IS THE ONLY SERVICE THAT PUBLISHES A HOST PORT (CLAUDE.md §1).
+# Everything else is reachable only across the internal sies-network bridge.
+# Do not add a `ports:` block to any other service "just to check something" —
+# Docker writes its own iptables rules, which are consulted before ufw's, so a
+# published port is on the public internet regardless of the firewall.
+
+x-logging: &default-logging
+  # Docker never rotates the json-file driver by default; a busy container will
+  # fill the disk, and a full disk takes Postgres down with it. 20 MB × 5 is
+  # enough to debug yesterday and bounded at 100 MB per container.
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-backend-env: &backend-env
+  # Shared by backend, worker and beat. They must agree exactly: a worker with a
+  # different DB_HOST than the web tier writes to a different database and
+  # nothing complains.
+  DJANGO_SETTINGS_MODULE: core.settings
+  DEBUG: "0"
+  DB_HOST: sies-db
+  DB_PORT: "5432"
+  REDIS_URL: redis://sies-redis:6379/0
+  CELERY_BROKER_URL: redis://sies-redis:6379/2
+  CELERY_RESULT_BACKEND: redis://sies-redis:6379/2
+  TZ: Asia/Dhaka
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: sies-traefik
+    restart: unless-stopped
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    command:
+      # Static configuration lives here, in CLI flags, and nowhere else.
+      # Traefik's three static-config sources (file, TRAEFIK_* env vars, flags)
+      # are mutually exclusive — it takes one and silently ignores the rest — and
+      # flags are the only form Compose can interpolate ${ACME_EMAIL} into.
+      # See traefik/README.md for why there is no traefik.yml.
+      - "--api.dashboard=true"
+      - "--api.insecure=true"          # safe only because 8080 binds to 127.0.0.1
+      - "--ping=true"
+
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=sies-network"
+      - "--providers.file.directory=/dynamic"
+      - "--providers.file.watch=true"
+
+      - "--entrypoints.web.address=:80"
+      # Everything on :80 is redirected to :443, permanently. The ACME HTTP-01
+      # challenge still works: Traefik answers /.well-known/acme-challenge/
+      # internally, before this redirect applies.
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL must be set}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=${ACME_STORAGE:-/letsencrypt/acme.json}"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # Empty in normal operation. Point it at Let's Encrypt's staging directory
+      # while getting DNS right — untrusted certs, but no weekly rate limit.
+      - "--certificatesresolvers.letsencrypt.acme.caserver=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}"
+
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      # Access log to STDOUT, with no filepath. Traefik does not rotate its own
+      # log files, so an in-container file grows until the disk is full; on
+      # stdout it is captured by the json-file driver, which `logging:` caps.
+      - "--accesslog=true"
+      - "--global.sendanonymoususage=false"
+    ports:
+      - "80:80"
+      - "443:443"
+      # Dashboard and API. Loopback ONLY — --api.insecure=true means no auth at
+      # the transport level, and the deploy script queries this endpoint at
+      # 127.0.0.1:8080 to confirm a new container has joined the load-balancer
+      # pool before retiring the old one.
+      # From a laptop:  ssh -L 8080:localhost:8080 deploy@server
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      # Read-only: Traefik only ever watches the socket. A writable docker
+      # socket in a reachable container is root on the host.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-acme:/letsencrypt
+      - ./traefik/dynamic:/dynamic:ro
+    labels:
+      - "traefik.enable=true"
+      # The dashboard router, on its own hostname.
+      #
+      # It cannot live under a path on ${DOMAIN}: Traefik's dashboard serves
+      # itself from /dashboard/ AND /api/, and /api on this host belongs to
+      # Django. A subdomain sidesteps the collision entirely.
+      #
+      # This router is optional — nothing breaks if `traefik.${DOMAIN}` has no
+      # DNS record, and the loopback binding on 8080 remains the way the deploy
+      # script and an SSH tunnel reach it. Point the A record here only if you
+      # want the dashboard from a browser without a tunnel; basic auth and TLS
+      # are then the whole protection, which is why the hash matters.
+      #
+      # Declared as a label rather than in dynamic/config.yml because the
+      # credential hash comes from the environment, and Compose interpolates
+      # label values while the file provider interpolates nothing.
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth,secure-headers@file"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:?TRAEFIK_DASHBOARD_AUTH must be set}"
+      - "traefik.http.middlewares.traefik-auth.basicauth.removeheader=true"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 384M
+    networks:
+      - sies-network
+
+  # ── Data ────────────────────────────────────────────────────────────────
+  sies-db:
+    image: postgres:16-alpine
+    container_name: sies-db
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      # These are read ONLY when the data directory is empty. Changing
+      # DB_PASSWORD later changes what Django sends and not what Postgres
+      # expects — rotate the role with ALTER USER first.
+      POSTGRES_DB: ${DB_NAME:?DB_NAME must be set}
+      POSTGRES_USER: ${DB_USER:?DB_USER must be set}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      TZ: Asia/Dhaka
+      # Checksums turn silent disk corruption into a loud error. They cost a few
+      # percent of write throughput and can only be enabled at initdb time, so
+      # the decision is made once, here, before the cluster exists.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    # Postgres in a container gets a 64 MB /dev/shm by default, which is where
+    # hash joins and large sorts spill. A report across a year of attendance
+    # hits it and fails with "could not resize shared memory segment".
+    shm_size: 256mb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          # The floor, not a target. On a 4 GB box this is the largest single
+          # consumer and the one whose OOM kill is least recoverable — see
+          # scripts/setup_swap.sh for why swap is not optional here.
+          cpus: "2.0"
+          memory: 1536M
+    networks:
+      - sies-network
+
+  sies-redis:
+    image: redis:7-alpine
+    container_name: sies-redis
+    restart: unless-stopped
+    logging: *default-logging
+    # appendonly keeps queued tasks across a restart. Redis is a broker only
+    # (CLAUDE.md §1) but a lost queue is still a month of fees that never got
+    # generated, with nothing to say so.
+    # maxmemory-policy noeviction: a broker must never silently drop a task to
+    # make room. It should refuse the write and let Celery raise.
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 192mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - sies-network
+
+  # ── Backend ─────────────────────────────────────────────────────────────
+  sies-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sies-backend:latest
+    container_name: sies-backend
+    restart: unless-stopped
+    logging: *default-logging
+    # --access-logfile - sends gunicorn's access log to stdout, where the
+    # json-file driver rotates it. Without it, a 502 has no request line to
+    # correlate against Traefik's access log.
+    command: >
+      gunicorn core.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-3}
+      --timeout ${GUNICORN_TIMEOUT:-60}
+      --graceful-timeout 30
+      --max-requests 1000
+      --max-requests-jitter 100
+      --access-logfile -
+      --error-logfile -
+    env_file:
+      - .env.production
+    environment:
+      <<: *backend-env
+    volumes:
+      # NO source bind-mount. The code is in the image, which is what makes an
+      # image a rollback target: `git pull` changes nothing until a rebuild.
+      - media:/app/media
+      - static:/app/staticfiles
+    expose:
+      - "8000"
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sies-network"
+      # Backend owns /api, /admin (Django admin), /static and /media.
+      # Priority 100 beats the SPA's catch-all below — see traefik/README.md.
+      - "traefik.http.routers.sies-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))"
+      - "traefik.http.routers.sies-api.entrypoints=websecure"
+      - "traefik.http.routers.sies-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sies-api.priority=100"
+      - "traefik.http.routers.sies-api.middlewares=secure-headers@file,compression@file,retry@file"
+      - "traefik.http.services.sies-backend.loadbalancer.server.port=8000"
+      # Traefik keeps a server out of the pool until this check has passed once.
+      # pull_and_deploy.sh waits for exactly that transition before touching the
+      # container being replaced; without the wait the pool can be momentarily
+      # empty and Traefik answers 503 with no upstream at all.
+      - "traefik.http.services.sies-backend.loadbalancer.healthcheck.path=/api/health/"
+      - "traefik.http.services.sies-backend.loadbalancer.healthcheck.interval=3s"
+      - "traefik.http.services.sies-backend.loadbalancer.healthcheck.timeout=2s"
+      # ALLOWED_HOSTS is strict, so the health check must arrive with the real
+      # Host header or Django answers 400 and the container never joins the pool.
+      - "traefik.http.services.sies-backend.loadbalancer.healthcheck.hostname=${DOMAIN}"
+    healthcheck:
+      # Python rather than curl: the slim image has no curl, and installing one
+      # to run a healthcheck adds a package to every production image.
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/api/health/', headers={'Host': '${DOMAIN}'}), timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+    networks:
+      - sies-network
+
+  sies-celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sies-backend:latest
+    container_name: sies-celery-worker
+    restart: unless-stopped
+    logging: *default-logging
+    # Two queues on one worker: `default` for anything a user is waiting on,
+    # `slow` for report and PDF generation. One worker serves both because at
+    # this scale a second container costs more memory than the isolation is
+    # worth — but the queues stay separate so splitting them later is a compose
+    # change and not a code change.
+    # --max-tasks-per-child recycles the process periodically: a leak in a PDF
+    # library then costs a restart instead of the box.
+    command: >
+      celery -A core worker
+      -l info
+      -Q default,slow
+      --concurrency=${CELERY_CONCURRENCY:-2}
+      --max-tasks-per-child=200
+    env_file:
+      - .env.production
+    environment:
+      <<: *backend-env
+    volumes:
+      - media:/app/media
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    healthcheck:
+      # A worker that has lost its broker keeps running and looks fine. Only a
+      # ping over the broker proves it is still consuming.
+      test: ["CMD-SHELL", "celery -A core inspect ping -d celery@$$HOSTNAME | grep -q pong"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 768M
+    networks:
+      - sies-network
+
+  sies-celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sies-backend:latest
+    container_name: sies-celery-beat
+    restart: unless-stopped
+    logging: *default-logging
+    # The clock: monthly fee generation, nightly fines (docs/06 §14).
+    # The schedule file lives on a volume so beat remembers when each periodic
+    # task last ran. On an empty schedule file beat treats every task as due,
+    # so a restart on the 3rd of the month can re-fire the 1st-of-month fee run.
+    # EXACTLY ONE beat container may exist — two clocks generate two months of
+    # fees. This is why it has its own service and is never scaled.
+    command: >
+      celery -A core beat
+      -l info
+      --schedule=/beat/celerybeat-schedule
+    env_file:
+      - .env.production
+    environment:
+      <<: *backend-env
+    volumes:
+      - beat-schedule:/beat
+    depends_on:
+      sies-db:
+        condition: service_healthy
+      sies-redis:
+        condition: service_healthy
+    healthcheck:
+      # Beat has no port and no inspect interface. The best available signal is
+      # that the scheduler process is alive and the schedule file is being
+      # touched; a beat that has wedged stops updating it.
+      test: ["CMD-SHELL", "test -f /beat/celerybeat-schedule && find /beat/celerybeat-schedule -mmin -30 | grep -q ."]
+      interval: 300s
+      timeout: 10s
+      retries: 2
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+    networks:
+      - sies-network
+
+  # ── Frontend ────────────────────────────────────────────────────────────
+  sies-admin:
+    build:
+      context: ./frontend/admin_dashboard
+      dockerfile: Dockerfile
+    image: sies-admin:latest
+    container_name: sies-admin
+    restart: unless-stopped
+    logging: *default-logging
+    # `serve -s dist` — the only Node process in production (CLAUDE.md §1).
+    # -s is single-page mode: any unknown path returns index.html, which is what
+    # makes a refresh on /myadmin/students/417 work instead of 404ing.
+    command: ["serve", "-s", "dist", "-l", "3001"]
+    environment:
+      NODE_ENV: production
+      # The SPA reads its API URL from window.ENV at runtime (docs/01 §7), so
+      # one built image promotes unchanged. This is a same-origin path, not a
+      # hostname — which is why the image does not need rebuilding per domain.
+      API_URL: /api
+      TZ: Asia/Dhaka
+    expose:
+      - "3001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=sies-network"
+      # Catch-all: everything the backend did not claim, including /myadmin.
+      # Priority 1 — it must stay below the backend's 100.
+      - "traefik.http.routers.sies-admin.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.sies-admin.entrypoints=websecure"
+      - "traefik.http.routers.sies-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sies-admin.priority=1"
+      - "traefik.http.routers.sies-admin.middlewares=secure-headers@file,compression@file,retry@file"
+      - "traefik.http.services.sies-admin.loadbalancer.server.port=3001"
+      - "traefik.http.services.sies-admin.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.sies-admin.loadbalancer.healthcheck.interval=3s"
+      - "traefik.http.services.sies-admin.loadbalancer.healthcheck.timeout=2s"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - sies-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  # Uploaded student photos and guardian documents. NOT in the database, so a
+  # pg_dump alone is not a complete backup — scripts/auto_backup.sh tars this.
+  media:
+  # collectstatic output, written by the deploy and read by the same container.
+  static:
+  # Beat's "when did each task last run" state. See the beat service.
+  beat-schedule:
+  # ACME account key and certificates. Losing this volume means re-issuing, and
+  # Let's Encrypt allows five duplicate certificates per domain per week.
+  traefik-acme:
+
+networks:
+  sies-network:
+    name: sies-network
+    driver: bridge

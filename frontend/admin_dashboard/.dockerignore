@@ -1,0 +1,36 @@
+# Build context is ./frontend/admin_dashboard (see docker-compose.*.yml), so THIS
+# file is the one Docker reads — the repo-root .dockerignore never applies here.
+#
+# node_modules is the reason this matters most. Copying a host-built one into the
+# image is both enormous and wrong: it may hold binaries compiled for the host's
+# platform, which then fail inside the Linux container in ways that look like
+# application bugs. The image installs its own from package-lock.json.
+
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+
+# Build output — the image builds its own.
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Secrets. The SPA reads its API URL from window.ENV at runtime, injected by the
+# container entrypoint, precisely so no environment value is baked into a build.
+.env
+.env.*
+!.env.example
+
+# Test and lint artefacts
+coverage/
+.eslintcache
+
+# Editor / OS noise
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
