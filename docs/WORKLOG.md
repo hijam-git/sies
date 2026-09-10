@@ -14,7 +14,7 @@ promoted into `08-decisions.md`; this file is the trail.
 | Phase | Contents | State |
 |-------|----------|-------|
 | 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
-| 0b | Frontend shell — SPA ported from Awliaa myadmin | 🔄 in progress |
+| 0b | Frontend shell — SPA ported from Awliaa myadmin | ⚠️ done — responsive verified by CSS audit, not rendered (F16) |
 | 0c | Infra — Traefik, env, scripts, prod compose | ✅ done |
 | 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ⬜ |
 | 2 | `academics` + `students` + `staff` + `forms` | ⬜ |
@@ -52,14 +52,18 @@ Legend: ⬜ not started · 🔄 in progress · ✅ done · ⚠️ done with a ca
 
 ### Tasks
 
-- [ ] `backend/` — Dockerfile.dev, requirements.txt, manage.py
-- [ ] `backend/app/core/` — settings, celery, urls, wsgi/asgi, exception handler,
+- [x] `backend/` — Dockerfile.dev, requirements.txt, manage.py
+- [x] `backend/app/core/` — settings, celery, urls, wsgi/asgi, exception handler,
       middleware, base models/managers
-- [ ] `frontend/admin_dashboard/` — Vite + React 19 + Tailwind shell ported from
+- [x] `frontend/admin_dashboard/` — Vite + React 19 + Tailwind shell ported from
       Awliaa, `basename="/myadmin"`
-- [ ] `traefik/` — dev static + dynamic config
-- [ ] `.env.development.example` + `.env.development`
-- [ ] Verify the stack boots and routes
+- [x] `traefik/` — dynamic config (no static file; CLI flags, see F10)
+- [x] `.env.development.example` + `.env.development`
+- [x] Verified WITHOUT Docker: `manage.py check` clean, 16/16 core tests pass,
+      `tsc -b` + eslint + `vite build` + 7/7 vitest clean.
+- [ ] ⚠️ **Not verified: the Docker stack itself.** No Docker in this build
+      environment — `scripts/dev.sh up` has never been executed. First run on a
+      machine with Docker may surface compose/Dockerfile issues.
 
 ### Findings
 
@@ -152,6 +156,46 @@ is worse than a gap in backup history. With a remote **configured but failing**,
 nothing is pruned — those local copies are all that exist. Getting this the
 obvious way round (always prune) means a week of silent copy failures ends with
 the old backups gone and nothing anywhere saying so.
+
+**F12 — three gaps in the permission catalogue, found by building the UI
+against it.** All three are now fixed in `docs/02` §2.1, and Phase 1's backend
+catalogue must match:
+
+- **No resource covered Academics at all.** Classes, sections, subjects,
+  sessions, streams and the routine had nothing to gate on, and were being
+  mapped onto `settings` by inference. Added `academics` (view/create/update/
+  delete), and added `academics.view` to the Teacher and Accountant presets.
+- **`marks` had no `view` action**, so a literal `canView('marks')` would have
+  hidden Marks entry from the only role that uses it. Added `marks.view` rather
+  than special-casing the resource in `canView()` — a fallback that says "any
+  action counts as view" is the kind of rule that later hides a real bug.
+- **`settings` and `academics` overlapped** ("sessions, fee structures").
+  Redescribed so each resource owns one thing.
+
+**F13 — the nav in `docs/02` §6 listed Notices → SMS, which `docs/08` §7 puts in
+V2.** The scope authority wins; the row is omitted rather than shipped as a
+placeholder that never fills in. Both docs now agree.
+
+**F14 — `overflow-x: clip`, not `hidden`, on `html, body`.** `hidden` creates a
+scroll container, which silently breaks `position: sticky` on descendants —
+and the attendance register's frozen first column (`CLAUDE.md` §7a) depends on
+exactly that. Worth knowing before the register is built, because the symptom
+would appear months later and look unrelated.
+
+**F15 — the API error-code vocabulary is a contract, and nothing defined it.**
+The SPA's `apiErrors.ts` maps codes to Bangla/English messages, so Phase 1's
+exception handler must emit exactly these or the UI falls back to a generic
+message: `invalid_phone` · `invalid_credentials` · `account_inactive` ·
+`permission_denied` · `not_found` · `out_of_scope` · `fee_already_paid` ·
+`attendance_window_closed` · `results_published` · `duplicate` ·
+`protected_reference`. **Phase 1 task: make the backend emit these**, and treat
+the list as shared — adding a code means adding its two translations.
+
+**F16 — responsiveness is verified by CSS audit, not by rendering.** No browser
+is available in this environment, so the four widths (360/390/768/1280) were
+checked by confirming the emitted classes exist in the build, not by looking at
+a page. **A rendered pass on a real device toolbar is still owed** before the UI
+is called finished. Recorded rather than glossed over.
 
 ### Carried into Phase 1 as tasks
 
