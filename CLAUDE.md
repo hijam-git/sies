@@ -35,6 +35,7 @@ table, stop and ask — the answer is usually that V1 does it a simpler way, and
 | **Clients never send `branch`** | It is stamped server-side from `request.branch`. A `branch` in a POST body is ignored. |
 | **SPA basename is `/myadmin`** | Copied from Awliaa (§3). Traefik routes `/myadmin` → SPA, `/api` → backend. |
 | **Dev runs on port 5000** | Traefik's dev entrypoint. `http://localhost:5000/myadmin`. |
+| **100% mobile responsive** | Every screen, no exceptions. See §7a — this is a hard requirement, not a polish pass. |
 
 ---
 
@@ -306,6 +307,94 @@ re-seeds.
 
 ---
 
+## 7a. Mobile responsiveness — a hard requirement
+
+**Every screen must work on a 360px-wide phone.** Not "degrade acceptably" —
+*work*. This is not a polish pass at the end; a screen that is not responsive is
+not finished.
+
+The reason is concrete: **a teacher takes attendance on their phone.** They are
+standing in front of a class, not sitting at a desk. The teacher's dashboard,
+the class roster and the attendance screens are phone-first by nature, and an
+accountant checking a student's dues at the counter is often on a phone too.
+
+### Breakpoints
+
+Tailwind defaults, mobile-first. Write the phone layout, then widen:
+
+```
+base   → 360–639px   phone
+sm     → 640px       large phone / small tablet
+md     → 768px       tablet
+lg     → 1024px      laptop — the sidebar appears here
+xl     → 1280px      desktop
+```
+
+Never write a `lg:`-first layout and patch the phone case afterwards; it always
+leaves something broken.
+
+### The rules
+
+1. **The body never scrolls horizontally.** Any wide thing — a table, a grid, a
+   code block, a diagram — scrolls inside its own `overflow-x-auto` container.
+2. **Sidebar becomes a drawer** below `lg`. Hamburger in the header, slide-over
+   panel, backdrop, closes on route change and on Escape. This is Awliaa's
+   pattern; keep it.
+3. **Tables become cards** below `md`, unless they are genuinely grid-shaped
+   (§ below). A five-column table squeezed onto a phone is unreadable; the same
+   row as a stacked card with labels is fine. Build one `<ResponsiveTable>` in
+   `components/common/` and use it everywhere rather than solving this per page.
+4. **Touch targets ≥ 44px.** Buttons, checkboxes, table row actions, the
+   attendance cells. A 24px icon button is a desktop-only control.
+5. **Forms are single-column on phone.** Two-column field grids collapse; no
+   side-by-side inputs below `sm`.
+6. **Modals are full-screen sheets on phone**, centred dialogs from `md` up.
+   `BaseModal` handles this once, for everyone.
+7. **No fixed pixel widths** on layout containers. No `min-width` that exceeds
+   360px. Use `max-w-*`, flex and grid.
+8. **Font size ≥ 16px on inputs** — anything smaller makes iOS Safari zoom on
+   focus, which throws the layout.
+9. **Bottom-safe padding** so a fixed action bar clears the phone's home
+   indicator.
+
+### The three hard screens, and how each solves it
+
+These are grid-shaped and cannot become cards. Each needs a real answer, not a
+scrollbar and a shrug.
+
+**Attendance month register** (`docs/02` §4.4) — 31 columns of cells.
+- **Freeze the first column** (student ID + name) with `position: sticky; left: 0`
+  and let the day columns scroll horizontally.
+- Below `md`, **default to a single-day view** — a vertical list of students for
+  one date, with prev/next day arrows — and offer the full month grid behind a
+  "grid view" toggle for anyone who wants to pinch and scroll. The single-day
+  list is what a teacher actually wants on a phone anyway.
+- Keep the day-header bulk action ("mark whole day present") reachable in both.
+
+**Marks entry** — one class × one subject.
+- Sticky student column, one input per row. This one is naturally narrow, so a
+  vertical list works on phone with no separate mode.
+- Numeric keypad: `inputMode="numeric"`.
+
+**Teacher's today board** (`08` D7) — already a vertical list of period cards.
+Phone-first by construction; just make sure the **Take attendance** button is
+full-width and thumb-reachable on small screens.
+
+### Printable forms are the one exception
+
+`docs/07`'s admission form is fixed A4 by design — that is the point of it. On a
+phone it renders inside a horizontally scrollable, pinch-zoomable preview
+container, with a full-width **Print** button. The *page* stays A4; the *preview*
+is responsive.
+
+### Verifying
+
+Check at **360px** (small Android), **390px** (iPhone), **768px** (tablet) and
+**1280px**. A screen is not done until all four are correct. Test with the
+browser devtools device toolbar; do not assume Tailwind classes did the job.
+
+---
+
 ## 8. Working rules for the agent
 
 1. **Read `docs/05` before starting any task.** If the task needs a V2 table,
@@ -352,15 +441,58 @@ The rules:
 
 Same principle for manual checks: verify one endpoint with `curl` or one screen
 in the browser, not a click-through of the entire dashboard.
-5. **Never invent a field.** If `docs/03` does not list it and it is needed, say
+5. **Commit when a section is done.** Not per file, not once per phase — one
+   commit per coherent, working unit of work. See §8a.
+6. **Never invent a field.** If `docs/03` does not list it and it is needed, say
    so and update the doc in the same change. The docs and the models must not
    drift.
-6. **Do not add a package** without saying why. This project's dependency list
+7. **Do not add a package** without saying why. This project's dependency list
    should stay short enough to read.
-7. **Match the surrounding code.** Awliaa's comment style explains *why*, not
+8. **Match the surrounding code.** Awliaa's comment style explains *why*, not
    *what* — follow it. A comment restating the line above it is noise.
-8. **Bangla and English** on every user-facing string, through `lib/i18n`. Not
+9. **Bangla and English** on every user-facing string, through `lib/i18n`. Not
    retrofitted later.
+
+### 8a. Committing
+
+**One commit per coherent, working section.** Not per file — that buries the
+change in noise. Not once per phase — that produces a commit nobody can review
+or revert.
+
+A section is committable when it **works and its narrow tests pass** (§4a). For
+example, within Phase 1: the `User` model + phone auth is one commit; the
+permission catalogue + `Role` is another; branch seeding is a third.
+
+```
+git add <the files for this section>      # explicit paths, never -A blindly
+scripts/dev.sh test <that module>          # must be green BEFORE committing
+git commit
+```
+
+**Message format** — subject in the imperative under ~65 characters, blank line,
+then a body explaining *why* this shape and anything a reviewer would otherwise
+have to reconstruct. Match the style of the existing commits.
+
+```
+Add User model with phone-number authentication
+
+USERNAME_FIELD is phone, normalised to canonical 01XXXXXXXXX on save,
+so +880/880/dashed forms all resolve to one account. Phone is globally
+unique rather than per-branch: a teacher moving institution keeps their
+login and their history.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+```
+
+Every commit message ends with that `Co-Authored-By` line.
+
+**Never commit:** `.env.development`, `.env.production`, any real secret, any
+`__pycache__`, `node_modules`, `dist`, `media/`, or a migration that has not been
+run. Check `git status` before staging; do not `git add -A` while another agent
+may be mid-write.
+
+**Do not commit a broken section** to "save progress". A commit is a claim that
+this state works.
 
 ### Definition of done for a module
 
@@ -371,7 +503,9 @@ in the browser, not a click-through of the entire dashboard.
 - [ ] Branch-isolation test passes (404 for another branch's row)
 - [ ] Registered in Django admin for debugging
 - [ ] Frontend page, sidebar entry, `canView()` gate
-- [ ] Both languages present
+- [ ] Both languages present (bn + en)
+- [ ] **Responsive at 360px, 390px, 768px, 1280px** (§7a)
+- [ ] Committed, with its narrow tests green (§8a)
 - [ ] `docs/03` updated if anything changed
 
 ---
