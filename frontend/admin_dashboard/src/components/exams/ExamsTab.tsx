@@ -271,10 +271,7 @@ export default function ExamsTab({ data }: { data: ExamsData }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-500">
-          {t('An exam, the classes that sit it, and its paper-by-paper schedule.')}
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {mayCreate && (
           <button type="button" onClick={() => openExam(null)} className={btnPrimary}>
             {t('New exam')}

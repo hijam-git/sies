@@ -16,8 +16,6 @@ const fees: Record<string, string> = {
   Invoices: 'বিলসমূহ',
   Dues: 'বকেয়া',
   'Fee setup': 'ফি খাত',
-  'Take money at the counter, and see what is still owed.':
-    'কাউন্টারে টাকা নিন, আর কার কত বকেয়া আছে দেখুন।',
   'You may look at fees but not collect them.':
     'আপনি ফি দেখতে পারবেন, কিন্তু আদায় করতে পারবেন না।',
 
@@ -46,8 +44,6 @@ const fees: Record<string, string> = {
 
   // ── Collect fee ───────────────────────────────────────────────────────
   'Find the student': 'শিক্ষার্থী খুঁজুন',
-  'Search by name, mobile number or admission number.':
-    'নাম, মোবাইল নম্বর বা ভর্তি নম্বর দিয়ে খুঁজুন।',
   'Name, mobile or admission number': 'নাম, মোবাইল বা ভর্তি নম্বর',
   'Search students': 'শিক্ষার্থী খুঁজুন',
   'Searching…': 'খোঁজা হচ্ছে…',

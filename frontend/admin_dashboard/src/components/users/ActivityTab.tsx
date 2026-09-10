@@ -59,10 +59,7 @@ export default function ActivityTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-500">
-          {t('State changes and logins, as they happen. Never page views.')}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 text-sm text-gray-600">
             <span

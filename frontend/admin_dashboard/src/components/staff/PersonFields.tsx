@@ -24,7 +24,7 @@ export default function PersonFields({
   const set = (patch: Partial<PersonDraft>) => onChange({ ...draft, ...patch });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <FieldGrid>
         <Field label={t('Name (English)')} error={errors.name} required>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} />
@@ -131,7 +131,7 @@ export default function PersonFields({
       </FieldGrid>
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('Address')}</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('Address')}</h3>
         <FieldGrid>
           <Field label={t('Village / area')} error={errors.village}>
             <input value={draft.village} onChange={(e) => set({ village: e.target.value })} className={inputCls} />
@@ -158,7 +158,7 @@ export default function PersonFields({
       </section>
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('Pay')}</h3>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('Pay')}</h3>
         <FieldGrid>
           <Field label={t('Basic salary')} error={errors.basic_salary}>
             <input
@@ -205,7 +205,7 @@ export default function PersonFields({
       </section>
 
       <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           {t('Emergency contact')}
         </h3>
         <FieldGrid>
@@ -226,7 +226,8 @@ export default function PersonFields({
             />
           </Field>
           <FieldWide>
-            <label className="flex min-h-[44px] items-center gap-3">
+            {/* 44px tall on a phone (§7a rule 4), no taller than a field above it. */}
+            <label className="flex min-h-[44px] items-center gap-3 sm:min-h-[36px]">
               <input
                 type="checkbox"
                 checked={draft.is_active}

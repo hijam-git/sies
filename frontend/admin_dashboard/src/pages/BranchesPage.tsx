@@ -206,13 +206,10 @@ export default function BranchesPage() {
   const filtering = Boolean(search || typeFilter || activeFilter);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Institutions')}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {t('Every school, madrasah and college on the platform.')}
-          </p>
         </div>
         {can('branches', 'create') && (
           <button type="button" onClick={openCreate} className={`${btnPrimary} w-full sm:w-auto`}>

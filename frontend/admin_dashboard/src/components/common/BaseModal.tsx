@@ -83,8 +83,12 @@ export default function BaseModal({
         >
           {/* Sticky, because on a phone this header is the only thing telling
               the user what they are filling in once the form scrolls. */}
-          <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-white px-4 py-3 md:rounded-t-2xl md:border-0 md:px-6 md:pb-4 md:pt-6">
-            <h2 className="min-w-0 truncate text-lg font-bold text-gray-900 md:text-2xl">{title}</h2>
+          {/* Compact from `md` up: a 24px title and 24px of padding above it
+              spent a tenth of a laptop dialog on saying what the user just
+              clicked. The phone sheet keeps its own padding — there the header
+              is the only context once the form scrolls. */}
+          <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-white px-4 py-2 md:rounded-t-2xl md:border-0 md:px-5 md:pb-2 md:pt-4">
+            <h2 className="min-w-0 truncate text-base font-bold text-gray-900 md:text-lg">{title}</h2>
             {showCloseButton && (
               <button
                 onClick={onClose}
@@ -106,14 +110,14 @@ export default function BaseModal({
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:pb-6 md:pt-0">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5 md:pb-4 md:pt-0">
             {children}
           </div>
 
           {footer && (
             // pb-safe clears the phone's home indicator; without it the Save
             // button sits under the gesture bar and cannot be tapped.
-            <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3 pb-safe md:rounded-b-2xl md:px-6">
+            <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-2 pb-safe md:rounded-b-2xl md:px-5">
               {footer}
             </div>
           )}

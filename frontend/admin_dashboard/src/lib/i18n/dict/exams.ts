@@ -5,10 +5,6 @@
 // entering marks says নম্বর তোলা.
 const exams: Record<string, string> = {
   'Exams': 'পরীক্ষা',
-  'Exams and their schedule, marks entry, and results.':
-    'পরীক্ষা ও সময়সূচি, নম্বর এন্ট্রি এবং ফলাফল।',
-  'An exam, the classes that sit it, and its paper-by-paper schedule.':
-    'একটি পরীক্ষা, অংশগ্রহণকারী শ্রেণিসমূহ এবং বিষয়ভিত্তিক সময়সূচি।',
   'New exam': 'নতুন পরীক্ষা',
   'Edit exam': 'পরীক্ষা সম্পাদনা',
   'No exams yet.': 'কোনো পরীক্ষা নেই।',

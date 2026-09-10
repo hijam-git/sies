@@ -75,12 +75,9 @@ export default function StudentsPage() {
   const active = tabs.some((x) => x.key === tab) ? tab : tabs[0].key;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header>
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Students')}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('Who is on the roll, and who is applying to be.')}
-        </p>
       </header>
 
       <TabStrip tabs={tabs} active={active} onChange={setTab} />

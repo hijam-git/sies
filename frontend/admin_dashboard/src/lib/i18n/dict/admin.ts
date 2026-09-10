@@ -7,8 +7,6 @@
 const admin: Record<string, string> = {
   // ── Institutions ────────────────────────────────────────────────────────
   'Institutions': 'প্রতিষ্ঠান',
-  'Every school, madrasah and college on the platform.':
-    'প্ল্যাটফর্মের সব স্কুল, মাদ্রাসা ও কলেজ।',
   'Add institution': 'প্রতিষ্ঠান যোগ করুন',
   'Edit institution': 'প্রতিষ্ঠান সম্পাদনা',
   'Institution created': 'প্রতিষ্ঠান তৈরি হয়েছে',
@@ -72,7 +70,6 @@ const admin: Record<string, string> = {
   'This institution is open': 'এই প্রতিষ্ঠানটি চালু আছে',
 
   // ── Settings ────────────────────────────────────────────────────────────
-  'What this institution is, and how it runs.': 'প্রতিষ্ঠানটি কী, আর কীভাবে চলে।',
   'Streams & Sessions': 'বিভাগ ও শিক্ষাবর্ষ',
   'Choose an institution in the header to edit its settings.':
     'সেটিংস বদলাতে উপরের তালিকা থেকে একটি প্রতিষ্ঠান বাছুন।',
@@ -91,10 +88,6 @@ const admin: Record<string, string> = {
   'Order': 'ক্রম',
   'Current': 'চলমান',
   'Make current': 'চলমান করুন',
-  'The study sectors this institution runs. The Bangla name is your own wording.':
-    'এই প্রতিষ্ঠানের পড়াশোনার বিভাগসমূহ। বাংলা নামটি আপনাদের নিজস্ব বানানে লিখুন।',
-  'Academic years. One is current, and every new record defaults to it.':
-    'শিক্ষাবর্ষ। একটি চলমান থাকে, আর নতুন সব তথ্য সেটিই ধরে নেয়।',
   'Lower case, unique here. Other records point at it.':
     'ছোট হাতের অক্ষরে, এখানে অনন্য। অন্য তথ্য এটির দিকে নির্দেশ করে।',
   'Your institution’s own spelling': 'আপনাদের প্রতিষ্ঠানের নিজস্ব বানান',
@@ -111,10 +104,6 @@ const admin: Record<string, string> = {
   // ── Accounts ────────────────────────────────────────────────────────────
   'Accounts': 'অ্যাকাউন্ট',
   'Roles': 'রোল',
-  'Who can sign in, what they may do, and what they have done.':
-    'কারা লগইন করতে পারেন, কী করতে পারেন, আর কী করেছেন।',
-  'Everyone who can sign in. The phone number is the login.':
-    'যাঁরা লগইন করতে পারেন। ফোন নম্বরই লগইন।',
   'Add account': 'অ্যাকাউন্ট যোগ করুন',
   'Edit account': 'অ্যাকাউন্ট সম্পাদনা',
   'Search by name or phone': 'নাম বা ফোন দিয়ে খুঁজুন',
@@ -187,8 +176,6 @@ const admin: Record<string, string> = {
   'System preset': 'সিস্টেম ছক',
   'People on it': 'যতজন আছেন',
   'This role can be assigned': 'এই রোলটি দেওয়া যাবে',
-  'A role ticks a set of boxes. The boxes are what gets enforced.':
-    'রোল কিছু ঘর টিক দেয়। যা কার্যকর হয় তা হলো ঘরগুলোই।',
   'This is a system preset.': 'এটি একটি সিস্টেম ছক।',
   'Its name cannot change — the seed and every account on it refer to the preset by name — and it cannot be deleted while people are on it. You can still adjust its permissions, or switch it off to retire it.':
     'এর নাম বদলানো যায় না — সিস্টেম ও এই ছকে থাকা প্রতিটি অ্যাকাউন্ট নাম ধরেই একে চেনে — আর কেউ এতে থাকলে মোছাও যায় না। তবে অনুমতিগুলো বদলাতে পারেন, কিংবা বন্ধ করে দিতে পারেন।',
@@ -206,8 +193,6 @@ const admin: Record<string, string> = {
   'new': 'নতুন',
   'new entries are waiting. Tap to show them.':
     'নতুন এন্ট্রি অপেক্ষা করছে। দেখতে চাপুন।',
-  'State changes and logins, as they happen. Never page views.':
-    'যা কিছু বদলায় আর যাঁরা লগইন করেন, সঙ্গে সঙ্গে। কে কোন পাতা দেখলেন তা নয়।',
   'Money entries are tinted; failed logins and permission changes are flagged.':
     'টাকার এন্ট্রি রঙিন; ব্যর্থ লগইন ও অনুমতির পরিবর্তন আলাদা করে চিহ্নিত।',
   'All institutions': 'সব প্রতিষ্ঠান',

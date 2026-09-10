@@ -270,8 +270,7 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">{t('Everyone who teaches. Their classes are set on the Assignments tab.')}</p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {mayCreate && (
           <button type="button" onClick={openCreate} className={btnPrimary}>
             {t('Add teacher')}

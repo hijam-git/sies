@@ -60,7 +60,7 @@ export default function BranchForm({
   };
 
   return (
-    <form id="branch-form" onSubmit={handleSubmit} className="space-y-5">
+    <form id="branch-form" onSubmit={handleSubmit} className="space-y-4">
       <FormError message={formError} />
 
       <FieldGrid>
@@ -207,7 +207,7 @@ export default function BranchForm({
           </button>
 
           {policyOpen && (
-            <div className="space-y-5 border-t border-gray-100 p-4">
+            <div className="space-y-4 border-t border-gray-100 p-3 sm:p-4">
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -289,7 +289,7 @@ export default function BranchForm({
 
               <div>
                 <p className="mb-2 text-sm font-medium text-gray-700">{t('Late fee rule')}</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
                   <Field label={t('Per day')}>
                     <input
                       className={inputCls}

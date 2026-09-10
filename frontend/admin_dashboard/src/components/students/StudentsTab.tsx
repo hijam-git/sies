@@ -239,10 +239,7 @@ export default function StudentsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          {t('The roll. A student’s class comes from the session’s register, not from their record.')}
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {mayCreate && (
           <button type="button" onClick={() => setFormTarget(null)} className={btnPrimary}>
             {t('Add student')}

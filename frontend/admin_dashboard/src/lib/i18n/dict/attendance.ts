@@ -8,7 +8,6 @@ const attendance: Record<string, string> = {
   'Another class': 'অন্য ক্লাস',
   'Now': 'এখন',
   'Attendance': 'হাজিরা',
-  'The month register, and one period at a time.': 'মাসিক হাজিরা খাতা, এবং পিরিয়ড ধরে হাজিরা।',
   'Month register': 'মাসিক খাতা',
   'Class attendance': 'ক্লাস হাজিরা',
   'Could not load the register.': 'হাজিরা খাতা লোড করা যায়নি।',

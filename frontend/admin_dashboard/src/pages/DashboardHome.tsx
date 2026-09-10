@@ -213,17 +213,13 @@ export default function DashboardHome() {
   const taka = (v: string | null) => (v === null ? '—' : toBanglaDigits(formatBDTExact(v)));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header>
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
           {t('Assalamu alaikum')}
           {user?.name_bn || user?.name ? `, ${user.name_bn || user.name}` : ''}
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {platformWide ? t('Here is the platform today.') : t('Here is your institution today.')}
-          {' · '}
-          {formatDhakaDate(todayInDhaka())}
-        </p>
+        <p className="mt-1 text-sm text-gray-500">{formatDhakaDate(todayInDhaka())}</p>
       </header>
 
       {/* The figures phase 1 can actually answer. Kept above the phase 2–4

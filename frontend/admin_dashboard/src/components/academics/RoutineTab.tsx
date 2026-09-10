@@ -256,12 +256,6 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
 
   return (
     <div className="space-y-4">
-      {/* One line, not a paragraph: the reader needs to know that this grid is
-          what a teacher's day board and the attendance screens are built from. */}
-      <p className="text-sm text-gray-500">
-        {t('The routine is what a teacher’s day board shows and what attendance is taken against.')}
-      </p>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label={t('Session')}>
           <Picker

@@ -67,18 +67,22 @@ function ResourceRow({
     return (
       <label
         key={action}
-        className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 ${
+        /* 44px on a phone, where this is an accordion with room for it
+           (§7a rule 4). From `md` the row is nineteen resources deep and the
+           checkbox is a mouse target, so 28px — that is what turns the grid
+           from a scroll into a screenful. */
+        className={`flex min-h-[44px] items-center gap-2 rounded-lg px-2 md:min-h-[28px] md:px-1 ${
           readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-gray-50'
         }`}
       >
         <input
           type="checkbox"
-          className="h-5 w-5 shrink-0 rounded border-gray-300 text-blue-600 disabled:opacity-60"
+          className="h-5 w-5 shrink-0 rounded border-gray-300 text-blue-600 disabled:opacity-60 md:h-4 md:w-4"
           checked={selected.has(permission)}
           disabled={readOnly}
           onChange={() => onToggle(permission)}
         />
-        <span className="text-sm text-gray-800">{t(actionLabel(action))}</span>
+        <span className="truncate text-sm text-gray-800 md:text-[13px]">{t(actionLabel(action))}</span>
       </label>
     );
   };
@@ -126,25 +130,30 @@ function ResourceRow({
       </div>
 
       {/* ── md and up: label, hint, actions in a row ──────────────────── */}
-      <div className="hidden gap-4 p-3 md:flex">
+      <div className="hidden items-start gap-3 px-3 py-1.5 md:flex">
         <div className="w-56 shrink-0">
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-[13px] font-medium leading-5 text-gray-900">
             {bn ? resource.label_bn || resource.label : resource.label}
           </p>
-          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+          <p className="text-xs leading-snug text-gray-500">
             {bn ? resource.hint_bn || resource.hint : resource.hint}
           </p>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => onToggleAll(resource, !allOn)}
-              className="mt-1 text-xs font-medium text-blue-700 hover:underline"
-            >
-              {allOn ? t('Clear all') : t('Select all')}
-            </button>
-          )}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">{resource.actions.map(checkbox)}</div>
+        {/* A fixed column grid, not a wrapping row: with `flex-wrap` the
+            Delete box of one resource landed under the View box of the next,
+            and a matrix whose columns do not line up cannot be read down. */}
+        <div className="grid min-w-0 flex-1 grid-cols-5 gap-x-2">{resource.actions.map(checkbox)}</div>
+        {/* At the end of the row rather than under the label: as a third line
+            in the label column it added its own height to all nineteen rows. */}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => onToggleAll(resource, !allOn)}
+            className="w-16 shrink-0 text-right text-xs font-medium text-blue-700 hover:underline"
+          >
+            {allOn ? t('Clear all') : t('Select all')}
+          </button>
+        )}
       </div>
     </div>
   );

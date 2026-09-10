@@ -251,10 +251,7 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          {t('A class belongs to one stream and one session — the same name in a new year is a new class.')}
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {mayCreate && (
           <button type="button" onClick={openCreate} className={btnPrimary}>
             {t('Add class')}

@@ -273,9 +273,6 @@ export default function StreamsSessionsTab({ branchId }: { branchId: number | nu
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-900">{t('Streams')}</h2>
-            <p className="text-sm text-gray-500">
-              {t('The study sectors this institution runs. The Bangla name is your own wording.')}
-            </p>
           </div>
           {mayCreate && (
             <button
@@ -308,9 +305,6 @@ export default function StreamsSessionsTab({ branchId }: { branchId: number | nu
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-900">{t('Sessions')}</h2>
-            <p className="text-sm text-gray-500">
-              {t('Academic years. One is current, and every new record defaults to it.')}
-            </p>
           </div>
           {mayCreate && (
             <button

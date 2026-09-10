@@ -8,8 +8,6 @@ const staff: Record<string, string> = {
   'Assignments': 'দায়িত্ব বণ্টন',
 
   // ── Teachers ───────────────────────────────────────────────────────────
-  'Everyone who teaches. Their classes are set on the Assignments tab.':
-    'যারা পড়ান। তাদের শ্রেণি নির্ধারিত হয় দায়িত্ব বণ্টন ট্যাবে।',
   'Add teacher': 'শিক্ষক যোগ করুন',
   'Edit teacher': 'শিক্ষক সম্পাদনা',
   'No teachers yet.': 'কোনো শিক্ষক নেই।',
@@ -32,8 +30,6 @@ const staff: Record<string, string> = {
   'Could not delete this qualification.': 'যোগ্যতাটি মুছে ফেলা যায়নি।',
 
   // ── Employees ──────────────────────────────────────────────────────────
-  'The office, the kitchen, the guard — everyone who is not a teacher.':
-    'অফিস, রান্নাঘর, প্রহরী — যারা শিক্ষক নন।',
   'Add employee': 'কর্মচারী যোগ করুন',
   'Edit employee': 'কর্মচারী সম্পাদনা',
   'No employees yet.': 'কোনো কর্মচারী নেই।',

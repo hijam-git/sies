@@ -83,7 +83,7 @@ export default function TeacherDashboard() {
   const taken = periods.filter((p) => p.state === 'taken').length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Today’s classes')}</h1>

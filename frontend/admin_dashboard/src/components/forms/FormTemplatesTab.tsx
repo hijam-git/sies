@@ -272,9 +272,6 @@ export default function FormTemplatesTab() {
             <h2 className="text-base font-semibold text-gray-900">
               {editing.name_bn || editing.name}
             </h2>
-            <p className="text-sm text-gray-500">
-              {t('An ordered list of blocks. This is what prints, top to bottom.')}
-            </p>
           </div>
           <button type="button" onClick={() => setEditing(null)} className={btnSecondary}>
             {t('Back to the list')}

@@ -63,8 +63,6 @@ const forms: Record<string, string> = {
   'Could not set the default form.': 'ডিফল্ট ফরম নির্ধারণ করা যায়নি।',
   'The printed forms this institution issues. Editing the pledge text here changes what prints — no developer, no deploy.':
     'এই প্রতিষ্ঠান যেসব ফরম ছাপে। এখানে অঙ্গিকারনামার লেখা বদলালেই ছাপার ফরম বদলে যায় — কোনো ডেভেলপার লাগে না।',
-  'An ordered list of blocks. This is what prints, top to bottom.':
-    'ব্লকের ক্রমিক তালিকা। উপর থেকে নিচে ঠিক এভাবেই ছাপা হয়।',
   'Save and refresh the preview': 'সংরক্ষণ করে প্রিভিউ হালনাগাদ করুন',
   'The preview shows the saved template, rendered by the server — blank, the way the stack is printed.':
     'প্রিভিউতে সংরক্ষিত টেমপ্লেটটি সার্ভার থেকেই আসে — খালি অবস্থায়, যেভাবে স্তূপ করে ছাপা হয়।',
@@ -150,8 +148,6 @@ const forms: Record<string, string> = {
   'Could not save this question.': 'এই প্রশ্নটি সংরক্ষণ করা যায়নি।',
   'Could not delete this question.': 'এই প্রশ্নটি মুছে ফেলা যায়নি।',
   'Could not save the new order.': 'নতুন ক্রম সংরক্ষণ করা যায়নি।',
-  'What the form asks beyond name and address. Each section prints as one block of the template.':
-    'নাম-ঠিকানার বাইরে ফরম যা যা জিজ্ঞাসা করে। প্রতিটি অংশ টেমপ্লেটের একটি ব্লক হয়ে ছাপে।',
   'Question (Bangla)': 'প্রশ্ন (বাংলা)',
   'Question (English)': 'প্রশ্ন (ইংরেজি)',
   'Short text': 'সংক্ষিপ্ত উত্তর',

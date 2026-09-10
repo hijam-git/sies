@@ -371,10 +371,7 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-500">
-          {t('Everyone who can sign in. The phone number is the login.')}
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {mayCreate && (
           <button type="button" onClick={openCreate} className={`${btnPrimary} w-full sm:w-auto`}>
             {t('Add account')}

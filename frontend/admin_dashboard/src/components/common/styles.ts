@@ -8,15 +8,25 @@
  * `text-base` on inputs is not cosmetic: anything under 16px makes iOS Safari
  * zoom on focus, which throws the whole layout off (`CLAUDE.md` §7a rule 8).
  * `min-h-[44px]` is rule 4 — half these screens are used standing up.
+ *
+ * **Both of those constraints are about phones, so they are the base classes
+ * and only the base classes.** From `sm` up there is a mouse, no zoom-on-focus
+ * and a screen with room to show a whole record at once, so the control gets
+ * denser: 36px tall, 14px text, tighter padding. Same deliberate split as
+ * `filterInputCls` in `FilterBar`.
  */
 
 export const inputCls =
   'w-full min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-base ' +
+  'sm:min-h-[36px] sm:px-2.5 sm:py-1 sm:text-sm ' +
   'text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none ' +
   'focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500';
 
 export const selectCls = inputCls;
 
+/* The buttons keep their 44px at every width on purpose: a Save button is the
+   one control a mis-tap costs something, and the density win is in the fields,
+   not in the two buttons at the foot of the sheet. */
 export const btnPrimary =
   'tap gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors ' +
   'hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50';

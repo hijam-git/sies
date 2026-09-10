@@ -281,9 +281,6 @@ export default function CollectFeeTab() {
       {!student && (
         <section className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="text-base font-semibold text-gray-900">{t('Find the student')}</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            {t('Search by name, mobile number or admission number.')}
-          </p>
           <div className="relative mt-3">
             <input
               ref={searchRef}

@@ -198,7 +198,7 @@ export default function StudentFormModal({
         </div>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <FormError message={formError} />
 
         <FieldGrid>
@@ -288,8 +288,8 @@ export default function StudentFormModal({
         </FieldGrid>
 
         <section>
-          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('Address')}</h3>
-          <p className="mb-3 text-xs text-gray-500">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('Address')}</h3>
+          <p className="mb-2 text-xs text-gray-500">
             {t('Four separate boxes, because the printed admission form has a line for each.')}
           </p>
           <FieldGrid>
@@ -331,7 +331,7 @@ export default function StudentFormModal({
         </section>
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
             {t('Previous schooling')}
           </h3>
           <FieldGrid>
@@ -371,7 +371,9 @@ export default function StudentFormModal({
               </select>
             </Field>
             <FieldWide>
-              <label className="flex min-h-[44px] items-center gap-3">
+              {/* 44px tall on a phone (§7a rule 4); a checkbox with a mouse on it
+                    does not need to be as tall as an input. */}
+              <label className="flex min-h-[44px] items-center gap-3 sm:min-h-[36px]">
                 <input
                   type="checkbox"
                   checked={draft.is_active}

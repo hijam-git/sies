@@ -9,8 +9,6 @@ const finance: Record<string, string> = {
   // ── The module ────────────────────────────────────────────────────────
   Income: 'আয়',
   Expenses: 'ব্যয়',
-  'What came in and what went out. Fee collections post themselves — everything else is entered here.':
-    'কী এসেছে আর কী গেছে। ফি আদায় নিজে থেকেই যুক্ত হয় — বাকি সবকিছু এখানে লিখতে হয়।',
 
   // ── The list ──────────────────────────────────────────────────────────
   Entry: 'এন্ট্রি',

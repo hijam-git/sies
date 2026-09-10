@@ -40,11 +40,23 @@ const RELATIONS = [
   { value: 'other', label: 'Other' },
 ];
 
-function Line({ label, value }: { label: string; value: string }) {
+/**
+ * One fact in the identity grid.
+ *
+ * Label above the value rather than beside it: a label/value pair on one row
+ * had to reserve the width of the longest label on every row, so "Roll 22"
+ * cost sixty pixels and a Bangla address wrapped into a three-line column.
+ * Stacked, a row is ~34px and several sit side by side.
+ *
+ * Line heights are generous rather than clamped, and no row has a fixed
+ * height: Bangla sits taller than Latin at the same size, and a row tightened
+ * to fit "Roll 22" clips the descenders of ঠিকানা.
+ */
+function Line({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-1.5">
-      <dt className="shrink-0 text-xs uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className="min-w-0 text-right text-sm text-gray-900">{value || '—'}</dd>
+    <div className={`min-w-0 py-0.5 ${wide ? 'col-span-2 sm:col-span-3' : ''}`}>
+      <dt className="text-xs uppercase leading-normal tracking-wide text-gray-400">{label}</dt>
+      <dd className="break-words text-sm leading-5 text-gray-900">{value || '—'}</dd>
     </div>
   );
 }
@@ -206,26 +218,29 @@ export default function StudentDetailModal({
         </div>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-3">
         <FormError message={error} />
 
         {!student ? (
           <p className="py-8 text-center text-sm text-gray-500">{t('Loading…')}</p>
         ) : (
           <>
-            <section className="flex flex-col gap-4 sm:flex-row">
+            <section className="flex flex-col gap-3 sm:flex-row">
               {student.photo ? (
                 <img
                   src={student.photo}
                   alt=""
-                  className="h-24 w-24 shrink-0 rounded-lg object-cover"
+                  className="h-20 w-20 shrink-0 rounded-lg object-cover"
                 />
               ) : (
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-2xl text-gray-400">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-2xl text-gray-400">
                   {(student.name_bn || student.name).slice(0, 1)}
                 </div>
               )}
-              <dl className="min-w-0 flex-1 divide-y divide-gray-50">
+              {/* A dense definition grid: these are facts to be read at a
+                  glance, not inputs to be filled, so two columns fit at 360px
+                  and three from `sm` up. The address gets the whole width. */}
+              <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
                 <Line label={t('Student ID')} value={student.student_id} />
                 <Line label={t('Stream')} value={student.stream_name ?? ''} />
                 <Line label={t('Status')} value={student.status_display} />
@@ -233,13 +248,13 @@ export default function StudentDetailModal({
                   label={t('Date of birth')}
                   value={student.date_of_birth ? formatDhakaDate(student.date_of_birth) : ''}
                 />
-                <Line label={t('Address')} value={student.full_address} />
                 <Line label={t('Mobile')} value={student.phone} />
+                <Line label={t('Address')} value={student.full_address} wide />
               </dl>
             </section>
 
             {/* ── Enable login (docs/08 D4) ─────────────────────────────── */}
-            <section className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+            <section className="rounded-lg border border-gray-100 bg-gray-50 p-2.5">
               <h3 className="text-sm font-semibold text-gray-900">{t('Login')}</h3>
               {student.has_login ? (
                 <p className="mt-1 text-sm text-gray-600">
@@ -251,7 +266,7 @@ export default function StudentDetailModal({
                     {t('Optional. Most students are admitted without a phone, so a login is an action on the record and never a step in admission.')}
                   </p>
                   {mayUpdate && (
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                       <input
                         type="tel"
                         inputMode="numeric"
@@ -277,12 +292,12 @@ export default function StudentDetailModal({
 
             {/* ── Guardians ─────────────────────────────────────────────── */}
             <section>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {t('Guardians')}
               </h3>
               <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                 {student.guardians.map((g) => (
-                  <li key={g.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <li key={g.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-gray-900">{g.guardian_name}</span>
                       <span className="block text-xs text-gray-500">{t(g.relation)}</span>
@@ -293,12 +308,12 @@ export default function StudentDetailModal({
                   </li>
                 ))}
                 {student.guardians.length === 0 && (
-                  <li className="px-3 py-4 text-center text-sm text-gray-500">{t('No guardian recorded.')}</li>
+                  <li className="px-3 py-3 text-center text-sm text-gray-500">{t('No guardian recorded.')}</li>
                 )}
               </ul>
 
               {mayUpdate && (
-                <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <div className="mt-2 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
                   <FieldGrid>
                     <Field label={t('Name')} required>
                       <input
@@ -347,15 +362,15 @@ export default function StudentDetailModal({
 
             {/* ── Enrolment history = the admission history ─────────────── */}
             <section>
-              <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              <h3 className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 {t('Enrolment history')}
               </h3>
-              <p className="mb-2 text-xs text-gray-500">
+              <p className="mb-1.5 text-xs text-gray-500">
                 {t('One row per session — this is the admission history, not a separate record.')}
               </p>
               <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                 {enrolments.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+                  <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5">
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium text-gray-900">
                         {e.class_name}
@@ -371,7 +386,7 @@ export default function StudentDetailModal({
                   </li>
                 ))}
                 {enrolments.length === 0 && (
-                  <li className="px-3 py-4 text-center text-sm text-gray-500">
+                  <li className="px-3 py-3 text-center text-sm text-gray-500">
                     {t('Not enrolled in any session yet.')}
                   </li>
                 )}
@@ -387,12 +402,12 @@ export default function StudentDetailModal({
             {/* ── Documents ─────────────────────────────────────────────── */}
             {maySeeDocuments && (
               <section>
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   {t('Documents')}
                 </h3>
                 <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                   {documents.map((d) => (
-                    <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-gray-900">
                           {d.title || d.filename}
@@ -411,12 +426,12 @@ export default function StudentDetailModal({
                     </li>
                   ))}
                   {documents.length === 0 && (
-                    <li className="px-3 py-4 text-center text-sm text-gray-500">{t('No documents yet.')}</li>
+                    <li className="px-3 py-3 text-center text-sm text-gray-500">{t('No documents yet.')}</li>
                   )}
                 </ul>
 
                 {mayUpload && (
-                  <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <div className="mt-2 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
                     <FieldGrid>
                       <Field label={t('Document type')}>
                         <select value={docType} onChange={(e) => setDocType(e.target.value)} className={selectCls}>

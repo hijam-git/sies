@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage';
 import UsersPage from './pages/UsersPage';
 import StudentsPage from './pages/StudentsPage';
 import StaffPage from './pages/StaffPage';
+import TeachersPage from './pages/TeachersPage';
 import AcademicsPage from './pages/AcademicsPage';
 import FeesPage from './pages/FeesPage';
 import AccountsPage from './pages/AccountsPage';
@@ -86,6 +87,7 @@ function App() {
                   each tab inside gates its own resource, because the three
                   screens carry six permissions between them. */}
               <Route path="students" element={<StudentsPage />} />
+              <Route path="teachers" element={<TeachersPage />} />
               <Route path="staff" element={<StaffPage />} />
               <Route path="academics" element={<AcademicsPage />} />
               {/* The teacher's own week (`docs/08` D7). Routed for everyone —

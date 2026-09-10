@@ -4,15 +4,11 @@
 // রুটিন is the word every Bangladeshi institution uses for a timetable; a
 // literal সময়সূচি reads as a bus schedule.
 const academics: Record<string, string> = {
-  'Classes, sections, subjects and the weekly routine.':
-    'শ্রেণি, শাখা, বিষয় ও সাপ্তাহিক রুটিন।',
   'Classes': 'শ্রেণিসমূহ',
   'Sections': 'শাখাসমূহ',
   'Routine': 'রুটিন',
 
   // ── Classes ────────────────────────────────────────────────────────────
-  'A class belongs to one stream and one session — the same name in a new year is a new class.':
-    'একটি শ্রেণি এক বিভাগ ও এক শিক্ষাবর্ষের — নতুন বছরে একই নাম মানে নতুন শ্রেণি।',
   'Add class': 'শ্রেণি যোগ করুন',
   'Edit class': 'শ্রেণি সম্পাদনা',
   'No classes yet.': 'কোনো শ্রেণি নেই।',
@@ -82,8 +78,6 @@ const academics: Record<string, string> = {
   'Could not delete this period.': 'ঘণ্টাটি মুছে ফেলা যায়নি।',
 
   // ── The routine grid ───────────────────────────────────────────────────
-  'The routine is what a teacher’s day board shows and what attendance is taken against.':
-    'রুটিন থেকেই শিক্ষকের দিনের তালিকা আসে এবং এর ভিত্তিতেই হাজিরা নেওয়া হয়।',
   'Whole class': 'পুরো শ্রেণি',
   'Choose a class to see its week.': 'সপ্তাহ দেখতে একটি শ্রেণি বাছুন।',
   'Choose a subject': 'একটি বিষয় বাছুন',

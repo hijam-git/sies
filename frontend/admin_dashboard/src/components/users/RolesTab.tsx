@@ -199,10 +199,7 @@ export default function RolesTab({ catalog }: { catalog: PermissionCatalog | nul
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-500">
-          {t('A role ticks a set of boxes. The boxes are what gets enforced.')}
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {mayCreate && (
           <button type="button" onClick={openCreate} className={`${btnPrimary} w-full sm:w-auto`}>
             {t('Add role')}

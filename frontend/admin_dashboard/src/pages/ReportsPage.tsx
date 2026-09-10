@@ -95,12 +95,9 @@ export default function ReportsPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header>
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Reports')}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('What the institution looks like this month, from the records themselves.')}
-        </p>
       </header>
 
       <TabStrip tabs={tabs} active={tab} onChange={setTab} />

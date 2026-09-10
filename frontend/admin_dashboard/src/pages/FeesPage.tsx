@@ -88,12 +88,9 @@ export default function FeesPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header>
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Fees')}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('Take money at the counter, and see what is still owed.')}
-        </p>
       </header>
 
       <TabStrip tabs={tabs} active={active} onChange={setTab} />

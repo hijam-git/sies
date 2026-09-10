@@ -240,7 +240,7 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         {sessions.length > 0 && (
           <select

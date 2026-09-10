@@ -85,12 +85,9 @@ export default function AcademicsPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <header>
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Academics')}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('Classes, sections, subjects and the weekly routine.')}
-        </p>
       </header>
 
       <TabStrip tabs={tabs} active={tab} onChange={setTab} />

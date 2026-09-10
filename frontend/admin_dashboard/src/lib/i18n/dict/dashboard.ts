@@ -2,8 +2,6 @@
 const dashboard: Record<string, string> = {
   'Overview': 'ওভারভিউ',
   'Assalamu alaikum': 'আসসালামু আলাইকুম',
-  'Here is your institution today.': 'আজ আপনার প্রতিষ্ঠানের অবস্থা।',
-  'Here is the platform today.': 'আজ প্ল্যাটফর্মের অবস্থা।',
 
   'Students': 'শিক্ষার্থী',
   'Enrolled this session': 'এই শিক্ষাবর্ষে ভর্তি',

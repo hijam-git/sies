@@ -5,8 +5,6 @@
 // what is still owed, মেধা তালিকা for a merit list. An accountant reading this
 // screen is checking it against a paper register that uses these words.
 const reports: Record<string, string> = {
-  'What the institution looks like this month, from the records themselves.':
-    'রেকর্ড থেকেই এই মাসে প্রতিষ্ঠানের চিত্র।',
   'Could not load this report.': 'এই রিপোর্টটি আনা যায়নি।',
   'Report': 'রিপোর্ট',
   'Group': 'গ্রুপ',

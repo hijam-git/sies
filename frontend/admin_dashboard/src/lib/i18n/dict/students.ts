@@ -7,11 +7,7 @@
 // than the record, so আবেদন is used for the record and its number.
 const students: Record<string, string> = {
   // ── The page and its tabs ──────────────────────────────────────────────
-  'Who is on the roll, and who is applying to be.':
-    'কারা তালিকাভুক্ত, আর কারা ভর্তির আবেদন করেছে।',
   'Admissions': 'ভর্তি',
-  'The roll. A student’s class comes from the session’s register, not from their record.':
-    'শিক্ষার্থী তালিকা। শ্রেণি আসে ঐ শিক্ষাবর্ষের রেজিস্টার থেকে, শিক্ষার্থীর রেকর্ড থেকে নয়।',
 
   // ── The list ───────────────────────────────────────────────────────────
   'Student ID': 'শিক্ষার্থী আইডি',
@@ -108,8 +104,6 @@ const students: Record<string, string> = {
   'Certificate': 'সনদ',
 
   // ── Admissions ─────────────────────────────────────────────────────────
-  'Applications. Admitting one creates the student, the enrolment and its numbers in a single step.':
-    'আবেদনসমূহ। ভর্তি করলে এক ধাপেই শিক্ষার্থী, ভর্তি ও নম্বরগুলো তৈরি হয়।',
   'New application': 'নতুন আবেদন',
   'Edit application': 'আবেদন সম্পাদনা',
   'Applicant': 'আবেদনকারী',

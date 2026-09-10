@@ -493,10 +493,7 @@ export default function AdmissionsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          {t('Applications. Admitting one creates the student, the enrolment and its numbers in a single step.')}
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {mayPrint && (templates.length > 0 || rows.length > 0) && (
             <button type="button" onClick={printBlank} className={btnSecondary}>

@@ -238,10 +238,7 @@ export default function QuestionsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          {t('What the form asks beyond name and address. Each section prints as one block of the template.')}
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {mayEdit && (
           <button type="button" onClick={() => openNew('admission')} className={btnPrimary}>
             {t('New question')}
