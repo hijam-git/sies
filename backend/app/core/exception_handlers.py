@@ -47,7 +47,11 @@ CODE_AUTHENTICATION = 'authentication_failed'
 CODE_PERMISSION = 'permission_denied'
 CODE_NOT_FOUND = 'not_found'
 CODE_DUPLICATE = 'duplicate'
-CODE_PROTECTED = 'protected'
+# 'protected_reference', not 'protected': the SPA's apiErrors.ts maps codes to
+# Bangla and English messages, and a code it does not know falls back to a
+# generic sentence. The vocabulary is a contract between the two halves
+# (worklog F15), so the name here has to match the name there exactly.
+CODE_PROTECTED = 'protected_reference'
 CODE_ERROR = 'error'
 
 _STATUS_CODES = {

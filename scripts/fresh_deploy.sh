@@ -200,26 +200,48 @@ raise SystemExit(0 if get_user_model().objects.filter(is_superuser=True).exists(
 " >/dev/null 2>&1; then
   ok "a superuser already exists — skipping"
 elif [ -t 0 ] && [ -t 1 ]; then
+  # create_admin, not createsuperuser. Django's own command knows nothing about
+  # user_type or branch, so it leaves the account as a superuser with no
+  # platform-admin identity — which passes every permission check by the
+  # is_superuser shortcut while reading as the wrong kind of user everywhere
+  # else. create_admin sets user_type=platform_admin and branch=NULL, and
+  # re-running it re-asserts both.
   info "login is 11-digit phone + password (CLAUDE.md §1) — there is no email field"
-  docker exec -it "$BACKEND" python manage.py createsuperuser \
-    || warn "superuser not created; do it later with the command below"
+  docker exec -it "$BACKEND" python manage.py create_admin \
+    || warn "admin not created; do it later with the command below"
 else
   warn "no terminal attached — cannot prompt for a password."
   info "create it when you are at a terminal:"
-  info "  docker exec -it ${BACKEND} python manage.py createsuperuser"
+  info "  docker exec -it ${BACKEND} python manage.py create_admin"
+  info "or non-interactively:"
+  info "  docker exec -T ${BACKEND} python manage.py create_admin \\"
+  info "      --noinput --phone 01XXXXXXXXX --name 'Name' --password '…' --must-change-password"
 fi
 
 # ── 8. Seed ──────────────────────────────────────────────────────────────────
-# seed_categories is idempotent by design: branches/seeding.py get_or_creates a
-# branch's streams and default fee and finance categories. Running it twice is a
-# no-op, which is why it is safe to leave in a script people re-run.
-step 8 "Seeding default categories"
+# Both commands are idempotent by design — seed_roles get_or_creates the ten
+# permission presets, and branches/seeding.py get_or_creates a branch's streams
+# and default fee and finance categories. Running either twice is a no-op, which
+# is why they are safe to leave in a script people re-run.
+#
+# ORDER MATTERS: roles first. Every account created afterwards points at a Role
+# for its permission preset, and a user whose role row does not exist falls back
+# to an empty permission set — they can log in and see nothing, which reads as a
+# broken deploy rather than a missing seed.
+step 8 "Seeding roles and default categories"
 if [ "$SEED" = 0 ]; then
   info "skipped (--no-seed)"
-elif compose exec -T "$BACKEND" python manage.py seed_categories 2>/dev/null; then
-  ok "default categories seeded"
 else
-  warn "seed_categories is not available yet (it arrives in Phase 1) — skipping"
+  if compose exec -T "$BACKEND" python manage.py seed_roles 2>/dev/null; then
+    ok "permission presets seeded"
+  else
+    warn "seed_roles is not available — skipping (accounts app missing?)"
+  fi
+  if compose exec -T "$BACKEND" python manage.py seed_categories 2>/dev/null; then
+    ok "default categories seeded"
+  else
+    warn "seed_categories is not available — skipping (branches app missing?)"
+  fi
 fi
 
 # ── 9. Health ────────────────────────────────────────────────────────────────

@@ -87,12 +87,13 @@ Two separations are deliberate and carry the same reasoning as Awliaa's
 
 ### 2.2 Default presets
 
-Nine presets, covering both teaching and non-teaching staff. A preset is a
+Ten presets, covering both teaching and non-teaching staff. A preset is a
 starting point, never a cage — see §2.3.
 
 | Preset | Gets |
 |--------|------|
 | **Platform Admin** | Everything, across every institution: `branches.*`, `users.*`, `activity.view` |
+| **Platform Accountant** | Across every institution, money only: `dashboard.view` · `branches.view` · `finance.*` · `fees.view` · `reports.view/export` |
 | **Principal** | Everything in their institution except `branches.create` and `activity.view` |
 | **Accountant** | `dashboard.view` · `fees.*` · `finance.*` · `reports.view/export` · `students.view` · `academics.view` |
 | **Admission Officer** | `dashboard.view` · `admissions.*` · `students.view/create/update` · `fees.view/create` · `documents.upload` |

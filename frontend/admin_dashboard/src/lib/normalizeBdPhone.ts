@@ -7,7 +7,7 @@
  * are naming has exactly one row. Compared as raw text they are three
  * different people.
  *
- * Same rule as the server's `core.bd.normalize_bd_phone`, deliberately — the
+ * Same rule as the server's `accounts/phone.py: normalize_bd_phone`, deliberately — the
  * two are compared against each other constantly, so they must agree
  * character for character.
  */

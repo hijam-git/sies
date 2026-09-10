@@ -11,7 +11,7 @@ misconfigured deploy fails loudly at boot rather than quietly running open.
 (Adapted from awliaa/backend/app/core/settings.py.)
 """
 
-import importlib.util
+
 import os
 import sys
 from datetime import timedelta
@@ -88,8 +88,8 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',') if o.strip()
 # visible, so nobody appends a new app to the bottom and quietly inverts a
 # dependency the way docs/06 §2 forbids.
 _SIES_APPS = [
-    # 'accounts',     Phase 1 — User, Role, ActivityLog
-    # 'branches',     Phase 1 — Branch, Stream, Session
+    'accounts',     # Phase 1 — User, Role, ActivityLog
+    'branches',     # Phase 1 — Branch, Stream, Session
     # 'academics',    Phase 2 — AcademicClass, Section, Subject, Enrolment,
     #                           Period, ClassRoutine
     # 'students',     Phase 2 — Student, Guardian, Admission, Document
@@ -119,20 +119,28 @@ INSTALLED_APPS = [
     *_SIES_APPS,
 ]
 
-# The custom user model is accounts.User (docs/03 §1), and every abstract base in
-# core/models.py points at settings.AUTH_USER_MODEL, so nothing there changes
-# when Phase 1 lands.
+# The custom user model (docs/03 §1). Every abstract base in core/models.py
+# points at settings.AUTH_USER_MODEL rather than at the class, so none of them
+# had to change when this stopped being auth.User.
 #
-# Naming a model in an app that does not exist makes every management command —
-# including `migrate` and `check` — fail at startup. Phase 0 has to be runnable
-# to be testable, so Django's own auth.User stands in until the accounts app
-# appears, and the switch happens by itself the moment it does. The condition is
-# a fact about the source tree, not a flag someone has to remember to flip.
-if importlib.util.find_spec('accounts') is not None:
-    INSTALLED_APPS.insert(INSTALLED_APPS.index('core.apps.CoreConfig') + 1, 'accounts')
-    AUTH_USER_MODEL = 'accounts.User'
-else:
-    AUTH_USER_MODEL = 'auth.User'
+# This was conditional during Phase 0 — naming a model in an app that does not
+# exist makes every management command fail at startup, including `check` and
+# `migrate`, so the skeleton could not have tested itself. The accounts app now
+# exists, so the condition is gone: a conditional auth user model is acceptable
+# scaffolding and a liability in production, where "which user model is live?"
+# must have exactly one answer.
+AUTH_USER_MODEL = 'accounts.User'
+
+# Where core.permissions looks up a user's effective permission set.
+#
+# core cannot import accounts — the dependency runs the other way (docs/06 §2) —
+# so the resolver is named here and imported lazily. Without this line the
+# fallback resolver in core applies, and it knows neither of the two rules that
+# make the real one safe: an inactive user gets NO permissions rather than their
+# role preset (a dismissed employee must not keep working access), and a saved
+# permission string that is no longer in the catalogue is dropped rather than
+# honoured. Both are worklog F1.
+SIES_PERMISSION_RESOLVER = 'accounts.permissions.permission_resolver'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

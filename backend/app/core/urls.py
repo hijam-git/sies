@@ -21,8 +21,8 @@ from core.health import health
 # client deploy together, so a version prefix would be a number nobody ever
 # changes (CLAUDE.md §5).
 _MODULE_URLS = [
-    # path('api/', include('accounts.urls')),     Phase 1 — auth, users, roles, activity
-    # path('api/', include('branches.urls')),     Phase 1 — branches, streams, sessions
+    path('api/', include('accounts.urls')),     # Phase 1 — auth, users, roles, activity
+    path('api/', include('branches.urls')),     # Phase 1 — branches, streams, sessions
     # path('api/', include('academics.urls')),    Phase 2 — classes, sections, subjects,
     #                                                       enrolment, periods, routine
     # path('api/', include('students.urls')),     Phase 2 — students, guardians, admissions

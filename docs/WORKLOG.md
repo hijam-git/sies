@@ -16,7 +16,7 @@ promoted into `08-decisions.md`; this file is the trail.
 | 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
 | 0b | Frontend shell — SPA ported from Awliaa myadmin | ⚠️ done — responsive verified by CSS audit, not rendered (F16) |
 | 0c | Infra — Traefik, env, scripts, prod compose | ✅ done |
-| 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ⬜ |
+| 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ✅ done, 130 tests green |
 | 2 | `academics` + `students` + `staff` + `forms` | ⬜ |
 | 3 | `fees` + `finance` | ⬜ |
 | 4 | `attendance` | ⬜ |
@@ -197,7 +197,86 @@ checked by confirming the emitted classes exist in the build, not by looking at
 a page. **A rendered pass on a real device toolbar is still owed** before the UI
 is called finished. Recorded rather than glossed over.
 
-### Carried into Phase 1 as tasks
+---
+
+## Phase 1 — accounts + branches
+
+**Done.** 130 tests green. `manage.py check` clean, `makemigrations --check`
+reports no drift, and an end-to-end smoke run creates an institution, logs in
+through the `+880` phone form, and reads every Phase 1 endpoint.
+
+### Findings
+
+**F17 — circular migration dependency, and the way out.**
+`accounts.User.branch → branches.Branch`, while `branches.Branch.head →
+AUTH_USER_MODEL` **and** every `BranchScopedModel` carries `created_by` →
+AUTH_USER_MODEL. So each app's initial migration genuinely needs the other.
+
+Removing one FK by hand does not work — the model `Meta.indexes`,
+`Meta.constraints` and the `ModelAdmin` all reference it, so `check` fails
+before `makemigrations` runs.
+
+**The fix: generate both apps in ONE `makemigrations accounts branches` run.**
+Django detects the cycle itself and splits it — `accounts/0001` (no branch FK),
+`branches/0001`, then `accounts/0002` adding the FKs back. Generating them one
+app at a time produces an unresolvable graph.
+
+**This will recur in Phase 2** (`students` ↔ `academics` through `Enrolment`) —
+generate mutually-dependent apps together, and never hand-edit a dependency list
+to break a cycle.
+
+**F18 — an error-code contract breach, caught by building both halves.**
+`core/exception_handlers.py` emitted `CODE_PROTECTED = 'protected'`, but the
+SPA's `apiErrors.ts` (and F15) require **`protected_reference`**. Every `PROTECT`
+breach reaching the boundary as an `IntegrityError` would have shown the user a
+generic fallback instead of "this is still referenced by…". One-word fix, but it
+only surfaced because the vocabulary was written down as a contract first.
+
+**F19 — `core` cannot import `accounts`, so the permission resolver is named in
+settings.** `SIES_PERMISSION_RESOLVER = 'accounts.permissions.permission_resolver'`,
+imported lazily. Without it `core.permissions.HasPermission` — which *other* apps
+use — silently falls back to core's default resolver, which knows neither the
+inactive-user rule nor the stale-string filter (F1). It would not error; it would
+just quietly apply weaker rules.
+
+**F20 — `fresh_deploy.sh` called `createsuperuser`, which is the wrong command
+here.** Django's own command knows nothing about `user_type` or `branch`, so the
+first account would be a superuser with no platform-admin identity — passing
+every permission check via the `is_superuser` shortcut while reading as the wrong
+kind of user everywhere else. Switched to `create_admin`, which sets
+`user_type=platform_admin` and `branch=NULL` and is idempotent. Also added
+`seed_roles` **before** `seed_categories`: an account whose Role row does not
+exist falls back to an empty permission set, so it logs in and sees nothing —
+which reads as a broken deploy rather than a missing seed.
+
+**F21 — `docs/02` §2.2 said "Nine presets" and listed nine, but §1 listed
+Platform Accountant as an actor with no preset at all.** Now ten, with
+Platform Accountant defined as cross-institution but money-only.
+
+**F22 — verification is on SQLite, via a scratchpad settings shim.**
+`core/settings.py` is Postgres-only by design and there is no Postgres in this
+build environment. Model logic, permissions, services, serialisers, views and
+branch scoping are genuinely exercised. **Not exercised:** `CheckConstraint` SQL
+(including `user_platform_admin_has_no_branch`), the named `Meta.indexes`,
+`SELECT … FOR UPDATE`, and column-length truncation. Those stay unverified until
+the stack runs on Postgres.
+
+### Verified in the smoke run
+
+| Check | Result |
+|---|---|
+| `create_branch()` seeds streams | `hifz` · `qaumi` · `general` for a madrasah |
+| Seeding is idempotent | second run creates 0 |
+| Platform admin has `branch=None` | yes |
+| Login with `+8801711111111` | 200 — normalisation works end to end |
+| Permissions returned to the SPA | 57 entries |
+| Permission catalogue | 19 resources in doc order, 10 presets |
+| Wrong password | 401, code `invalid_credentials` (F15 contract) |
+| `login` + `login_failed` logged | 2 rows in ActivityLog |
+
+---
+
+### Carried into Phase 1 as tasks *(from Phase 0 — now done)*
 
 - **Make `AUTH_USER_MODEL` unconditional** once `accounts` exists (F5).
 - **Write the management commands the deploy scripts already call:**
