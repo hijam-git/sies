@@ -56,7 +56,10 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('');
+  /* `null` is "hasn't chosen", `''` is "chose All sessions" — the two have to
+   * be different, or clearing the filters would snap straight back to the
+   * default and the All option could never be used. */
+  const [sessionChoice, setSessionChoice] = useState<string | null>(null);
   const [streamFilter, setStreamFilter] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -75,6 +78,10 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
     () => data.sessions.find((s) => s.is_current)?.id ?? data.sessions[0]?.id ?? null,
     [data.sessions],
   );
+
+  // A class list spanning every year an institution has run repeats "Class 6"
+  // once per year; the current session is the only one anybody opens this for.
+  const sessionFilter = sessionChoice ?? String(currentSession ?? '');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -272,7 +279,7 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
         active={filtering}
         onClear={() => {
           setSearch('');
-          setSessionFilter('');
+          setSessionChoice('');
           setStreamFilter('');
           setActiveFilter('');
           setPage(1);
@@ -281,7 +288,7 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
         <select
           value={sessionFilter}
           onChange={(e) => {
-            setSessionFilter(e.target.value);
+            setSessionChoice(e.target.value);
             setPage(1);
           }}
           aria-label={t('Session')}

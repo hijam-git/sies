@@ -9,6 +9,8 @@ import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import Picker from '../common/Picker';
+import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import { classLabel } from './shared';
 import type { AcademicsData } from './shared';
 
@@ -70,7 +72,11 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
   const mayUpdate = can('academics', 'update');
   const mayDelete = can('academics', 'delete');
 
-  const classId = classChoice || String(data.classes[0]?.id ?? '');
+  // Same preference as Sections: their own class first, then the list's order.
+  const ownTeacherId = useOwnTeacherId(data.teachers);
+  const classId = data.classes.some((c) => String(c.id) === classChoice)
+    ? classChoice
+    : preferredClassId(data.classes, ownTeacherId);
 
   const load = useCallback(async () => {
     if (!classId) {
@@ -223,14 +229,15 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="w-full sm:w-64">
           <Field label={t('Class')}>
-            <select value={classId} onChange={(e) => setClassChoice(e.target.value)} className={selectCls}>
-              <option value="">{t('Choose a class')}</option>
-              {data.classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {classLabel(c)} · {c.year}
-                </option>
-              ))}
-            </select>
+            <Picker
+              value={classId}
+              onChange={setClassChoice}
+              options={data.classes.map((c) => ({
+                value: String(c.id),
+                label: `${classLabel(c)} · ${c.year}`,
+              }))}
+              emptyLabel={t('Choose a class')}
+            />
           </Field>
         </div>
         {mayCreate && classId && (

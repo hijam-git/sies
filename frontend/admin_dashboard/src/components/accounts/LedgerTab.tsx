@@ -8,6 +8,7 @@ import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
 import { formatBDTExact, formatNumber, toBanglaDigits } from '../../lib/format';
 import { formatDhakaDate, todayInDhaka } from '../../lib/timezone';
+import { thisMonthRange } from '../../lib/defaults';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
@@ -78,8 +79,14 @@ export default function LedgerTab({
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  /* This month, not an empty pair (`CLAUDE.md` §7b rule 5). An empty range
+   * means every entry the institution has ever posted, which nobody opening a
+   * ledger wants to read first — and the running total above the table is only
+   * meaningful over a period somebody named. Clearing the filters still empties
+   * both boxes, so "everything" stays one tap away. */
+  const monthRange = thisMonthRange();
+  const [from, setFrom] = useState(monthRange.from);
+  const [to, setTo] = useState(monthRange.to);
 
   const [editing, setEditing] = useState<LedgerEntry | null | undefined>(undefined);
   const [managingCategories, setManagingCategories] = useState(false);

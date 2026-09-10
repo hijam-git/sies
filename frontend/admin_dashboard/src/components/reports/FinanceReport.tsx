@@ -11,6 +11,7 @@ import FilterBar, { filterSelectCls } from '../common/FilterBar';
 import PeriodFilter from '../common/PeriodFilter';
 import ResponsiveTable from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
+import Picker from '../common/Picker';
 import ReportStat from './ReportStat';
 import { groupBy, inPeriod, periodRange, share, sumPoisha, taka } from './reportUtils';
 
@@ -197,18 +198,13 @@ export default function FinanceReport({
           <option value="categories">{t('Category breakdown')}</option>
           {isPlatformAdmin && <option value="institutions">{t('Compare institutions')}</option>}
         </select>
-        <select
+        <Picker
           value={session}
-          onChange={(e) => setSessionId(e.target.value)}
+          onChange={setSessionId}
+          options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
           aria-label={t('Session')}
           className={filterSelectCls}
-        >
-          {sessions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        />
       </FilterBar>
 
       <FormError message={error} />

@@ -14,8 +14,10 @@ import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import { FormError } from '../common/Field';
 import type { MyDayPeriod } from '../../lib/api';
-import { btnPrimary, btnSecondary, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary } from '../common/styles';
 import { todayInDhaka } from '../../lib/timezone';
+import Picker from '../common/Picker';
+import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import { STATUSES, studentName } from './shared';
 
 /**
@@ -117,11 +119,12 @@ export default function ClassAttendanceTab({
 
   const mayTake = can('attendance', 'take') || can('attendance', 'update');
 
+  const ownTeacherId = useOwnTeacherId();
   const autoClass = currentPeriod ? String(currentPeriod.class) : '';
   const classId = classes.some((c) => String(c.id) === classChoice)
     ? classChoice
     : (classes.some((c) => String(c.id) === autoClass) ? autoClass
-       : String(classes[0]?.id ?? ''));
+       : preferredClassId(classes, ownTeacherId));
 
   const teachingPeriods = useMemo(() => periods.filter((p) => !p.is_break), [periods]);
   const autoPeriod = currentPeriod ? String(currentPeriod.period) : '';
@@ -265,46 +268,39 @@ export default function ClassAttendanceTab({
       >
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Class')}</span>
-          <select
+          <Picker
             value={classId}
-            onChange={(e) => {
-              setClassChoice(e.target.value);
+            onChange={(v) => {
+              setClassChoice(v);
               setSectionId('');
               setSubjectId('');
             }}
-            className={selectCls}
-          >
-            {classes.length === 0 && <option value="">{t('No classes are assigned to you.')}</option>}
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name_bn || c.name}
-              </option>
-            ))}
-          </select>
+            options={classes.map((c) => ({ value: String(c.id), label: c.name_bn || c.name }))}
+            emptyLabel={t('No classes are assigned to you.')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Section')}</span>
-          <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} className={selectCls}>
-            <option value="">{t('Whole class')}</option>
-            {classSections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name_bn || s.name}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={sectionId}
+            onChange={setSectionId}
+            options={classSections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
+            anyLabel={t('Whole class')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Period')}</span>
-          <select value={periodId} onChange={(e) => setPeriodChoice(e.target.value)} className={selectCls}>
-            {teachingPeriods.length === 0 && <option value="">{t('No periods are set up yet.')}</option>}
-            {teachingPeriods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {`${p.name_bn || p.name} · ${p.start_time.slice(0, 5)}`}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={periodId}
+            onChange={setPeriodChoice}
+            options={teachingPeriods.map((p) => ({
+              value: String(p.id),
+              label: `${p.name_bn || p.name} · ${p.start_time.slice(0, 5)}`,
+            }))}
+            emptyLabel={t('No periods are set up yet.')}
+          />
         </label>
 
         <label className="block">
@@ -325,14 +321,12 @@ export default function ClassAttendanceTab({
       {pickersOpen && classSubjects.length > 0 && (
         <label className="block sm:max-w-xs">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Subject')}</span>
-          <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className={selectCls}>
-            <option value="">{t('Not recorded')}</option>
-            {classSubjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name_bn || s.name}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={subjectId}
+            onChange={setSubjectId}
+            options={classSubjects.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
+            anyLabel={t('Not recorded')}
+          />
         </label>
       )}
 

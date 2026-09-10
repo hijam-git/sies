@@ -6,7 +6,9 @@ import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import BaseModal from '../common/BaseModal';
 import { FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary } from '../common/styles';
+import Picker from '../common/Picker';
+import { preferredClassId, preferredExamId, useOwnTeacherId } from '../../lib/defaults';
 import { classLabel, examLabel } from './shared';
 import type { ExamsData } from './shared';
 
@@ -47,9 +49,13 @@ export default function ResultsTab({ data }: { data: ExamsData }) {
 
   const mayPublish = can('exams', 'publish');
 
+  const ownTeacherId = useOwnTeacherId(data.teachers);
+
+  // The exam being worked on, ranked by status, rather than whichever row the
+  // list happened to start with — see `preferredExam`.
   const examId = data.exams.some((e) => String(e.id) === examChoice)
     ? examChoice
-    : String(data.exams[0]?.id ?? '');
+    : preferredExamId(data.exams);
   const exam = data.exams.find((e) => String(e.id) === examId);
 
   useEffect(() => {
@@ -71,9 +77,10 @@ export default function ResultsTab({ data }: { data: ExamsData }) {
     return data.classes.filter((c) => ids.has(String(c.id)));
   }, [schedules, data.classes]);
 
+  // A class teacher reads their own class's sheet first.
   const classId = paperClasses.some((c) => String(c.id) === classChoice)
     ? classChoice
-    : String(paperClasses[0]?.id ?? '');
+    : preferredClassId(paperClasses, ownTeacherId);
 
   /** The subject columns of the sheet — the class's own papers, in the order
    *  they were sat. */
@@ -144,25 +151,21 @@ export default function ResultsTab({ data }: { data: ExamsData }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Exam')}</span>
-          <select value={examId} onChange={(e) => setExamChoice(e.target.value)} className={selectCls}>
-            {data.exams.length === 0 && <option value="">{t('No exams yet.')}</option>}
-            {data.exams.map((e) => (
-              <option key={e.id} value={e.id}>
-                {examLabel(e)}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={examId}
+            onChange={setExamChoice}
+            options={data.exams.map((e) => ({ value: String(e.id), label: examLabel(e) }))}
+            emptyLabel={t('No exams yet.')}
+          />
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Class')}</span>
-          <select value={classId} onChange={(e) => setClassChoice(e.target.value)} className={selectCls}>
-            {paperClasses.length === 0 && <option value="">{t('No papers scheduled yet.')}</option>}
-            {paperClasses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {classLabel(c)}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={classId}
+            onChange={setClassChoice}
+            options={paperClasses.map((c) => ({ value: String(c.id), label: classLabel(c) }))}
+            emptyLabel={t('No papers scheduled yet.')}
+          />
         </label>
       </div>
 

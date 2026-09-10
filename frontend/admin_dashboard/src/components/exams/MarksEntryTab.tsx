@@ -6,7 +6,9 @@ import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import { FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary } from '../common/styles';
+import Picker from '../common/Picker';
+import { preferredClassId, preferredExamId, useOwnTeacherId } from '../../lib/defaults';
 import { classLabel, examLabel, marksInputValue, subjectLabel } from './shared';
 import type { ExamsData } from './shared';
 
@@ -59,10 +61,13 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
   const inputRefs = useRef(new Map<number, HTMLInputElement>());
 
   const mayEnter = can('marks', 'enter') || can('marks', 'update');
+  const ownTeacherId = useOwnTeacherId(data.teachers);
 
+  // Not `exams[0]` — the list arrives newest-created first, which is an
+  // accident. This screen exists for the exam whose marks are being typed.
   const examId = data.exams.some((e) => String(e.id) === examChoice)
     ? examChoice
-    : String(data.exams[0]?.id ?? '');
+    : preferredExamId(data.exams);
   const exam = data.exams.find((e) => String(e.id) === examId);
   const isPublished = exam?.status === 'published';
 
@@ -88,9 +93,11 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
     return data.classes.filter((c) => ids.has(String(c.id)));
   }, [schedules, data.classes]);
 
+  // A teacher entering marks is entering their own class's; the paper list is
+  // already narrowed to what they may reach, so this only reorders it.
   const classId = paperClasses.some((c) => String(c.id) === classChoice)
     ? classChoice
-    : String(paperClasses[0]?.id ?? '');
+    : preferredClassId(paperClasses, ownTeacherId);
 
   const classPapers = useMemo(
     () => schedules.filter((s) => String(s.academic_class) === classId),
@@ -216,49 +223,40 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Exam')}</span>
-          <select value={examId} onChange={(e) => setExamChoice(e.target.value)} className={selectCls}>
-            {data.exams.length === 0 && <option value="">{t('No exams yet.')}</option>}
-            {data.exams.map((e) => (
-              <option key={e.id} value={e.id}>
-                {examLabel(e)}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={examId}
+            onChange={setExamChoice}
+            options={data.exams.map((e) => ({ value: String(e.id), label: examLabel(e) }))}
+            emptyLabel={t('No exams yet.')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Class')}</span>
-          <select
+          <Picker
             value={classId}
-            onChange={(e) => {
-              setClassChoice(e.target.value);
+            onChange={(v) => {
+              setClassChoice(v);
               setSubjectChoice('');
             }}
-            className={selectCls}
-          >
-            {paperClasses.length === 0 && <option value="">{t('No papers scheduled yet.')}</option>}
-            {paperClasses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {classLabel(c)}
-              </option>
-            ))}
-          </select>
+            options={paperClasses.map((c) => ({ value: String(c.id), label: classLabel(c) }))}
+            emptyLabel={t('No papers scheduled yet.')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Subject')}</span>
-          <select
+          <Picker
             value={subjectId}
-            onChange={(e) => setSubjectChoice(e.target.value)}
-            className={selectCls}
-          >
-            {classPapers.length === 0 && <option value="">{t('No papers scheduled yet.')}</option>}
-            {classPapers.map((s) => (
-              <option key={s.id} value={s.subject}>
-                {s.subject_name || subjectLabel(data.subjectsFor(classId).find((x) => x.id === s.subject))}
-              </option>
-            ))}
-          </select>
+            onChange={setSubjectChoice}
+            options={classPapers.map((s) => ({
+              value: String(s.subject),
+              label:
+                s.subject_name
+                || subjectLabel(data.subjectsFor(classId).find((x) => x.id === s.subject)),
+            }))}
+            emptyLabel={t('No papers scheduled yet.')}
+          />
         </label>
       </div>
 

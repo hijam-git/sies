@@ -7,6 +7,7 @@ import BaseModal from '../common/BaseModal';
 import ImageUploadField from '../common/ImageUploadField';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { todayInDhaka } from '../../lib/timezone';
 
 /**
  * Create or correct a student record — identity only.
@@ -79,7 +80,10 @@ const EMPTY: StudentDraft = {
   permanent_address: '',
   previous_institution: '',
   previous_class: '',
-  admitted_on: '',
+  // Today — a student is admitted on the day somebody types them in.
+  // `AdmissionsTab` already seeds the same field this way; the two paths
+  // disagreeing was the bug, not the default.
+  admitted_on: todayInDhaka(),
   status: 'active',
   is_active: true,
 };

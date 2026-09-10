@@ -9,6 +9,7 @@ import ExportCsvButton from '../common/ExportCsvButton';
 import FilterBar, { filterSelectCls } from '../common/FilterBar';
 import ResponsiveTable from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
+import Picker from '../common/Picker';
 import ReportStat from './ReportStat';
 import { share } from './reportUtils';
 
@@ -189,18 +190,13 @@ export default function AttendanceReport({
           <option value="classes">{t('Monthly percentage by class')}</option>
           <option value="defaulters">{t('Defaulter list')}</option>
         </select>
-        <select
+        <Picker
           value={session}
-          onChange={(e) => setSessionId(e.target.value)}
+          onChange={setSessionId}
+          options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
           aria-label={t('Session')}
           className={filterSelectCls}
-        >
-          {sessions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        />
       </FilterBar>
 
       <p className="text-sm text-gray-500">

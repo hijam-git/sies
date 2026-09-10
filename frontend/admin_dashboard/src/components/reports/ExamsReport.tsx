@@ -10,6 +10,8 @@ import ResponsiveTable from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
 import ReportStat from './ReportStat';
 import { share } from './reportUtils';
+import { preferredClassId, preferredExamId } from '../../lib/defaults';
+import Picker from '../common/Picker';
 
 /**
  * Exams — the tabulation sheet, the merit list and the subject analysis
@@ -38,8 +40,8 @@ export default function ExamsReport({
   const [view, setView] = useState<View>('tabulation');
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [examId, setExamId] = useState('');
-  const [classId, setClassId] = useState('');
+  const [examChoice, setExamChoice] = useState('');
+  const [classChoice, setClassChoice] = useState('');
   const [sheet, setSheet] = useState<Tabulation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +50,7 @@ export default function ExamsReport({
     const timer = setTimeout(() => {
       void apiClient
         .listAll<Exam>('/exams/', '?ordering=-starts_on')
-        .then((rows) => {
-          setExams(rows);
-          setExamId((current) => current || String(rows[0]?.id ?? ''));
-        })
+        .then(setExams)
         .catch(() => setExams([]))
         .finally(() => setLoading(false));
       void apiClient
@@ -61,6 +60,17 @@ export default function ExamsReport({
     }, 0);
     return () => clearTimeout(timer);
   }, []);
+
+  /* Both derived, so the report draws itself as soon as the exam list lands
+   * instead of waiting behind two "choose one" boxes. The exam is the one
+   * actually being worked on rather than `rows[0]`; the class list is already
+   * teacher-scoped, so its first entry belongs to whoever is reading. */
+  const examId = exams.some((x) => String(x.id) === examChoice)
+    ? examChoice
+    : preferredExamId(exams);
+  const classId = classes.some((c) => String(c.id) === classChoice)
+    ? classChoice
+    : preferredClassId(classes, null);
 
   const load = useCallback(async () => {
     if (!examId || !classId) {
@@ -138,32 +148,22 @@ export default function ExamsReport({
           <option value="merit">{t('Merit list')}</option>
           <option value="subjects">{t('Subject analysis')}</option>
         </select>
-        <select
+        <Picker
           value={examId}
-          onChange={(e) => setExamId(e.target.value)}
+          onChange={setExamChoice}
+          options={exams.map((x) => ({ value: String(x.id), label: x.name_bn || x.name }))}
+          emptyLabel={t('Choose an exam')}
           aria-label={t('Exam')}
           className={filterSelectCls}
-        >
-          <option value="">{t('Choose an exam')}</option>
-          {exams.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.name_bn || x.name}
-            </option>
-          ))}
-        </select>
-        <select
+        />
+        <Picker
           value={classId}
-          onChange={(e) => setClassId(e.target.value)}
+          onChange={setClassChoice}
+          options={classes.map((c) => ({ value: String(c.id), label: c.name_bn || c.name }))}
+          emptyLabel={t('Choose a class')}
           aria-label={t('Class')}
           className={filterSelectCls}
-        >
-          <option value="">{t('Choose a class')}</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name_bn || c.name}
-            </option>
-          ))}
-        </select>
+        />
       </FilterBar>
 
       <FormError message={error} />

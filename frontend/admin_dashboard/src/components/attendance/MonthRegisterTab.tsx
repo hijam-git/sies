@@ -15,8 +15,10 @@ import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import { FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary } from '../common/styles';
 import { currentMonthInDhaka, todayInDhaka } from '../../lib/timezone';
+import Picker from '../common/Picker';
+import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import {
   KEY_TO_STATUS,
   STATUSES,
@@ -99,9 +101,16 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
 
   const mayEdit = can('attendance', 'take') || can('attendance', 'update');
 
+  /* `/classes/` is teacher-scoped on the server (`docs/08` D6), so a teacher's
+   * list already holds only their own classes and any of them is defensible.
+   * `preferredClassId` puts the class they are class teacher OF at the front
+   * when the screen can name them — this one cannot, because resolving the
+   * account to a `staff.Teacher` needs a teachers list and no register is
+   * worth a second request for one. */
+  const ownTeacherId = useOwnTeacherId();
   const classId = classes.some((c) => String(c.id) === classChoice)
     ? classChoice
-    : String(classes[0]?.id ?? '');
+    : preferredClassId(classes, ownTeacherId);
 
   const classSections = useMemo(
     () => sections.filter((s) => String(s.academic_class) === classId),
@@ -560,46 +569,38 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Class')}</span>
-          <select
+          <Picker
             value={classId}
-            onChange={(e) => {
-              setClassChoice(e.target.value);
+            onChange={(v) => {
+              setClassChoice(v);
               setSectionId('');
             }}
-            className={selectCls}
-          >
-            {classes.length === 0 && <option value="">{t('No classes are assigned to you.')}</option>}
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name_bn || c.name}
-              </option>
-            ))}
-          </select>
+            options={classes.map((c) => ({ value: String(c.id), label: c.name_bn || c.name }))}
+            emptyLabel={t('No classes are assigned to you.')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Section')}</span>
-          <select
+          <Picker
             value={sectionId}
-            onChange={(e) => setSectionId(e.target.value)}
-            className={selectCls}
-          >
-            <option value="">{t('Whole class')}</option>
-            {classSections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name_bn || s.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSectionId}
+            options={classSections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
+            anyLabel={t('Whole class')}
+          />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Month')}</span>
+          {/* `w-full` on a flex child means 100% of the ROW, so the input plus
+              two 44px arrows measured wider than the column and pushed the next
+              arrow past the tablet viewport. `flex-1 min-w-0` lets it give way
+              instead. */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setMonth(shiftMonth(month, -1))}
-              className={btnSecondary}
+              className={`${btnSecondary} shrink-0`}
               aria-label={t('Previous month')}
             >
               ‹
@@ -608,12 +609,12 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
               type="month"
               value={month}
               onChange={(e) => e.target.value && setMonth(e.target.value)}
-              className="min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="button"
               onClick={() => setMonth(shiftMonth(month, 1))}
-              className={btnSecondary}
+              className={`${btnSecondary} shrink-0`}
               aria-label={t('Next month')}
             >
               ›

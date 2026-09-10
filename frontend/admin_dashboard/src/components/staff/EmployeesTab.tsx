@@ -40,7 +40,10 @@ export default function EmployeesTab() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  // Serving staff, matching `StudentsTab`'s enrolled-students default. A list
+  // that mixes resigned and transferred people into today's staff has to be
+  // filtered before it can be read, every single time.
+  const [statusFilter, setStatusFilter] = useState('active');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 

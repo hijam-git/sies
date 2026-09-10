@@ -6,7 +6,7 @@ import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import Field, { FormError } from '../common/Field';
-import { selectCls } from '../common/styles';
+import Picker from '../common/Picker';
 
 /**
  * Assignments — a board: drag a class or a subject onto the teacher who covers it.
@@ -469,17 +469,11 @@ export default function AssignmentsTab({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label={t('Session')}>
-          <select
+          <Picker
             value={sessionId}
-            onChange={(e) => setSessionChoice(e.target.value)}
-            className={selectCls}
-          >
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSessionChoice}
+            options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
+          />
         </Field>
       </div>
 

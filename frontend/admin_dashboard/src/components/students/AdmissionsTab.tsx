@@ -126,7 +126,8 @@ export default function AdmissionsTab({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('');
+  // See `sessionFilter` below: null is "hasn't chosen", '' is "chose all".
+  const [sessionChoice, setSessionChoice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -238,6 +239,11 @@ export default function AdmissionsTab({
     () => String((sessions.find((s) => s.is_current) ?? sessions[0])?.id ?? ''),
     [sessions],
   );
+
+  // Applications are made for a session, and it is always the current one.
+  // Three years of old applications is not what an admission clerk opens this
+  // screen to read.
+  const sessionFilter = sessionChoice ?? defaultSession;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -584,7 +590,7 @@ export default function AdmissionsTab({
         onClear={() => {
           setSearch('');
           setStatusFilter('');
-          setSessionFilter('');
+          setSessionChoice('');
           setPage(1);
         }}
       >
@@ -607,7 +613,7 @@ export default function AdmissionsTab({
         <select
           value={sessionFilter}
           onChange={(e) => {
-            setSessionFilter(e.target.value);
+            setSessionChoice(e.target.value);
             setPage(1);
           }}
           aria-label={t('Session')}

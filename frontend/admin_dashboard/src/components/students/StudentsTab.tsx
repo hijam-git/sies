@@ -6,6 +6,7 @@ import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
+import Picker from '../common/Picker';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
@@ -273,21 +274,16 @@ export default function StudentsTab({
           setPage(1);
         }}
       >
-        <select
+        <Picker
           value={sessionId}
-          onChange={(e) => {
-            setSessionChoice(e.target.value);
+          onChange={(v) => {
+            setSessionChoice(v);
             setPage(1);
           }}
+          options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
           aria-label={t('Session')}
           className={filterSelectCls}
-        >
-          {sessions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        />
         <select
           value={classFilter}
           onChange={(e) => {

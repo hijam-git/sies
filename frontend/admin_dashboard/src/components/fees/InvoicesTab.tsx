@@ -15,8 +15,14 @@ import type { Column } from '../common/ResponsiveTable';
 import BaseModal from '../common/BaseModal';
 import Field, { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls } from '../common/styles';
+import Picker from '../common/Picker';
 import FeeStatusBadge from './FeeStatusBadge';
 import { FEE_STATUSES, FEE_STATUS_LABEL, methodLabel } from './feeConstants';
+
+/** The screen's own grouping of the three states that still owe money. Not an
+ *  API value — see the `status` default below for why it cannot be one. */
+const OUTSTANDING = 'outstanding';
+const OUTSTANDING_STATUSES: string[] = ['unpaid', 'partial', 'overdue'];
 
 /**
  * Every invoice, and the two things that can be done to one after it exists.
@@ -60,7 +66,19 @@ export default function InvoicesTab({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  /* **Outstanding, not this month.** An accountant opening Invoices is asking
+   * "who still owes us", and that question has no date on it: a March invoice
+   * left unpaid in July is exactly the row they need, and a this-month default
+   * would be the one thing that hid it. So the DATE range stays empty
+   * (`CLAUDE.md` §7b rule 5 is about ranges that mean "everything ever" — here
+   * the status filter already bounds the list) and the STATUS filter carries
+   * the default instead.
+   *
+   * `FeeViewSet.filterset_fields` has `status` as an exact lookup with no
+   * `__in`, so the three unpaid states cannot be one query parameter. They are
+   * narrowed here, on the same client-side path the class filter already
+   * uses. */
+  const [status, setStatus] = useState<string>(OUTSTANDING);
   const [category, setCategory] = useState('');
   const [sessionChoice, setSessionChoice] = useState('');
   const [period, setPeriod] = useState('');
@@ -98,7 +116,8 @@ export default function InvoicesTab({
     return ids;
   }, [enrolments, classFilter]);
 
-  const clientNarrowed = studentsOfClass !== null || dueFrom !== '' || dueTo !== '';
+  const clientNarrowed =
+    studentsOfClass !== null || dueFrom !== '' || dueTo !== '' || status === OUTSTANDING;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,9 +125,14 @@ export default function InvoicesTab({
 
     const q = new URLSearchParams();
     if (search.trim()) q.set('search', search.trim());
-    if (status) q.set('status', status);
+    // `OUTSTANDING` is this screen's own grouping, not an API value — it is
+    // applied below, over the rows the other filters return.
+    if (status && status !== OUTSTANDING) q.set('status', status);
     if (category) q.set('category', category);
-    if (sessionChoice) q.set('session', sessionChoice);
+    // `sessionId`, not `sessionChoice`: the derived current session is what the
+    // enrolment fetch above already uses, and the list scoping itself to a
+    // different session than its own class filter was simply a bug.
+    if (sessionId) q.set('session', sessionId);
     if (period.trim()) q.set('period', period.trim());
     q.set('is_active', 'true');
     q.set('ordering', 'due_date');
@@ -120,7 +144,8 @@ export default function InvoicesTab({
           (f) =>
             (studentsOfClass === null || studentsOfClass.has(f.student))
             && (!dueFrom || f.due_date >= dueFrom)
-            && (!dueTo || f.due_date <= dueTo),
+            && (!dueTo || f.due_date <= dueTo)
+            && (status !== OUTSTANDING || OUTSTANDING_STATUSES.includes(f.status)),
         );
         setTotal(matching.length);
         setRows(matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
@@ -136,7 +161,7 @@ export default function InvoicesTab({
     } finally {
       setLoading(false);
     }
-  }, [search, status, category, sessionChoice, period, page, clientNarrowed, studentsOfClass, dueFrom, dueTo, t]);
+  }, [search, status, category, sessionId, period, page, clientNarrowed, studentsOfClass, dueFrom, dueTo, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -242,14 +267,19 @@ export default function InvoicesTab({
   ];
 
   const filtersActive =
-    !!search || !!status || !!category || !!sessionChoice || !!period || !!classFilter || !!dueFrom || !!dueTo;
+    // `OUTSTANDING` is the screen's default view, not something the user
+    // switched on, so it must not light the "filters applied" marker.
+    !!search || (!!status && status !== OUTSTANDING) || !!category || !!sessionChoice
+    || !!period || !!classFilter || !!dueFrom || !!dueTo;
 
   return (
     <div className="space-y-4">
       <FilterBar
         active={filtersActive}
         onClear={() => {
-          setSearch(''); setStatus(''); setCategory(''); setSessionChoice('');
+          // Back to the default view, not to an unbounded one — "every invoice
+          // this institution has ever raised" is not a thing anybody clears to.
+          setSearch(''); setStatus(OUTSTANDING); setCategory(''); setSessionChoice('');
           setPeriod(''); setClassFilter(''); setDueFrom(''); setDueTo(''); setPage(1);
         }}
         search={
@@ -269,6 +299,7 @@ export default function InvoicesTab({
           className={filterSelectCls}
           aria-label={t('Status')}
         >
+          <option value={OUTSTANDING}>{t('Outstanding')}</option>
           <option value="">{t('Every status')}</option>
           {FEE_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -292,19 +323,13 @@ export default function InvoicesTab({
         </select>
 
         {sessions.length > 0 && (
-          <select
-            value={sessionChoice}
-            onChange={(e) => { setSessionChoice(e.target.value); setPage(1); }}
+          <Picker
+            value={sessionId}
+            onChange={(v) => { setSessionChoice(v); setPage(1); }}
+            options={sessions.map((s) => ({ value: String(s.id), label: s.name }))}
             className={filterSelectCls}
             aria-label={t('Session')}
-          >
-            <option value="">{t('Every session')}</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          />
         )}
 
         {/* Hidden when the register could not be read — a class filter over an

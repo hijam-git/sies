@@ -7,6 +7,8 @@ import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
 import BaseModal from '../common/BaseModal';
 import Field, { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import Picker from '../common/Picker';
+import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import PeriodsPanel from './PeriodsPanel';
 import { WEEK_DAYS, classLabel, periodLabel, shortTime, todayWeekIndex } from './shared';
 import type { AcademicsData } from './shared';
@@ -83,10 +85,12 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
   );
 
   // A class chosen under another session is not in this one's list, so it falls
-  // back to the first rather than leaving the grid pointed at nothing.
+  // back rather than leaving the grid pointed at nothing — and the fallback is
+  // the reader's own class when the account resolves to a teacher.
+  const ownTeacherId = useOwnTeacherId(data.teachers);
   const classId = sessionClasses.some((c) => String(c.id) === classChoice)
     ? classChoice
-    : String(sessionClasses[0]?.id ?? '');
+    : preferredClassId(sessionClasses, ownTeacherId);
 
   const loadPeriods = useCallback(
     () =>
@@ -260,47 +264,33 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label={t('Session')}>
-          <select
+          <Picker
             value={sessionId}
-            onChange={(e) => {
-              setSessionChoice(e.target.value);
+            onChange={(v) => {
+              setSessionChoice(v);
               setSectionId('');
             }}
-            className={selectCls}
-          >
-            {data.sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            options={data.sessions.map((s) => ({ value: String(s.id), label: s.name }))}
+          />
         </Field>
         <Field label={t('Class')}>
-          <select
+          <Picker
             value={classId}
-            onChange={(e) => {
-              setClassChoice(e.target.value);
+            onChange={(v) => {
+              setClassChoice(v);
               setSectionId('');
             }}
-            className={selectCls}
-          >
-            <option value="">{t('Choose a class')}</option>
-            {sessionClasses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {classLabel(c)}
-              </option>
-            ))}
-          </select>
+            options={sessionClasses.map((c) => ({ value: String(c.id), label: classLabel(c) }))}
+            emptyLabel={t('Choose a class')}
+          />
         </Field>
         <Field label={t('Section')}>
-          <select value={sectionId} onChange={(e) => setSectionId(e.target.value)} className={selectCls}>
-            <option value="">{t('Whole class')}</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name_bn || s.name}
-              </option>
-            ))}
-          </select>
+          <Picker
+            value={sectionId}
+            onChange={setSectionId}
+            options={sections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
+            anyLabel={t('Whole class')}
+          />
         </Field>
       </div>
 
