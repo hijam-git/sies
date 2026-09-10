@@ -1,49 +1,62 @@
-# Fonts — drop the binaries here
+# Fonts
 
-The dashboard **never loads a font over the network.** Printed admission forms,
-fee receipts and mark sheets have to come out identically on an office machine
-with no internet, and a Google Fonts request would also report every visit to a
-third party. So the faces are self-hosted from this directory and declared with
-`@font-face` in `src/index.css`.
+**These files are committed and real.** Nothing has to be dropped in at deploy
+time, and the app never fetches a font over the network.
 
-These files are **not committed** — they carry their own licences and are large
-binaries. Put them here before building an image, and add the directory to your
-deployment's asset step.
+| Family | Files | Used for |
+|--------|-------|----------|
+| **Hind Siliguri** | `HindSiliguri-{400,500,600,700}-{0,1,2}.woff2` | The whole UI. Bangla and Latin in one face. |
+| **Amiri** | `Amiri-{400,700}-{0,1,2}.woff2` | Arabic only — an institution's Arabic name on a letterhead, Qur'anic text. |
 
-## Files `src/index.css` expects
+## Why these two
 
-| File | Face | Used for |
-|------|------|----------|
-| `SolaimanLipi.woff2` | SolaimanLipi, regular (400) | Bangla body text — the whole UI |
-| `SolaimanLipi-Bold.woff2` | SolaimanLipi, bold (700) | Bangla headings and table headers |
-| `Kalpurush.woff2` | Kalpurush, regular (400) | Bangla fallback — a second opinion on conjuncts SolaimanLipi renders tightly |
-| `Amiri-Regular.woff2` | Amiri, regular (400) | Arabic — Qur'anic lines, du'a, an institution's Arabic name |
-| `Amiri-Bold.woff2` | Amiri, bold (700) | Arabic headings |
-| `ScheherazadeNew-Regular.woff2` | Scheherazade New, regular (400) | Arabic fallback — larger on the line, better for a printed form a child reads |
+**Hind Siliguri** is the face the reference admin dashboard uses, so this system
+looks like it rather than merely resembling it. It covers Bangla and Latin
+properly, which matters because almost every screen mixes them — a student's
+name in Bangla beside a Latin admission number.
 
-A missing file is **not** a broken page: every `@font-face` sits at the front of
-a stack that ends in `Noto Sans Bengali` / `Noto Naskh Arabic` and then the
-system UI font (`tailwind.config.js`). The page degrades to whatever the machine
-has rather than to Times New Roman with broken conjuncts.
+**Amiri** exists separately because a Bangla face renders Arabic script without
+ligatures or correct joining. Arabic needs its own stack, not a fallback inside
+`sans`. Reach it with the Tailwind `font-arabic` class.
 
-## Where to get them
+## Why self-hosted rather than Google Fonts
 
-| Face | Source | Licence |
-|------|--------|---------|
-| SolaimanLipi | <https://www.omicronlab.com/bangla-fonts.html> | Free to use and redistribute |
-| Kalpurush | <https://www.omicronlab.com/bangla-fonts.html> | Free to use and redistribute |
-| Amiri | <https://github.com/aliftype/amiri/releases> | SIL OFL 1.1 |
-| Scheherazade New | <https://software.sil.org/scheherazade/> | SIL OFL 1.1 |
+The reference project links Google Fonts. This one does not, for two reasons:
 
-## Converting to woff2
+1. **A printed admission form or fee receipt has to render identically on an
+   office machine with no internet.** A madrasah office is exactly the place
+   where that machine exists.
+2. A CDN request tells a third party who is using this system, on every page
+   load.
 
-The upstream downloads are `.ttf`. `woff2` is roughly a third of the size and
-every browser this product supports reads it:
+The cost is ~700 KB in the repo, sliced so it is never all downloaded at once.
+
+## The `-0` / `-1` / `-2` suffixes
+
+Google subsets each face by `unicode-range` — roughly `-0` bengali, `-1`
+latin-ext, `-2` latin. The `@font-face` rules in `src/index.css` carry those
+ranges, so a page of English text never downloads the Bengali block. Keep the
+ranges if you regenerate these; dropping them makes every visitor fetch
+everything.
+
+## Regenerating
 
 ```bash
-# Debian/Ubuntu: apt install woff2
-woff2_compress SolaimanLipi.ttf      # → SolaimanLipi.woff2
+curl -sL -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+  AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+  "https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap"
 ```
 
-Keep the filenames in the table above exactly — `src/index.css` names them, and
-a renamed file fails silently as "the font just did not apply".
+The User-Agent matters: without a modern one Google serves TTF instead of
+woff2, which is several times larger. Download each `url(...)` from the result,
+then copy its `@font-face` block into `src/index.css` with the path rewritten to
+`/myadmin/fonts/<file>`.
+
+## A failure worth remembering
+
+The first version of this directory contained only a README, while
+`src/index.css` declared faces named `SolaimanLipi`, `Kalpurush` and
+`Scheherazade New`. Every rule 404'd, `local()` matched nothing, and the UI
+silently fell back to system fonts. Nothing errored — it just looked wrong. If
+the type ever looks off again, check that the files named in `index.css` are
+actually here.
