@@ -1,0 +1,32 @@
+/* Print rules for the documents this system exists to produce — fee receipts,
+   admission forms, mark sheets. Tailwind's `print:` variants cover a single
+   element; these cover the page, which no utility class can reach.
+
+   Everything else is Tailwind. Add a rule here only when there is no class
+   that can express it. */
+
+@media print {
+  /* The chrome is not part of the document. Screens mark their navigation,
+     buttons and filters with `no-print` and get a clean sheet. */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ink is the institution's, not ours: tinted cards and coloured badges cost
+     a fortune on a shared office printer and say nothing on paper. */
+  body {
+    background: #fff !important;
+  }
+
+  /* A receipt split across two sheets is a receipt nobody can file. */
+  .print-page {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Browsers drop background colours when printing, which turns a table's
+     header stripe into an invisible row. A rule survives. */
+  .print-page table th {
+    border-bottom: 1px solid #000;
+  }
+}

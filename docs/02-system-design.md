@@ -57,7 +57,8 @@ and every institution eventually needs exactly that. So:
 | Resource | Actions | Covers |
 |----------|---------|--------|
 | `dashboard` | view | The overview page and its numbers |
-| `branches` | view, create, update | Branch list and settings (super admin) |
+| `branches` | view, create, update | Institution list and settings (platform admin) |
+| `academics` | view, create, update, delete | Classes, sections, subjects, sessions, streams, **routine** |
 | `students` | view, create, update, delete | Student records and profiles |
 | `admissions` | view, create, update | Applications, admission, enrolment |
 | `teachers` | view, create, update, delete | Teacher profiles and assignments |
@@ -67,11 +68,11 @@ and every institution eventually needs exactly that. So:
 | `finance` | view, create, update | Income, expenses, ledger |
 | `salary` | view, manage | Payroll — separate from `finance` on purpose |
 | `exams` | view, create, update, publish | Exams, schedules, marks, results |
-| `marks` | enter, update | Entering marks — a teacher gets this without `exams.create` |
+| `marks` | view, enter, update | Entering marks — a teacher gets this without `exams.create`. `view` exists so `canView()` needs no special case |
 | `reports` | view, export | Reports and their exports |
-| `notices` | view, create, delete | Notice board and bulk SMS |
+| `notices` | view, create, delete | Notice board. (Bulk SMS is V2 — `08` §7) |
 | `documents` | view, upload, delete | Certificates, testimonials, student files |
-| `settings` | view, update | Branch settings, sessions, fee structures |
+| `settings` | view, update | Institution settings, fee categories, form templates |
 | `users` | view, create, update | Accounts, roles, permission assignment |
 | `activity` | view | The live activity feed and history (`08` D8) |
 
@@ -93,9 +94,9 @@ starting point, never a cage — see §2.3.
 |--------|------|
 | **Platform Admin** | Everything, across every institution: `branches.*`, `users.*`, `activity.view` |
 | **Principal** | Everything in their institution except `branches.create` and `activity.view` |
-| **Accountant** | `dashboard.view` · `fees.*` · `finance.*` · `reports.view/export` · `students.view` |
+| **Accountant** | `dashboard.view` · `fees.*` · `finance.*` · `reports.view/export` · `students.view` · `academics.view` |
 | **Admission Officer** | `dashboard.view` · `admissions.*` · `students.view/create/update` · `fees.view/create` · `documents.upload` |
-| **Teacher** | `dashboard.view` · `attendance.view/take` · `marks.enter/update` · `students.view` · `exams.view` |
+| **Teacher** | `dashboard.view` · `academics.view` · `attendance.view/take` · `marks.view/enter/update` · `students.view` · `exams.view` |
 | **Class Teacher** | Teacher, plus `attendance.update` · `documents.view` |
 | **Hostel Warden** | `dashboard.view` · `students.view` · `attendance.view/take` |
 | **Office Assistant** | `dashboard.view` · `students.view` · `documents.view/upload` · `notices.view` |
@@ -470,8 +471,8 @@ Fees      ─ Fee structure · Invoices · Collect fee · Dues · Discounts
 Accounts  ─ Income · Expenses · Salary · Ledger
 Exams     ─ Exams · Schedule · Marks entry · Results · Marksheets
 Reports   ─ (the families in §4.8)
-Notices   ─ Notice board · SMS
-Settings  ─ Branch · Fee categories · Grade scale · Templates
+Notices   ─ Notice board          (SMS is V2)
+Settings  ─ Institution · Fee categories · Form templates
 Users     ─ Accounts · Roles & permissions · **Live activity**
 Branches  ─ (super admin only)
 ```

@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Self-hosted faces ────────────────────────────────────────────────────
+   Nothing is fetched from a font CDN. A printed admission form or fee receipt
+   has to render identically on an office machine with no internet, and every
+   `@font-face` below points at a file in public/fonts that the deployment
+   drops in (see public/fonts/README.md).
+
+   `font-display: swap` so a missing or slow file shows the fallback stack
+   immediately instead of a page of invisible text; `local()` first so a
+   machine that already has the face installed never downloads it.
+   ------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'SolaimanLipi';
+  src: local('SolaimanLipi'), url('/myadmin/fonts/SolaimanLipi.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SolaimanLipi';
+  src: local('SolaimanLipi Bold'), url('/myadmin/fonts/SolaimanLipi-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kalpurush';
+  src: local('Kalpurush'), url('/myadmin/fonts/Kalpurush.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Amiri';
+  src: local('Amiri'), url('/myadmin/fonts/Amiri-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Amiri';
+  src: local('Amiri Bold'), url('/myadmin/fonts/Amiri-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Scheherazade New';
+  src: local('Scheherazade New'), url('/myadmin/fonts/ScheherazadeNew-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  html {
+    /* Same stack as tailwind.config.js `sans`, written out so unstyled text
+       and anything outside a Tailwind class still gets it. */
+    font-family: 'SolaimanLipi', 'Kalpurush', 'Noto Sans Bengali', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* The body never scrolls horizontally (`CLAUDE.md` §7a rule 1). Anything
+     wide — the attendance month grid, a marksheet, an A4 form preview —
+     scrolls inside its own container.
+
+     `clip` rather than `hidden`: `overflow: hidden` silently turns the body
+     into a scroll container, which breaks every `position: sticky` header and
+     frozen first column on the screens that need them most. */
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  /* iOS Safari zooms the whole page when a focused input is under 16px, and it
+     does not zoom back out — the layout is thrown for the rest of the session.
+     Set at the base and left alone from `sm` up, so a desktop table's inline
+     inputs may still be smaller by explicit class. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Arabic runs right-to-left and needs its own face — a Bangla font draws
+     Arabic letters without joining them, which is unreadable rather than
+     merely ugly. Applied by element so a mark sheet's Qur'an column only has
+     to say lang="ar". */
+  :lang(ar),
+  [dir='rtl'] {
+    font-family: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', serif;
+  }
+}
+
+@layer utilities {
+  /* Clears the phone's home indicator under a fixed or sticky action bar.
+     Without it the Save button on a full-screen modal sits beneath the gesture
+     bar, where a tap swipes the app away instead of saving. */
+  .pb-safe {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* The one wrapper for anything that must not widen the page. */
+  .scroll-x {
+    @apply w-full overflow-x-auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Minimum touch target (`CLAUDE.md` §7a rule 4). A 24px icon button is a
+     desktop-only control, and half these screens are used standing up. */
+  .tap {
+    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center touch-manipulation;
+  }
+}
+
+@layer components {
+  /* Mobile-responsive table wrapper */
+  .table-responsive {
+    @apply w-full overflow-x-auto -mx-4 sm:mx-0;
+  }
+
+  .table-responsive table {
+    @apply min-w-full;
+  }
+
+  /* Mobile card layout for tables */
+  @media (max-width: 640px) {
+    .mobile-card-table thead {
+      @apply sr-only;
+    }
+
+    .mobile-card-table tbody tr {
+      @apply block mb-4 bg-white border border-gray-200 rounded-lg shadow-sm;
+    }
+
+    .mobile-card-table tbody td {
+      @apply block text-right border-b border-gray-100 px-4 py-2;
+    }
+
+    .mobile-card-table tbody td:last-child {
+      @apply border-b-0;
+    }
+
+    .mobile-card-table tbody td::before {
+      content: attr(data-label);
+      @apply float-left font-semibold text-gray-700;
+    }
+  }
+
+  /* Responsive form grid */
+  .form-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+
+  .form-grid-full {
+    @apply col-span-1 sm:col-span-2;
+  }
+
+  /* Touch-friendly buttons */
+  .btn-touch {
+    @apply min-h-[44px] min-w-[44px] touch-manipulation;
+  }
+
+  /* Responsive modal */
+  .modal-responsive {
+    @apply fixed inset-0 sm:inset-auto sm:relative;
+    @apply w-full sm:max-w-lg;
+    @apply h-full sm:h-auto;
+    @apply rounded-none sm:rounded-lg;
+  }
+
+  /* Responsive padding for cards */
+  .card-responsive {
+    @apply p-4 sm:p-6;
+  }
+}

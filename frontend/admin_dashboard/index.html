@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1d4ed8" />
+    <title>SIES — শিক্ষা ব্যবস্থাপনা</title>
+    <!--
+      No web-font <link> here on purpose. The Bangla and Arabic faces are
+      self-hosted from public/fonts and declared in src/index.css: a printed
+      admission form or fee receipt must come out right on an office machine
+      with no internet, and a Google Fonts request also tells a third party
+      every time a madrasah opens its own dashboard.
+    -->
+    <!-- Runtime configuration — written by the container at start, never baked
+         into the bundle, so one built image promotes between environments. -->
+    <script src="/myadmin/config.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
