@@ -16,11 +16,11 @@ promoted into `08-decisions.md`; this file is the trail.
 | 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
 | 0b | Frontend shell — SPA ported from Awliaa myadmin | ⚠️ done — responsive verified by CSS audit, not rendered (F16) |
 | 0c | Infra — Traefik, env, scripts, prod compose | ✅ done |
-| 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ✅ done, 130 tests green |
-| 2 | `academics` + `students` + `staff` + `forms` | ⬜ |
-| 3 | `fees` + `finance` | ⬜ |
-| 4 | `attendance` | ⬜ |
-| 5 | `exams` | ⬜ |
+| 1 | `accounts` + `branches` | ✅ backend + screens |
+| 2 | `academics` + `students` + `staff` | ✅ backend · screens 🔄 · `forms` 🔄 |
+| 3 | `fees` + `finance` | 🔄 |
+| 4 | `attendance` | 🔄 |
+| 5 | `exams` | 🔄 |
 | 6 | Reports + teacher dashboard | ⬜ |
 | 7 | Deploy + hardening | ⬜ |
 
