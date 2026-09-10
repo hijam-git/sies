@@ -416,6 +416,47 @@ phone it renders inside a horizontally scrollable, pinch-zoomable preview
 container, with a full-width **Print** button. The *page* stays A4; the *preview*
 is responsive.
 
+### 7b. Do not ask for something the system already knows
+
+**Every picker on a screen is a decision the user has to make before they can
+start.** Most of them have an obvious right answer, and defaulting to it removes
+the decision entirely. This is what "simple and easy" actually means here — not
+fewer features, fewer questions.
+
+The rule, in order of preference:
+
+1. **Default to what is true right now.** The current session, the current
+   month, today, the period happening at this moment, the exam currently in
+   marks entry. Never "the first row the API returned" — an alphabetical
+   accident is not an answer.
+2. **Default to the user's own scope.** A teacher's own class before any other
+   class; their own subject before any other subject. They are almost always
+   there about their own work.
+3. **If there is exactly one option, do not render a picker at all.** Show what
+   was chosen as plain text. A dropdown with one entry is a control that cannot
+   do anything.
+4. **Hide the pickers once a default has been applied**, behind a small
+   "change" or "another …" control. The exceptions are real — covering a
+   colleague, correcting last week — but they are exceptions, and they should
+   not cost the common case four decisions.
+5. **A date range defaults to this month**, not to empty. An empty range means
+   "everything", which is never what someone opening a ledger wants to see
+   first.
+
+Worked example — `ClassAttendanceTab`: it asked for class, section, period and
+subject before showing anything. It now opens on the live period from the
+teacher's own day board with every picker hidden, and *another class* reveals
+them. Four decisions became zero for the case that happens all day.
+
+**Derive the default; do not write it into state with an effect.** An effect
+costs a second render and then fights the user — once they choose for
+themselves their choice has to win, and the flag guarding that becomes a state
+machine nobody asked for. Let an explicit choice simply take precedence:
+
+```ts
+const classId = explicitChoice || theObviousDefault || firstAsLastResort;
+```
+
 ### Verifying
 
 Check at **360px** (small Android), **390px** (iPhone), **768px** (tablet) and
