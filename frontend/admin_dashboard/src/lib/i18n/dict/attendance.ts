@@ -5,6 +5,8 @@
 // উপস্থিতি, which is the abstract noun and reads as a statistic rather than as
 // the thing a teacher takes each morning.
 const attendance: Record<string, string> = {
+  'Another class': 'অন্য ক্লাস',
+  'Now': 'এখন',
   'Attendance': 'হাজিরা',
   'The month register, and one period at a time.': 'মাসিক হাজিরা খাতা, এবং পিরিয়ড ধরে হাজিরা।',
   'Month register': 'মাসিক খাতা',
