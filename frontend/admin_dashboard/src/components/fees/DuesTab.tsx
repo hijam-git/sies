@@ -212,15 +212,15 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
     {
       key: 'invoices',
       label: t('Invoices'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (r) => toBanglaDigits(formatNumber(r.invoices)),
     },
     {
       key: 'age',
       label: t('Oldest'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (r) =>
         r.oldestDays < 0 ? (
           <span className="text-gray-500">{t('Not yet due')}</span>
@@ -233,8 +233,8 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
     {
       key: 'balance',
       label: t('Outstanding'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (r) => <span className="font-bold text-red-600">{money(r.balance)}</span>,
     },
   ];

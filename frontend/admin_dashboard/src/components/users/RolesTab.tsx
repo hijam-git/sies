@@ -179,12 +179,12 @@ export default function RolesTab({ catalog }: { catalog: PermissionCatalog | nul
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
       render: (r) => (
         <button
           type="button"
           onClick={() => openRole(r)}
-          className="tap rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
         >
           {mayUpdate ? t('Edit') : t('View')}
         </button>

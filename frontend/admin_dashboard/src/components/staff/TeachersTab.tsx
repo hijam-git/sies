@@ -9,9 +9,10 @@ import BaseModal from '../common/BaseModal';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
+import StatusDot from '../common/StatusDot';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, btnRowAction } from '../common/styles';
 import PersonFields from './PersonFields';
 import { EMPLOYMENT_STATUSES, EMPTY_PERSON, personBody, personDraftFrom } from './shared';
 import type { PersonDraft } from './shared';
@@ -207,9 +208,11 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
       label: t('Teacher'),
       primary: true,
       render: (x) => (
-        <span className="block">
-          <span className="block">{x.name_bn || x.name}</span>
-          <span className="block font-mono text-xs text-gray-500">{x.teacher_id}</span>
+        // One line: the ID after the name, not under it. Stacked, it set the
+        // height of every row for a code that is looked at once.
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">{x.name_bn || x.name}</span>
+          <span className="shrink-0 font-mono text-xs text-gray-400">{x.teacher_id}</span>
         </span>
       ),
     },
@@ -234,30 +237,31 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
       key: 'status',
       label: t('Status'),
       render: (x) => (
-        <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            x.employment_status === 'active'
-              ? 'bg-emerald-100 text-emerald-800'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          {x.employment_status_display || x.employment_status}
-        </span>
+        <StatusDot
+          tone={x.employment_status === 'active' ? 'green' : 'gray'}
+          // One word in the reader's own language: `*_display` is both
+          // languages joined, which put "Active · কর্মরত" in every row.
+          label={
+            t(EMPLOYMENT_STATUSES.find((e) => e.value === x.employment_status)?.label ?? '')
+            || x.employment_status_display
+            || x.employment_status
+          }
+        />
       ),
     },
     {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (x) => (
         <span className="inline-flex gap-2">
-          <button type="button" onClick={() => void openQualifications(x)} className={btnSecondary}>
+          <button type="button" onClick={() => void openQualifications(x)} className={btnRowAction}>
             {t('Qualifications')}
           </button>
           {mayUpdate && (
-            <button type="button" onClick={() => openEdit(x)} className={btnSecondary}>
+            <button type="button" onClick={() => openEdit(x)} className={btnRowAction}>
               {t('Edit')}
             </button>
           )}
@@ -269,16 +273,15 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
   const filtering = !!(search || statusFilter || streamFilter);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        {mayCreate && (
-          <button type="button" onClick={openCreate} className={btnPrimary}>
-            {t('Add teacher')}
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-3">
       <FilterBar
+        actions={
+          mayCreate && (
+            <button type="button" onClick={openCreate} className={btnPrimary}>
+              {t('Add teacher')}
+            </button>
+          )
+        }
         search={
           <input
             type="search"
@@ -447,7 +450,7 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
         title={qualTarget ? `${t('Qualifications')} · ${qualTarget.name_bn || qualTarget.name}` : ''}
         maxWidth="2xl"
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <FormError message={qualError} />
 
           <ul className="divide-y divide-gray-100">

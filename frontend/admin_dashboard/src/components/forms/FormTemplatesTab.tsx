@@ -7,7 +7,7 @@ import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import BlockEditor from './BlockEditor';
 import { blockIndexInError } from './blockTypes';
 import { mergePrintDocuments } from './printDocument';
@@ -242,20 +242,20 @@ export default function FormTemplatesTab() {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (x) => (
         <span className="inline-flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={() => openEditor(x)} className={btnSecondary}>
+          <button type="button" onClick={() => openEditor(x)} className={btnRowAction}>
             {mayEdit ? t('Edit blocks') : t('View blocks')}
           </button>
           {mayEdit && (
-            <button type="button" onClick={() => void duplicate(x)} className={btnSecondary}>
+            <button type="button" onClick={() => void duplicate(x)} className={btnRowAction}>
               {t('Duplicate')}
             </button>
           )}
           {mayEdit && !x.is_default && (
-            <button type="button" onClick={() => void makeDefault(x)} className={btnSecondary}>
+            <button type="button" onClick={() => void makeDefault(x)} className={btnRowAction}>
               {t('Make default')}
             </button>
           )}

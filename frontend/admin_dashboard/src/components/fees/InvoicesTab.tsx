@@ -211,9 +211,10 @@ export default function InvoicesTab({
       label: t('Student'),
       primary: true,
       render: (f) => (
-        <span className="block">
-          <span className="block truncate font-semibold">{f.student_name}</span>
-          <span className="block truncate text-xs font-normal text-gray-500">{f.invoice_no}</span>
+        // One line: the invoice number after the name, not under it.
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-semibold">{f.student_name}</span>
+          <span className="shrink-0 font-mono text-xs font-normal text-gray-400">{f.invoice_no}</span>
         </span>
       ),
     },
@@ -231,15 +232,15 @@ export default function InvoicesTab({
     {
       key: 'payable',
       label: t('Invoice'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (f) => money(f.payable),
     },
     {
       key: 'balance',
       label: t('Balance'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (f) => (
         <span className={f.balance === '0.00' ? 'text-gray-500' : 'font-semibold text-red-600'}>
           {money(f.balance)}
@@ -251,6 +252,8 @@ export default function InvoicesTab({
       key: 'open',
       label: t('Open'),
       action: true,
+      // Phone only: from md the row itself opens the invoice.
+      cardOnly: true,
       render: (f) => (
         <button
           type="button"
@@ -273,7 +276,7 @@ export default function InvoicesTab({
     || !!period || !!classFilter || !!dueFrom || !!dueTo;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <FilterBar
         active={filtersActive}
         onClear={() => {
@@ -401,7 +404,7 @@ export default function InvoicesTab({
         maxWidth="2xl"
       >
         {detail && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <FormError message={actionError} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -542,7 +545,7 @@ export default function InvoicesTab({
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
             {reasonFor?.kind === 'waive'
               ? t('Waiving writes the balance off. The invoice stays on the record, marked waived, with this reason attached.')

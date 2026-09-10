@@ -10,6 +10,7 @@ import BaseModal from '../common/BaseModal';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
+import StatusDot from '../common/StatusDot';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
@@ -278,9 +279,10 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
       label: t('Name'),
       primary: true,
       render: (u) => (
-        <span className="block">
-          <span className="block">{u.name_bn || u.name}</span>
-          <span className="block font-mono text-xs text-gray-500">{u.phone}</span>
+        // One line: the phone after the name, not under it (see TeachersTab).
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">{u.name_bn || u.name}</span>
+          <span className="shrink-0 font-mono text-xs text-gray-400">{u.phone}</span>
         </span>
       ),
     },
@@ -300,9 +302,7 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
       hideOnNarrow: true,
       render: (u) =>
         u.permissions.length > 0 ? (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-            {t('Customised')}
-          </span>
+          <StatusDot tone="amber" label={t('Customised')} />
         ) : (
           <span className="text-xs text-gray-500">{t('Follows the preset')}</span>
         ),
@@ -317,27 +317,24 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
       key: 'status',
       label: t('Status'),
       render: (u) => (
-        <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          {u.is_active ? t('Active') : t('Inactive')}
-        </span>
+        <StatusDot
+          tone={u.is_active ? 'green' : 'gray'}
+          label={u.is_active ? t('Active') : t('Inactive')}
+        />
       ),
     },
     {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
       render: (u) => (
         <span className="flex flex-wrap items-center justify-end gap-1">
           {mayUpdate && (
             <button
               type="button"
               onClick={() => openEdit(u)}
-              className="tap rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+              className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
             >
               {t('Edit')}
             </button>
@@ -346,7 +343,7 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
             <button
               type="button"
               onClick={() => openPermissions(u)}
-              className="tap rounded-lg px-3 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
               {t('Permissions')}
             </button>
@@ -370,16 +367,15 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
   const filtering = Boolean(search || typeFilter || roleFilter || activeFilter);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        {mayCreate && (
-          <button type="button" onClick={openCreate} className={`${btnPrimary} w-full sm:w-auto`}>
-            {t('Add account')}
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-3">
       <FilterBar
+        actions={
+          mayCreate && (
+            <button type="button" onClick={openCreate} className={btnPrimary}>
+              {t('Add account')}
+            </button>
+          )
+        }
         active={filtering}
         onClear={() => {
           setSearch('');
@@ -487,7 +483,7 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
         {draft && (
           <form
             id="user-form"
-            className="space-y-4"
+            className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
               void save();

@@ -75,12 +75,8 @@ export default function StudentsPage() {
   const active = tabs.some((x) => x.key === tab) ? tab : tabs[0].key;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Students')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={active} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={active} onChange={setTab} heading={t('Students')} />
 
       {active === 'students' && maySeeStudents && (
         <StudentsTab streams={streams} classes={classes} sections={sections} sessions={sessions} />

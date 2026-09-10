@@ -55,16 +55,8 @@ export default function AccountsPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <header>
-        {/* No subtitle. The double-entry guard this used to carry now lives where
-            the mistake would actually be made: an auto-posted row shows a
-            padlock, a "From a receipt" badge and no Edit button at all. A
-            warning on the row beats a warning at the top of the page. */}
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Accounts')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} heading={t('Accounts')} />
 
       {/* `key` so switching tabs remounts rather than reusing the other
           ledger's filters, page number and rows against a different endpoint. */}

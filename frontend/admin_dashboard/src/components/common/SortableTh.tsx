@@ -20,7 +20,7 @@ export default function SortableTh<K extends string>({
   sort,
   onSort,
   className = '',
-  cellClass = 'px-4 py-3 text-left',
+  cellClass = 'px-3 py-2 text-left',
 }: {
   label: string;
   sortKey: K;
@@ -34,7 +34,7 @@ export default function SortableTh<K extends string>({
   const active = sort?.key === sortKey;
   return (
     <th
-      className={`${cellClass} text-xs font-medium uppercase tracking-wide text-gray-500 ${className}`}
+      className={`${cellClass} text-[11px] font-semibold uppercase tracking-wide text-gray-500 ${className}`}
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <button

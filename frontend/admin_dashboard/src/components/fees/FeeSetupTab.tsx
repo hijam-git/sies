@@ -9,7 +9,7 @@ import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import { RECURRENCES } from './feeConstants';
 
 /**
@@ -162,8 +162,8 @@ export default function FeeSetupTab({
     {
       key: 'amount',
       label: t('Default amount'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (c) =>
         c.default_amount ? (
           <span className="font-medium">{toBanglaDigits(formatBDTExact(c.default_amount))}</span>
@@ -205,7 +205,7 @@ export default function FeeSetupTab({
               e.stopPropagation();
               open(c);
             }}
-            className={btnSecondary}
+            className={btnRowAction}
           >
             {t('Edit')}
           </button>

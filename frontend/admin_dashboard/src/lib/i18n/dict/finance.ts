@@ -32,6 +32,8 @@ const finance: Record<string, string> = {
   'From a receipt': 'রসিদ থেকে',
   'From payroll': 'বেতন থেকে',
   'Entered by hand': 'হাতে লেখা',
+  // The action column on a posted ledger row: one word, with the reason on hover.
+  Locked: 'লকড',
   'Correct this by reversing the receipt in Fees.':
     'সংশোধন করতে ফি পাতায় গিয়ে রসিদটি বাতিল করুন।',
   'Posted automatically — not editable here.':

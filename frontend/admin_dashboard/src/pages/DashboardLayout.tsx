@@ -168,19 +168,23 @@ export default function DashboardLayout() {
 
   const sidebar = (
     <>
-      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+      {/* From `lg` the whole column tightens: 224px wide, 8px of padding, no
+          gap between items and a 16px icon. The item's own 44px stays at every
+          width — these are `<a>`s, and §7a rule 4 has no breakpoint — so the
+          pitch comes down from the gap and the padding, not from the target. */}
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4 lg:space-y-0 lg:p-2">
         {canView(OVERVIEW.resource) && (
           <Link
             to={OVERVIEW.path}
             onClick={() => setDrawerOpen(false)}
             aria-current={activePath === OVERVIEW.path ? 'page' : undefined}
-            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-4 transition-colors ${
+            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-4 transition-colors lg:gap-2.5 lg:px-2.5 ${
               activePath === OVERVIEW.path
                 ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <NavIcon name={OVERVIEW.icon} />
+            <NavIcon name={OVERVIEW.icon} className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
             <span className="font-medium">{t(OVERVIEW.label)}</span>
           </Link>
         )}
@@ -191,13 +195,13 @@ export default function DashboardLayout() {
             to={item.path}
             onClick={() => setDrawerOpen(false)}
             aria-current={item.path === activePath ? 'page' : undefined}
-            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-4 transition-colors ${
+            className={`flex min-h-[44px] items-center gap-3 rounded-lg px-4 transition-colors lg:gap-2.5 lg:px-2.5 ${
               item.path === activePath
                 ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <NavIcon name={item.icon} />
+            <NavIcon name={item.icon} className="h-5 w-5 shrink-0 lg:h-4 lg:w-4" />
             <span className="min-w-0 flex-1 truncate font-medium">{t(item.label)}</span>
             <NavBadge count={badges[item.path] ?? 0} />
           </Link>
@@ -208,7 +212,7 @@ export default function DashboardLayout() {
           It is the one control here you never want hit by accident, and the top
           bar is where the everyday actions are. Sitting below the navigation
           also means a phone user sees their own name — the top bar hides it. */}
-      <div className="shrink-0 border-t p-3 pb-safe">
+      <div className="shrink-0 border-t p-3 pb-safe lg:p-2">
         <p className="px-3 pb-1 text-[11px] uppercase tracking-wide text-gray-400">
           {t('Signed in as')}
         </p>
@@ -241,7 +245,7 @@ export default function DashboardLayout() {
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-30 border-b bg-white shadow-sm">
         <div className="mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between gap-2">
+          <div className="flex h-16 items-center justify-between gap-2 lg:h-14">
             {/* min-w-0 is what lets the institution's name actually truncate:
                 without it a flex item refuses to shrink below its content, and
                 a long madrasah name pushes the header wider than the phone. */}
@@ -338,7 +342,7 @@ export default function DashboardLayout() {
           id="sidebar-drawer"
           className={`fixed inset-y-0 left-0 z-40 flex w-[85vw] max-w-xs transform flex-col border-r bg-white
                       transition-transform duration-300 ease-in-out
-                      lg:sticky lg:inset-y-auto lg:top-16 lg:z-20 lg:h-[calc(100dvh-4rem)] lg:w-64 lg:max-w-none lg:translate-x-0
+                      lg:sticky lg:inset-y-auto lg:top-14 lg:z-20 lg:h-[calc(100dvh-3.5rem)] lg:w-56 lg:max-w-none lg:translate-x-0
                       ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           {/* The drawer overlays the header, so it carries its own — otherwise
@@ -373,7 +377,7 @@ export default function DashboardLayout() {
             engages, because its parent is perfectly happy to grow. With min-w-0
             the column stops at the screen edge and the table scrolls inside it,
             which is what every scroll-x in the app was written to expect. */}
-        <main className="w-full min-w-0 flex-1 p-4 pb-safe sm:p-6 lg:p-8">
+        <main className="w-full min-w-0 flex-1 p-4 pb-safe sm:p-5 lg:px-6 lg:py-4">
           <Outlet />
         </main>
       </div>

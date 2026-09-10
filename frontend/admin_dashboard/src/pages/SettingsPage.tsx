@@ -127,7 +127,7 @@ function InstitutionTab({ branchId }: { branchId: number | null }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {saved && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {t('Saved successfully!')}
@@ -179,12 +179,8 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Settings')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} heading={t('Settings')} />
 
       {tab === 'institution' && <InstitutionTab branchId={branchId} />}
       {tab === 'streams' && canView('academics') && <StreamsSessionsTab branchId={branchId} />}

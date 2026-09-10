@@ -21,7 +21,7 @@ import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import FormPreviewModal from '../forms/FormPreviewModal';
 import type { PreviewRequest } from '../forms/FormPreviewModal';
 
@@ -397,8 +397,8 @@ export default function AdmissionsTab({
             // buttons rather than as a labelled field, where a bare checkbox
             // reads as data the application contains.
             action: true,
-            cellClass: 'px-4 py-3 w-10',
-            headClass: 'px-4 py-3 w-10',
+            cellClass: 'px-3 py-2 w-10',
+            headClass: 'px-3 py-2 w-10',
             render: (a) => (
               <label className="inline-flex min-h-[44px] min-w-[44px] items-center gap-2">
                 <input
@@ -467,17 +467,17 @@ export default function AdmissionsTab({
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (a) => (
         <span className="inline-flex flex-wrap justify-end gap-2">
           {mayPrint && (
-            <button type="button" onClick={() => printOne(a)} className={btnSecondary}>
+            <button type="button" onClick={() => printOne(a)} className={btnRowAction}>
               {t('Print form')}
             </button>
           )}
           {mayUpdate && a.status !== 'admitted' && (
-            <button type="button" onClick={() => openEdit(a)} className={btnSecondary}>
+            <button type="button" onClick={() => openEdit(a)} className={btnRowAction}>
               {t('Edit')}
             </button>
           )}
@@ -492,22 +492,7 @@ export default function AdmissionsTab({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {mayPrint && (templates.length > 0 || rows.length > 0) && (
-            <button type="button" onClick={printBlank} className={btnSecondary}>
-              {t('Print blank form')}
-            </button>
-          )}
-          {mayCreate && (
-            <button type="button" onClick={openCreate} className={btnPrimary}>
-              {t('New application')}
-            </button>
-          )}
-        </div>
-      </div>
-
+    <div className="space-y-3">
       {/* Which template, when the institution has more than one. Hidden for the
           single-template case, which is nearly every institution: a select with
           one option is a question with no answer. */}
@@ -570,6 +555,20 @@ export default function AdmissionsTab({
       )}
 
       <FilterBar
+        actions={
+          <>
+            {mayPrint && (templates.length > 0 || rows.length > 0) && (
+              <button type="button" onClick={printBlank} className={btnSecondary}>
+                {t('Print blank form')}
+              </button>
+            )}
+            {mayCreate && (
+              <button type="button" onClick={openCreate} className={btnPrimary}>
+                {t('New application')}
+              </button>
+            )}
+          </>
+        }
         search={
           <input
             type="search"
@@ -890,7 +889,7 @@ export default function AdmissionsTab({
         }
       >
         {admitDraft && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <FormError message={formError} />
 
             {admitted ? (

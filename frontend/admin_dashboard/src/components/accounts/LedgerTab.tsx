@@ -12,11 +12,12 @@ import { thisMonthRange } from '../../lib/defaults';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
+import StatusDot from '../common/StatusDot';
 import type { Column } from '../common/ResponsiveTable';
 import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
 import StatCard, { StatIcon } from '../common/StatCard';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import { PAYMENT_METHODS } from '../fees/feeConstants';
 import CategoryManager from './CategoryManager';
 
@@ -153,28 +154,42 @@ export default function LedgerTab({
       key: 'what',
       label: t('Entry'),
       primary: true,
+      // max-w-0 + w-full: a <td> sizes to its content, so 'truncate' inside one
+      // never fires and the description pushed the table past the card instead.
+      // This makes the entry column the one that gives way.
+      cellClass: 'px-3 py-2 text-left max-w-0 w-full',
       // The indigo bar and the padlock are the row-level "you cannot edit this"
       // signal. `ResponsiveTable` styles rows uniformly by design, so the mark
       // goes on the cell that identifies the row — and it is the same mark in
       // the card layout and in the table.
       render: (r) => (
-        <span className={`block ${isPosted(r) ? 'border-l-4 border-indigo-400 pl-2' : ''}`}>
-          <span className={`block truncate font-semibold ${r.is_reversed ? 'line-through text-gray-400' : ''}`}>
+        // One line: the voucher and its note follow the category rather than
+        // sitting under it, which doubled the height of every row in the book.
+        <span className={`flex min-w-0 items-center gap-2 ${isPosted(r) ? 'border-l-4 border-indigo-400 pl-2' : ''}`}>
+          <span className={`shrink-0 font-semibold ${r.is_reversed ? 'line-through text-gray-400' : ''}`}>
             {isPosted(r) && <span aria-hidden className="mr-1 text-indigo-500">🔒</span>}
             {r.category_name}
           </span>
-          <span className="block truncate text-xs font-normal text-gray-500">
+          <span className="truncate text-xs font-normal text-gray-400">
             {r.voucher_no}
             {r.description ? ` · ${r.description}` : ''}
           </span>
         </span>
       ),
     },
-    { key: 'date', label: t('Date'), render: (r) => formatDhakaDate(r.date) },
+    // nowrap: squeezed by the wide entry column, '10 Sept 2026' wrapped onto
+    // three lines and took the whole row with it.
+    {
+      key: 'date',
+      label: t('Date'),
+      cellClass: 'px-3 py-2 text-left whitespace-nowrap',
+      render: (r) => formatDhakaDate(r.date),
+    },
     {
       key: 'method',
       label: t('Method'),
       hideOnNarrow: true,
+      cellClass: 'px-3 py-2 text-left whitespace-nowrap',
       render: (r) => t(PAYMENT_METHODS.find((m) => m.value === r.method)?.label ?? r.method),
     },
     {
@@ -182,25 +197,24 @@ export default function LedgerTab({
       label: t('Source'),
       render: (r) =>
         isPosted(r) ? (
-          <span className="inline-flex flex-col items-start gap-0.5">
-            <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
-              {r.source === 'fee_payment' ? t('From a receipt') : t('From payroll')}
-            </span>
-            {receiptNo(r) && (
-              <span className="text-[11px] text-gray-500">{receiptNo(r)}</span>
-            )}
+          // Side by side rather than stacked: two lines here made the row two
+          // lines tall for every entry in the book, posted or not.
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <StatusDot
+              tone="blue"
+              label={r.source === 'fee_payment' ? t('From a receipt') : t('From payroll')}
+            />
+            {receiptNo(r) && <span className="text-[11px] text-gray-400">{receiptNo(r)}</span>}
           </span>
         ) : (
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-            {t('Entered by hand')}
-          </span>
+          <StatusDot tone="gray" label={t('Entered by hand')} />
         ),
     },
     {
       key: 'amount',
       label: t('Amount'),
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (r) => (
         <span className={r.is_reversed ? 'text-gray-400 line-through' : 'font-semibold text-gray-900'}>
           {money(r.amount)}
@@ -215,10 +229,20 @@ export default function LedgerTab({
         isPosted(r) ? (
           // No Edit button at all. An accountant who presses one and meets a
           // 400 learns the rule the worst possible way.
-          <span className="text-xs text-gray-500">
-            {r.source === 'fee_payment'
-              ? t('Correct this by reversing the receipt in Fees.')
-              : t('Posted automatically — not editable here.')}
+          //
+          // The sentence is a `title`, not a line of text: wrapped inside a
+          // narrow action column it was six lines tall and made every posted
+          // row six lines tall with it. The padlock on the entry cell already
+          // says the row is locked; this says why, on hover.
+          <span
+            className="text-xs text-gray-400"
+            title={
+              r.source === 'fee_payment'
+                ? t('Correct this by reversing the receipt in Fees.')
+                : t('Posted automatically — not editable here.')
+            }
+          >
+            {t('Locked')}
           </span>
         ) : mayUpdate ? (
           <button
@@ -227,7 +251,7 @@ export default function LedgerTab({
               e.stopPropagation();
               setEditing(r);
             }}
-            className={btnSecondary}
+            className={btnRowAction}
           >
             {t('Edit')}
           </button>
@@ -238,7 +262,7 @@ export default function LedgerTab({
   const filtersActive = !!search || !!category || !!from || !!to;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
           tone={kind === 'income' ? 'green' : 'red'}
@@ -265,20 +289,21 @@ export default function LedgerTab({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {mayCreate && (
-          <button type="button" onClick={() => setEditing(null)} className={btnPrimary}>
-            {kind === 'income' ? t('Add income') : t('Add expense')}
-          </button>
-        )}
-        {mayUpdate && (
-          <button type="button" onClick={() => setManagingCategories(true)} className={btnSecondary}>
-            {t('Manage categories')}
-          </button>
-        )}
-      </div>
-
       <FilterBar
+        actions={
+          <>
+            {mayCreate && (
+              <button type="button" onClick={() => setEditing(null)} className={btnPrimary}>
+                {kind === 'income' ? t('Add income') : t('Add expense')}
+              </button>
+            )}
+            {mayUpdate && (
+              <button type="button" onClick={() => setManagingCategories(true)} className={btnSecondary}>
+                {t('Manage categories')}
+              </button>
+            )}
+          </>
+        }
         active={filtersActive}
         onClear={() => {
           setSearch(''); setCategory(''); setFrom(''); setTo(''); setPage(1);
@@ -479,7 +504,7 @@ function LedgerEntryModal({
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <FormError message={formError} />
 
         <FieldGrid>

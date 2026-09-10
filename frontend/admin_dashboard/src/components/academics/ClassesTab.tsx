@@ -11,7 +11,7 @@ import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import type { AcademicsData } from './shared';
 
 /**
@@ -236,11 +236,11 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (c) =>
         mayUpdate ? (
-          <button type="button" onClick={() => openEdit(c)} className={btnSecondary}>
+          <button type="button" onClick={() => openEdit(c)} className={btnRowAction}>
             {t('Edit')}
           </button>
         ) : null,
@@ -250,16 +250,15 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
   const filtering = !!(search || sessionFilter || streamFilter || activeFilter);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        {mayCreate && (
-          <button type="button" onClick={openCreate} className={btnPrimary}>
-            {t('Add class')}
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-3">
       <FilterBar
+        actions={
+          mayCreate && (
+            <button type="button" onClick={openCreate} className={btnPrimary}>
+              {t('Add class')}
+            </button>
+          )
+        }
         search={
           <input
             type="search"
@@ -358,7 +357,7 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
         }
       >
         {draft && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <FormError message={formError} />
             <FieldGrid>
               <Field label={t('Stream')} error={fieldErrors.stream} required>

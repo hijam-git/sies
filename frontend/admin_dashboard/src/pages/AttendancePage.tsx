@@ -98,12 +98,8 @@ export default function AttendancePage() {
     : null;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Attendance')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} heading={t('Attendance')} />
 
       {tab === 'register' && (
         <MonthRegisterTab classes={classes} sections={sections} onSectionsNeeded={loadForClass} />

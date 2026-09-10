@@ -88,12 +88,8 @@ export default function FeesPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Fees')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={active} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={active} onChange={setTab} heading={t('Fees')} />
 
       {active === 'collect' && mayCollect && <CollectFeeTab />}
       {active === 'invoices' && (

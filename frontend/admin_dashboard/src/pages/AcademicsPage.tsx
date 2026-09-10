@@ -85,12 +85,8 @@ export default function AcademicsPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Academics')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} heading={t('Academics')} />
 
       {tab === 'classes' && <ClassesTab data={data} />}
       {tab === 'sections' && <SectionsTab data={data} />}

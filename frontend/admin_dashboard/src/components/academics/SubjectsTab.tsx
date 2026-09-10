@@ -8,7 +8,7 @@ import BaseModal from '../common/BaseModal';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
 import Picker from '../common/Picker';
 import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import { classLabel } from './shared';
@@ -201,12 +201,12 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
+      headClass: 'px-3 py-2 text-right',
       render: (s) => (
         <span className="inline-flex gap-2">
           {mayUpdate && (
-            <button type="button" onClick={() => openEdit(s)} className={btnSecondary}>
+            <button type="button" onClick={() => openEdit(s)} className={btnRowAction}>
               {t('Edit')}
             </button>
           )}
@@ -225,7 +225,7 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="w-full sm:w-64">
           <Field label={t('Class')}>
@@ -279,7 +279,7 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
         }
       >
         {draft && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <FormError message={formError} />
             <FieldGrid>
               <Field label={t('Name (English)')} error={fieldErrors.name} required>

@@ -186,7 +186,7 @@ export default function BranchesPage() {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
       render: (b) =>
         can('branches', 'update') ? (
           <button
@@ -195,7 +195,7 @@ export default function BranchesPage() {
               e.stopPropagation();
               openEdit(b);
             }}
-            className="tap rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+            className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
           >
             {t('Edit')}
           </button>

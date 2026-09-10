@@ -75,12 +75,8 @@ export default function UsersPage() {
   const active = tabs.some((x) => x.key === tab) ? tab : tabs[0].key;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Users')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={active} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={active} onChange={setTab} heading={t('Users')} />
 
       {catalogError && active !== 'activity' && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

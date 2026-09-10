@@ -20,6 +20,7 @@ export default function FilterBar({
   search,
   period,
   children,
+  actions,
   onClear,
   active = false,
 }: {
@@ -37,6 +38,17 @@ export default function FilterBar({
    * the label would point at whichever the browser found first.
    */
   children?: ReactNode;
+  /**
+   * The screen's own action — "Add student", usually — sitting at the end of
+   * the bar.
+   *
+   * It used to live in a row of its own above this one. That row was a
+   * `justify-between` with a heading on the left; when the subtitles went, the
+   * heading went with them and the row kept its 44px and its 16px of gap for
+   * the sake of one right-aligned button. The bar already runs the full width
+   * and already ends in empty space, so the button goes here.
+   */
+  actions?: ReactNode;
   /** Shown only while something is actually filtering, so it is never a button
    *  that appears to do nothing. */
   onClear?: () => void;
@@ -60,8 +72,12 @@ export default function FilterBar({
   );
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4">
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+    // A card on a phone, where it is a block of controls that has to look
+    // separate from the list beneath it — and a bare toolbar from `md` up,
+    // where it is one line of selects and the border, the shadow and the 16px
+    // of padding around them were 40px of chrome saying nothing.
+    <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4 md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-2">
         {/* The search box takes the room it needs and gives it back: grow so it
             fills a wide row, min-w-0 so it can shrink at 360px rather than
             pushing the rest of the row off the screen. */}
@@ -88,7 +104,10 @@ export default function FilterBar({
           {children}
         </div>
 
-        <div className={collapses ? 'ml-auto hidden sm:block' : 'ml-auto'}>{clearButton}</div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className={collapses ? 'hidden sm:block' : ''}>{clearButton}</span>
+          {actions}
+        </div>
       </div>
 
       {collapses && (
@@ -132,11 +151,13 @@ export default function FilterBar({
 /** The one input style, so a search box is the same box on every screen. */
 export const filterInputCls =
   'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 ' +
-  'placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm';
+  'placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm ' +
+  'md:py-1.5';
 
 /** The one select style. Matches filterInputCls so a row of mixed controls
  *  reads as one row rather than three widgets that happen to be adjacent.
- *  `min-h-[44px]` because a select is a touch target like any other. */
+ *  `min-h-[44px]` because a select is a touch target like any other — up to
+ *  `md`, past which the toolbar is operated with a mouse and 34px is plenty. */
 export const filterSelectCls =
   'min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 ' +
-  'focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm';
+  'focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm md:min-h-[34px] md:py-1';

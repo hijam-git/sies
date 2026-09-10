@@ -180,13 +180,13 @@ export default function StreamsSessionsTab({ branchId }: { branchId: number | nu
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
       render: (s) =>
         mayEdit ? (
           <button
             type="button"
             onClick={() => setStreamDraft(s)}
-            className="tap rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+            className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
           >
             {t('Edit')}
           </button>
@@ -230,14 +230,14 @@ export default function StreamsSessionsTab({ branchId }: { branchId: number | nu
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
+      cellClass: 'px-3 py-2 text-right',
       render: (s) => (
         <span className="flex flex-wrap items-center justify-end gap-1">
           {mayEdit && !s.is_current && (
             <button
               type="button"
               onClick={() => void makeCurrent(s)}
-              className="tap rounded-lg px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+              className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
             >
               {t('Make current')}
             </button>
@@ -246,7 +246,7 @@ export default function StreamsSessionsTab({ branchId }: { branchId: number | nu
             <button
               type="button"
               onClick={() => setSessionDraft(s)}
-              className="tap rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+              className="tap md:-my-2 rounded-lg px-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
             >
               {t('Edit')}
             </button>

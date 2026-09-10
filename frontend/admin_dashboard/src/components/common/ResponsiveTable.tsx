@@ -14,6 +14,24 @@ import type { ReactNode } from 'react';
  * because a 31-column register is not a list of records.
  */
 
+/**
+ * The default `<td>` / `<th>` padding, and the only padding a column should
+ * use. Exported so the handful of right-aligned columns can say
+ * `${cellCls} text-right` instead of re-typing — and drift away from — the
+ * numbers. `py-2` plus `h-11` on the row is a 44px single-line row.
+ */
+export const cellCls = 'px-3 py-2 text-left';
+export const headCls = 'px-3 py-2 text-left';
+
+/**
+ * For a link or button that lives *inside* a cell — a guardian's phone number,
+ * say. It still has to be 44px tall (§7a rule 4, and the office really does tap
+ * it), but 44px of content inside a padded cell is a 60px row. The negative
+ * margin lets the target overhang the cell's padding from `md` up, where the
+ * row around it is exactly 44px anyway.
+ */
+export const cellTapCls = 'inline-flex min-h-[44px] items-center md:-my-2';
+
 export interface Column<T> {
   /** Stable identity for React's key. Not the label: labels are translated. */
   key: string;
@@ -33,10 +51,21 @@ export interface Column<T> {
    */
   action?: boolean;
   /** Padding and alignment for the `<td>`. Written out in full, never built
-   *  from a variable — Tailwind only ships classes it can see in the source. */
+   *  from a variable — Tailwind only ships classes it can see in the source.
+   *  Keep it as tight as the default: a column that pads itself back out is
+   *  the one that sets the height of every row in the table. */
   cellClass?: string;
   /** Same, for the `<th>`. */
   headClass?: string;
+  /**
+   * Card-only: rendered in the card footer, never as a table column.
+   *
+   * For the "open this row" button. From `md` up the row itself is the
+   * control, so a button repeating that in every row is 44px of noise; on a
+   * card there is no hover and no pointer, and a tappable card with no visible
+   * affordance is a guess (§7a rule 4).
+   */
+  cardOnly?: boolean;
   /** Hide below `lg` on the table too. For the columns that are context rather
    *  than content — a created-at date beside a name and an amount. */
   hideOnNarrow?: boolean;
@@ -72,6 +101,8 @@ export default function ResponsiveTable<T>({
   const primary = columns.find((c) => c.primary);
   const actions = columns.filter((c) => c.action);
   const fields = columns.filter((c) => c !== primary && !c.action);
+  // The row is the control from md up; see `cardOnly`.
+  const tableColumns = columns.filter((c) => !c.cardOnly);
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
@@ -139,10 +170,10 @@ export default function ResponsiveTable<T>({
         <table className="min-w-full">
           <thead>
             <tr className="border-b border-gray-100">
-              {columns.map((c) => (
+              {tableColumns.map((c) => (
                 <th
                   key={c.key}
-                  className={`${c.headClass ?? 'px-4 py-3 text-left'} text-xs font-medium uppercase tracking-wide text-gray-500 ${
+                  className={`${c.headClass ?? headCls} text-[11px] font-semibold uppercase tracking-wide text-gray-500 ${
                     c.hideOnNarrow ? 'hidden lg:table-cell' : ''
                   }`}
                 >
@@ -153,15 +184,36 @@ export default function ResponsiveTable<T>({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((row) => (
+              // The row IS the control from md up, so the per-row "open" button
+              // can go. h-11 rather than fatter padding: 44px is both the touch
+              // floor the row now has to meet as a target itself (§7a rule 4)
+              // and about as short as a line of Bangla can be set without
+              // crowding its descenders.
               <tr
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={onRowClick ? 'cursor-pointer transition-colors hover:bg-gray-50' : ''}
+                role={onRowClick ? 'button' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onRowClick(row);
+                        }
+                      }
+                    : undefined
+                }
+                className={`h-11 ${
+                  onRowClick
+                    ? 'cursor-pointer transition-colors hover:bg-gray-50 focus-visible:bg-blue-50 focus-visible:outline-none'
+                    : ''
+                }`}
               >
-                {columns.map((c) => (
+                {tableColumns.map((c) => (
                   <td
                     key={c.key}
-                    className={`${c.cellClass ?? 'px-4 py-3 text-left'} text-sm text-gray-900 ${
+                    className={`${c.cellClass ?? cellCls} text-sm text-gray-900 ${
                       c.hideOnNarrow ? 'hidden lg:table-cell' : ''
                     }`}
                   >

@@ -128,12 +128,8 @@ export default function ExamsPage() {
   const tabs: TabDef<Tab>[] = available.map((key) => ({ key, label: labels[key] }));
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{t('Exams')}</h1>
-      </header>
-
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} heading={t('Exams')} />
 
       {tab === 'exams' && <ExamsTab data={data} />}
       {tab === 'marks' && <MarksEntryTab data={data} />}

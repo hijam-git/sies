@@ -7,9 +7,10 @@ import { apiErrorText } from '../../lib/apiErrors';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import Picker from '../common/Picker';
-import ResponsiveTable from '../common/ResponsiveTable';
+import ResponsiveTable, { cellTapCls } from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
+import StatusDot from '../common/StatusDot';
 import { btnPrimary, btnSecondary } from '../common/styles';
 import StudentFormModal from './StudentFormModal';
 import StudentDetailModal from './StudentDetailModal';
@@ -156,19 +157,18 @@ export default function StudentsTab({
       key: 'name',
       label: t('Student'),
       primary: true,
+      // Name and ID on ONE line. Stacked, they set the height of every row in
+      // the roll for the sake of a code nobody reads twice. There is no
+      // initial-in-a-circle either: it is 36px of the same letter the name
+      // beside it already starts with. A real photo, when there is one, is
+      // h-7 so it fits inside the row rather than defining it.
       render: (s) => (
-        <span className="flex items-center gap-3">
-          {s.photo ? (
-            <img src={s.photo} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-          ) : (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm text-gray-400">
-              {(s.name_bn || s.name).slice(0, 1)}
-            </span>
+        <span className="flex min-w-0 items-center gap-2">
+          {s.photo && (
+            <img src={s.photo} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
           )}
-          <span className="min-w-0">
-            <span className="block truncate">{s.name_bn || s.name}</span>
-            <span className="block font-mono text-xs text-gray-500">{s.student_id}</span>
-          </span>
+          <span className="truncate">{s.name_bn || s.name}</span>
+          <span className="shrink-0 font-mono text-xs text-gray-400">{s.student_id}</span>
         </span>
       ),
     },
@@ -201,7 +201,8 @@ export default function StudentsTab({
           // rather than a 16px line of text (`CLAUDE.md` §7a rule 4).
           <a
             href={`tel:${primary.guardian_phone}`}
-            className="inline-flex min-h-[44px] items-center font-mono text-blue-700"
+            onClick={(e) => e.stopPropagation()}
+            className={`${cellTapCls} font-mono text-blue-700`}
           >
             {primary.guardian_phone}
           </a>
@@ -211,22 +212,23 @@ export default function StudentsTab({
     {
       key: 'status',
       label: t('Status'),
+      // `status_display` is both languages joined; STATUSES is the one the
+      // reader is actually in.
       render: (s) => (
-        <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-            s.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          {s.status_display}
-        </span>
+        <StatusDot
+          tone={s.status === 'active' ? 'green' : 'gray'}
+          label={t(STATUSES.find((x) => x.value === s.status)?.label ?? '') || s.status_display}
+        />
       ),
     },
     {
       key: 'actions',
       label: t('Actions'),
       action: true,
-      cellClass: 'px-4 py-3 text-right',
-      headClass: 'px-4 py-3 text-right',
+      // Phone only: from md the row itself opens the student, so a button
+      // saying so in all twenty-five rows is 25 × 44px of repetition. A card
+      // has no hover to reveal that, so it keeps the button.
+      cardOnly: true,
       render: (s) => (
         <button type="button" onClick={() => setDetailId(s.id)} className={btnSecondary}>
           {t('Open')}
@@ -238,16 +240,15 @@ export default function StudentsTab({
   const filtering = !!(search || streamFilter || classFilter || sectionFilter || statusFilter !== 'active');
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        {mayCreate && (
-          <button type="button" onClick={() => setFormTarget(null)} className={btnPrimary}>
-            {t('Add student')}
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-3">
       <FilterBar
+        actions={
+          mayCreate && (
+            <button type="button" onClick={() => setFormTarget(null)} className={btnPrimary}>
+              {t('Add student')}
+            </button>
+          )
+        }
         search={
           <input
             type="search"

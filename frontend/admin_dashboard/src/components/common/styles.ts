@@ -34,3 +34,10 @@ export const btnPrimary =
 export const btnSecondary =
   'tap gap-2 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 ' +
   'transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50';
+
+/* The same button, inside a table row.
+   It keeps its 44px — it is still a touch target, at every width — but from
+   `md` up it overhangs the cell's `py-2` instead of adding to it, so a row with
+   an Edit button is the same 44px tall as a row without one. Below `md` there
+   is no table: it is a card footer button and needs the whole 44px of space. */
+export const btnRowAction = btnSecondary + ' md:-my-2';
