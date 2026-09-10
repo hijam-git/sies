@@ -1,0 +1,42 @@
+# SIES backend — development image.
+#
+# /app IS backend/app. docker-compose.dev.yml bind-mounts ./backend/app over
+# /app so an edit on the host is the file the container imports, and Django's
+# autoreloader restarts on it. That mount REPLACES whatever the image put at
+# /app, so nothing outside backend/app may live there — requirements.txt is
+# installed into site-packages before the copy and survives; manage.py lives
+# inside backend/app for the same reason.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# build-essential: psycopg[binary] ships wheels, but a transitive dependency
+#   without one would otherwise fail the build with a compiler error.
+# libpq-dev + postgresql-client: psql/pg_dump for `dev.sh dbshell` and backups.
+# gettext: makemessages/compilemessages — the UI is bilingual from day one
+#   (CLAUDE.md §8.8), so the toolchain has to be here, not added later.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        postgresql-client \
+        gettext \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY app/ /app/
+
+# Media is a named volume in compose; create it so a run without that volume
+# still starts instead of failing on the first upload.
+RUN mkdir -p /app/media /app/staticfiles
+
+EXPOSE 8000
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

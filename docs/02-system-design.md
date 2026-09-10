@@ -194,7 +194,8 @@ Restating `01` §5 in operational terms.
    `branch` from `request.branch` — **the client never supplies `branch` on
    write.** A branch id in a POST body is ignored, so it cannot be used to
    write into a branch the user cannot see.
-3. Cross-branch reads happen only through `reports/` platform-admin views, gated on
+3. Cross-branch reads happen only through explicitly-named platform-admin report
+   views (in each module in V1 — there is no `reports/` app until V2), gated on
    `reports.view` **and** `user.branch is NULL`.
 4. A `MultiBranch` grant (`BranchAccess`) widens step 1's result to a set.
 

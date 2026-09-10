@@ -57,16 +57,16 @@ sies/
 ├── scripts/                     §6
 ├── backend/
 │   ├── Dockerfile / Dockerfile.dev
-│   ├── manage.py
+│   ├── manage.py                shim → app/manage.py
 │   ├── requirements.txt
-│   └── app/
+│   └── app/                     ← bind-mounted to /app; the REAL manage.py lives here
 │       ├── core/        settings, celery, urls, middleware, exception handlers
-│       ├── accounts/    User, Role, permissions, phone auth
+│       ├── accounts/    User, Role, ActivityLog, permissions, phone auth
 │       ├── branches/    Branch (= one institution), Stream, Session
-│       ├── academics/   AcademicClass, Section, Subject, Enrolment
+│       ├── academics/   AcademicClass, Section, Subject, Enrolment, Period, ClassRoutine
 │       ├── students/    Student, Guardian, Admission, Document
 │       ├── forms/       FormTemplate, Question, AdmissionAnswer, PrintedForm
-│       ├── staff/       StaffProfile
+│       ├── staff/       Teacher, Employee, TeacherQualification
 │       ├── attendance/  DailyAttendance, ClassAttendance
 │       ├── fees/        FeeCategory, Fee, Payment
 │       ├── finance/     Income, Expense, categories
@@ -242,6 +242,28 @@ situation it will meet.
 ---
 
 ## 5. API conventions
+
+> ### ⚠️ `request.branch` is lazy — use `get_branch(request)` for identity checks
+>
+> `BranchScopeMiddleware` attaches `request.branch` as a **`SimpleLazyObject`**,
+> and it has to: the SPA authenticates with JWT, DRF resolves that *inside the
+> view* — after every middleware has run — so resolving eagerly would read
+> `AnonymousUser` on every API request and scope the entire API to `None`.
+>
+> The consequence you must remember:
+>
+> ```python
+> request.branch is None            # ← ALWAYS False. The proxy is not the thing.
+> get_branch(request) is None       # ← correct
+>
+> request.branch == ALL_BRANCHES    # ← fine, == unwraps
+> branch.name                       # ← fine, attribute access unwraps
+> ```
+>
+> `from core.middleware import get_branch, is_all_branches, ALL_BRANCHES`.
+> `BranchScopedViewSet` already goes through `get_branch()`, so inheriting it
+> means you never touch this. Write a raw `is None` check against
+> `request.branch` and it silently passes, every time, for everyone.
 
 - `/api/` prefix, versionless, DRF routers + `ModelViewSet`.
 - Every branch-scoped viewset inherits `BranchScopedViewSet`, which filters in

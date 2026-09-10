@@ -1,0 +1,39 @@
+# SIES backend dependencies.
+#
+# This list is short on purpose. It was derived from awliaa/backend/requirements.txt
+# by deleting everything that served the storefront rather than the framework:
+# R2/boto3 object storage, Cloudflare, Google OAuth, drf-spectacular, dnspython,
+# qrcode, the Anthropic client and the encryption used for third-party tokens.
+# SIES has no storefront, no social login (CLAUDE.md §1: phone + password only),
+# no object storage (media is a volume) and no public API to publish a schema for.
+#
+# Nothing here is optional, and CLAUDE.md §8.6 says a new line needs a reason.
+# Keeping it readable in one screen is what makes that rule enforceable.
+
+# Framework
+Django==5.1.4
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.3.1
+django-filter==24.3
+django-cors-headers==4.6.0
+
+# Database driver. psycopg 3 (not psycopg2-binary, which awliaa still uses):
+# Django 5.x prefers it, and the [binary] extra ships wheels so the image needs
+# no libpq build step.
+psycopg[binary]==3.2.3
+
+# Background work — beat + worker are required, not optional (docs/01 §4).
+# Redis is the broker and result backend and NOTHING else: CLAUDE.md §1 forbids
+# a caching layer, so there is no django-redis here.
+celery==5.4.0
+redis==5.2.1
+
+# WSGI server for the production image.
+gunicorn==23.0.0
+
+# Reads .env.development / .env.production in local (non-Docker) runs; Compose
+# injects the same variables through env_file.
+python-dotenv==1.0.1
+
+# Student photos, branch logos, scanned admission documents.
+Pillow==11.0.0

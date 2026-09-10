@@ -13,7 +13,9 @@ promoted into `08-decisions.md`; this file is the trail.
 
 | Phase | Contents | State |
 |-------|----------|-------|
-| 0 | Skeleton — Docker, Traefik, Django core, SPA shell | 🔄 in progress |
+| 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
+| 0b | Frontend shell — SPA ported from Awliaa myadmin | 🔄 in progress |
+| 0c | Infra — Traefik, env, scripts, prod compose | 🔄 in progress |
 | 1 | `accounts` + `branches` — phone auth, roles, ActivityLog, seeding | ⬜ |
 | 2 | `academics` + `students` + `staff` + `forms` | ⬜ |
 | 3 | `fees` + `finance` | ⬜ |
@@ -85,6 +87,48 @@ lines 160–340). Porting notes for Phase 1:
   check, so an irreversible row removal needs more than a ticked box. SIES
   analogue: destructive deletes on Student/Fee/Payment are principal-only, on
   top of the resource permission.
+
+**F3 — `request.branch` must be lazy, and that has a sharp edge.**
+The SPA authenticates with JWT, which DRF resolves *inside the view* — after
+every middleware has run. Resolving the branch eagerly in middleware would read
+`AnonymousUser` on every API request and scope the whole API to `None`. So
+`request.branch` is a `SimpleLazyObject`.
+
+The edge: **`request.branch is None` is always False** — the proxy is not the
+thing. `core.middleware.get_branch(request)` unwraps it, `==` and attribute
+access work normally. Promoted into `CLAUDE.md` §5 as a warning block because a
+raw `is None` check would silently pass for everyone, forever, and nothing would
+fail loudly.
+
+**F4 — `manage.py` had to move to `backend/app/`.** `docker-compose.dev.yml`
+bind-mounts `./backend/app:/app`, which *replaces* `/app`, so a `manage.py` at
+`backend/` is invisible inside the container. `backend/manage.py` is now an
+8-line shim that delegates. Compose was already written and is authoritative;
+`CLAUDE.md` §2's layout diagram was wrong and has been corrected.
+
+**F5 — `AUTH_USER_MODEL` is conditional, temporarily.** Naming `accounts.User`
+before the app exists makes *every* management command fail, including `check`
+and `migrate` — Phase 0 would be unrunnable and untestable. Settings uses
+`importlib.util.find_spec('accounts')` and flips itself when Phase 1 lands.
+**Phase 1 must make this unconditional** — a conditional auth user model is
+fine as scaffolding and a liability in production. Added to the Phase 1 tasks.
+
+**F6 — the pg_dump version-skew trap, found in Awliaa.** Awliaa's prod
+Dockerfile installs `postgresql-client` **17** against a `postgres:16-alpine`
+server. pg_dump 17 writes `SET transaction_timeout = 0` into the dump header,
+which PG16 rejects on restore. **Backups keep succeeding**, so it surfaces only
+on the day someone needs a restore. SIES uses the same 16-alpine server; pin the
+client to 16, and `scripts/restore_backup.sh` should strip that line defensively.
+Passed to the infra agent.
+
+**F7 — `perform_create` for a platform admin with no `?branch=`** reached the FK
+as the string `'ALL'` and failed as a database type error — a 500 for what is
+really a missing parameter. Fixed to raise a DRF `ValidationError`: *"Choose an
+institution before creating this. Add ?branch=&lt;id&gt; to the request."*
+
+**F8 — `docs/02` §3.3 pointed cross-branch reads at a `reports/` app** that
+`docs/05` §6 says is not created in V1. Corrected: platform-admin report views
+live in each module in V1.
 
 **F2 — Divergence from Awliaa, deliberate.** Awliaa stores roles as **Django
 Groups**; SIES uses the `Role` model from `docs/03` §1. Reason: the catalogue is
