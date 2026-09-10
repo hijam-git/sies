@@ -18,12 +18,22 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=sies-network"
+      # WITHOUT this constraint Traefik discovers EVERY labelled container on the
+      # Docker host, not just this stack's. On a machine running more than one
+      # project that means another stack's router can win /api and this one
+      # answers 504 while every container looks healthy — which is exactly what
+      # happened here. The constraint scopes discovery to our own containers.
+      - "--providers.docker.constraints=Label(`sies.stack`,`dev`)"
       - "--entrypoints.web.address=:80"
       - "--log.level=INFO"
       - "--accesslog=true"
     ports:
       - "5000:80"      # the app
-      - "8081:8080"    # Traefik dashboard
+      # 8090, deliberately high: this machine already runs other stacks holding
+      # 8080, 8081 and 8082, and a dashboard port clash stops the WHOLE stack,
+      # not just the dashboard. Override with TRAEFIK_DASHBOARD_PORT if 8090 is
+      # taken too.
+      - ":8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -97,6 +107,7 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
+      - "sies.stack=dev"            # scopes this container to OUR Traefik only
       - "traefik.docker.network=sies-network"
       # Backend owns /api, /admin (Django admin), /static and /media.
       # Higher priority than the SPA's catch-all rule below.
@@ -178,6 +189,7 @@ services:
       - "5173"
     labels:
       - "traefik.enable=true"
+      - "sies.stack=dev"            # scopes this container to OUR Traefik only
       - "traefik.docker.network=sies-network"
       # Catch-all: everything the backend did not claim. Includes /myadmin
       # and the Vite HMR websocket.

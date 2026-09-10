@@ -49,7 +49,7 @@ case "$cmd" in
         echo "    app       $URL"
         echo "    api       http://localhost:5000/api/"
         echo "    django    http://localhost:5000/admin/"
-        echo "    traefik   http://localhost:8081"
+        echo "    traefik   http://localhost:${TRAEFIK_DASHBOARD_PORT:-8090}"
         exit 0
       fi
       sleep 2
