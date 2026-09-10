@@ -10,6 +10,7 @@ import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles'
 import Picker from '../common/Picker';
 import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import PeriodsPanel from './PeriodsPanel';
+import MasterRoutine from './MasterRoutine';
 import { WEEK_DAYS, classLabel, periodLabel, shortTime, todayWeekIndex } from './shared';
 import type { AcademicsData } from './shared';
 
@@ -53,6 +54,9 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
   // and a stale value every time the session list arrives late.
   const [sessionChoice, setSessionChoice] = useState<string>('');
   const [classChoice, setClassChoice] = useState<string>('');
+  // Which question is being asked: one class's week, or one day across the
+  // whole institution. `MasterRoutine` answers the second two.
+  const [scope, setScope] = useState<'class' | 'classes' | 'teachers'>('class');
   const [sectionId, setSectionId] = useState<string>('');
   const [day, setDay] = useState<DayOfWeek>(todayWeekIndex());
 
@@ -106,7 +110,7 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
   }, [loadPeriods]);
 
   const load = useCallback(async () => {
-    if (!sessionId || !classId) {
+    if (!sessionId) {
       setAllRoutines([]);
       setSubjects([]);
       setSections([]);
@@ -115,10 +119,17 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
     setLoading(true);
     setLoadError(null);
     try {
+      // The session's rows are fetched whether or not a class is chosen: they
+      // are what the whole-institution views draw, and the clash check needs
+      // them anyway. Subjects and sections are per class, so they wait for one.
       const [routines, subjectRows, sectionRows] = await Promise.all([
         apiClient.listAll<ClassRoutine>('/class-routines/', `?session=${sessionId}&is_active=true`),
-        apiClient.listAll<Subject>('/subjects/', `?academic_class=${classId}&is_active=true`),
-        apiClient.listAll<Section>('/sections/', `?academic_class=${classId}&is_active=true`),
+        classId
+          ? apiClient.listAll<Subject>('/subjects/', `?academic_class=${classId}&is_active=true`)
+          : Promise.resolve([] as Subject[]),
+        classId
+          ? apiClient.listAll<Section>('/sections/', `?academic_class=${classId}&is_active=true`)
+          : Promise.resolve([] as Section[]),
       ]);
       setAllRoutines(routines);
       setSubjects(subjectRows);
@@ -254,8 +265,34 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
 
   const chosenClass = data.classes.find((c) => String(c.id) === classId);
 
+  const SCOPES: { key: typeof scope; label: string }[] = [
+    { key: 'class', label: 'One class' },
+    { key: 'classes', label: 'All classes' },
+    { key: 'teachers', label: 'All teachers' },
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="scroll-x -mx-1 px-1">
+        <div className="flex w-max gap-1">
+          {SCOPES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setScope(s.key)}
+              aria-pressed={scope === s.key}
+              className={`min-h-[40px] whitespace-nowrap rounded-lg px-3 text-sm font-medium ${
+                scope === s.key
+                  ? 'bg-gray-900 text-white'
+                  : 'border border-gray-200 bg-white text-gray-600'
+              }`}
+            >
+              {t(s.label)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label={t('Session')}>
           <Picker
@@ -267,32 +304,63 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
             options={data.sessions.map((s) => ({ value: String(s.id), label: s.name }))}
           />
         </Field>
-        <Field label={t('Class')}>
-          <Picker
-            value={classId}
-            onChange={(v) => {
-              setClassChoice(v);
-              setSectionId('');
-            }}
-            options={sessionClasses.map((c) => ({ value: String(c.id), label: classLabel(c) }))}
-            emptyLabel={t('Choose a class')}
-          />
-        </Field>
-        <Field label={t('Section')}>
-          <Picker
-            value={sectionId}
-            onChange={setSectionId}
-            options={sections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
-            anyLabel={t('Whole class')}
-          />
-        </Field>
+        {/* A class and a section narrow one class's week. The whole-institution
+            views are already about every class, so asking there would be a
+            control that contradicts the heading above it. */}
+        {scope === 'class' && (
+          <>
+            <Field label={t('Class')}>
+              <Picker
+                value={classId}
+                onChange={(v) => {
+                  setClassChoice(v);
+                  setSectionId('');
+                }}
+                options={sessionClasses.map((c) => ({ value: String(c.id), label: classLabel(c) }))}
+                emptyLabel={t('Choose a class')}
+              />
+            </Field>
+            <Field label={t('Section')}>
+              <Picker
+                value={sectionId}
+                onChange={setSectionId}
+                options={sections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
+                anyLabel={t('Whole class')}
+              />
+            </Field>
+          </>
+        )}
       </div>
 
       {loadError && <FormError message={loadError} />}
 
-      <PeriodsPanel periods={periods} streams={data.streams} onChanged={async () => { await loadPeriods(); await load(); }} />
+      {scope === 'class' && (
+        <PeriodsPanel periods={periods} streams={data.streams} onChanged={async () => { await loadPeriods(); await load(); }} />
+      )}
 
-      {teachingPeriods.length === 0 ? (
+      {scope !== 'class' ? (
+        <MasterRoutine
+          mode={scope}
+          day={day}
+          onDayChange={setDay}
+          routines={allRoutines}
+          periods={teachingPeriods}
+          classes={sessionClasses}
+          // Someone on leave still holds their periods and still shows a clash;
+          // someone who has left does not, and their empty row would read as a
+          // free teacher to give a class to.
+          teachers={data.teachers.filter(
+            (x) => x.employment_status === 'active' || x.employment_status === 'on_leave',
+          )}
+          // A cell is a link into the editable grid for that class, so the one
+          // place a lesson can be changed stays the one place.
+          onOpenClass={(id) => {
+            setClassChoice(String(id));
+            setSectionId('');
+            setScope('class');
+          }}
+        />
+      ) : teachingPeriods.length === 0 ? (
         <div className="rounded-xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
           {t('Add a period above before building the routine.')}
         </div>

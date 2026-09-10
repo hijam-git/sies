@@ -52,6 +52,7 @@ const academics: Record<string, string> = {
   'Every stream': 'সব বিভাগ',
   'This class has no subjects yet.': 'এই শ্রেণিতে কোনো বিষয় নেই।',
   'Choose a class to see its subjects.': 'বিষয় দেখতে একটি শ্রেণি বাছুন।',
+  'Add a class first — subjects belong to one.': 'আগে একটি শ্রেণি যোগ করুন — বিষয় শ্রেণির অধীনে থাকে।',
   'Delete this subject?': 'বিষয়টি মুছবেন?',
   'Could not load the subjects.': 'বিষয় তালিকা আনা যায়নি।',
   'Could not save this subject.': 'বিষয়টি সংরক্ষণ করা যায়নি।',
@@ -109,6 +110,11 @@ const academics: Record<string, string> = {
     'আপনাকে এখনো কোনো ক্লাস দেওয়া হয়নি।',
   'The office builds the weekly routine under Academics → Routine. Ask them to add your periods.':
     'অফিস শিক্ষা কার্যক্রম → রুটিন থেকে সাপ্তাহিক রুটিন তৈরি করে। আপনার পিরিয়ডগুলো যোগ করতে বলুন।',
+  'One class': 'এক শ্রেণি',
+  'All classes': 'সব শ্রেণি',
+  'All teachers': 'সব শিক্ষক',
+  'Double-booked': 'একই সময়ে দুই ক্লাস',
+  'Nothing is scheduled yet.': 'এখনো কোনো রুটিন তৈরি হয়নি।',
 };
 
 export default academics;

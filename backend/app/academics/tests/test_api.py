@@ -110,3 +110,74 @@ class AcademicsBranchIsolationTests(TestCase):
 
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['year'], self.a_session.starts_on.year)
+
+    def test_a_subjects_stream_comes_from_its_class(self):
+        """The class already carries a non-null stream, so the client does not
+        send one. It used to, and the UI's 'every stream' option sent null —
+        which the model cannot hold."""
+        response = self.client.post('/api/subjects/', {
+            'academic_class': self.a_class.pk,
+            'name': 'Fiqh',
+            'name_bn': 'ফিকহ',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['stream'], self.a_class.stream_id)
+
+    def test_a_client_supplied_subject_stream_is_ignored(self):
+        response = self.client.post('/api/subjects/', {
+            'academic_class': self.a_class.pk,
+            'name': 'Hadith',
+            'stream': self.b.stream_set.first().pk,
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['stream'], self.a_class.stream_id)
+
+    def test_placing_a_teacher_in_the_routine_grants_the_subject(self):
+        """An admin who fills the timetable should not have to say the same
+        thing again on the Assignments board before the teacher can open their
+        own register (docs/08 D6)."""
+        from academics.models import SubjectAssignment
+        teacher = make_teacher(self.a, name='Dhaka Teacher')
+        subject = make_subject(self.a_class, name='Tajweed')
+        period = make_period(self.a, order=1)
+
+        response = self.client.post('/api/class-routines/', {
+            'session': self.a_session.pk,
+            'academic_class': self.a_class.pk,
+            'subject': subject.pk,
+            'teacher': teacher.pk,
+            'period': period.pk,
+            'day_of_week': 0,
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(SubjectAssignment.objects.filter(
+            branch=self.a, session=self.a_session, teacher=teacher,
+            subject=subject, academic_class=self.a_class, section=None,
+        ).exists())
+
+    def test_the_routine_grant_is_idempotent(self):
+        from academics.models import SubjectAssignment
+        teacher = make_teacher(self.a, name='Dhaka Teacher')
+        subject = make_subject(self.a_class, name='Tajweed')
+        body = {
+            'session': self.a_session.pk,
+            'academic_class': self.a_class.pk,
+            'subject': subject.pk,
+            'teacher': teacher.pk,
+            'day_of_week': 0,
+        }
+        first = self.client.post('/api/class-routines/',
+                                 dict(body, period=make_period(self.a, order=1).pk),
+                                 format='json')
+        second = self.client.post('/api/class-routines/',
+                                  dict(body, period=make_period(self.a, order=2).pk),
+                                  format='json')
+
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 201, second.data)
+        self.assertEqual(SubjectAssignment.objects.filter(
+            teacher=teacher, subject=subject, academic_class=self.a_class,
+        ).count(), 1)

@@ -33,6 +33,37 @@ def day_index(on_date):
 # Teacher scoping — docs/08 D6
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+def grant_from_routine(routine):
+    """Make sure a routine placement carries its own access grant.
+
+    Putting a teacher in a routine cell and *then* being told they cannot open
+    the register is the system knowing two things and believing the wrong one.
+    A SubjectAssignment is what a teacher's reach is built from (D6), so
+    the timetable creates it rather than asking an admin to say the same thing
+    twice on another screen.
+
+    Idempotent, and never widens beyond what the cell already says: same
+    session, same class, same section, same subject, same teacher. Removing the
+    cell does **not** revoke it — a teacher who covered a period still has
+    marks to enter for it, and revoking access is a deliberate act on the
+    Assignments board.
+    """
+    if routine.teacher_id is None or routine.subject_id is None:
+        return None
+
+    assignment, _ = SubjectAssignment.objects.get_or_create(
+        branch=routine.branch,
+        session=routine.session,
+        teacher_id=routine.teacher_id,
+        subject_id=routine.subject_id,
+        academic_class_id=routine.academic_class_id,
+        section_id=routine.section_id,
+        defaults={'is_active': True},
+    )
+    return assignment
+
+
 def teacher_for_user(user):
     """The `Teacher` row behind this account, or None.
 

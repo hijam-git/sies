@@ -8,7 +8,7 @@ import BaseModal from '../common/BaseModal';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import Field, { FieldGrid, FormError } from '../common/Field';
-import { btnPrimary, btnSecondary, inputCls, selectCls, btnRowAction } from '../common/styles';
+import { btnPrimary, btnSecondary, inputCls, btnRowAction } from '../common/styles';
 import Picker from '../common/Picker';
 import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import { classLabel } from './shared';
@@ -23,7 +23,6 @@ import type { AcademicsData } from './shared';
  */
 
 interface SubjectDraft {
-  stream: string;
   name: string;
   name_bn: string;
   code: string;
@@ -35,9 +34,8 @@ interface SubjectDraft {
   is_active: boolean;
 }
 
-function emptyDraft(stream: string): SubjectDraft {
+function emptyDraft(): SubjectDraft {
   return {
-    stream,
     name: '',
     name_bn: '',
     code: '',
@@ -106,9 +104,7 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
 
   const openCreate = () => {
     setEditingId(null);
-    // Seeded from the class's own stream: a subject in a Hifz class is a Hifz
-    // subject nearly every time, and re-picking it per subject is typing.
-    setDraft(emptyDraft(chosenClass?.stream === null || chosenClass === undefined ? '' : String(chosenClass.stream)));
+    setDraft(emptyDraft());
     setFormError(null);
     setFieldErrors({});
   };
@@ -116,7 +112,6 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
   const openEdit = (row: Subject) => {
     setEditingId(row.id);
     setDraft({
-      stream: row.stream === null ? '' : String(row.stream),
       name: row.name,
       name_bn: row.name_bn,
       code: row.code,
@@ -137,8 +132,8 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
     setFormError(null);
     setFieldErrors({});
     const body: Record<string, unknown> = {
+      // The class carries the stream, and the server reads it from there.
       academic_class: Number(classId),
-      stream: draft.stream ? Number(draft.stream) : null,
       name: draft.name.trim(),
       name_bn: draft.name_bn.trim(),
       code: draft.code.trim(),
@@ -258,14 +253,21 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
             ? t('Loading…')
             : classId
               ? t('This class has no subjects yet.')
-              : t('Choose a class to see its subjects.')
+              : data.classes.length === 0
+                ? t('Add a class first — subjects belong to one.')
+                : t('Choose a class to see its subjects.')
         }
       />
 
+      {/* The class is the one thing the body does NOT ask for, so the title
+          says it — otherwise the form reads as creating a subject for the
+          whole institution. */}
       <BaseModal
         isOpen={draft !== null}
         onClose={() => setDraft(null)}
-        title={editingId === null ? t('Add subject') : t('Edit subject')}
+        title={`${editingId === null ? t('Add subject') : t('Edit subject')} · ${
+          chosenClass ? classLabel(chosenClass) : ''
+        }`}
         maxWidth="2xl"
         footer={
           <div className="flex gap-2">
@@ -302,20 +304,6 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
                   onChange={(e) => setDraft({ ...draft, code: e.target.value })}
                   className={inputCls}
                 />
-              </Field>
-              <Field label={t('Stream')} error={fieldErrors.stream}>
-                <select
-                  value={draft.stream}
-                  onChange={(e) => setDraft({ ...draft, stream: e.target.value })}
-                  className={selectCls}
-                >
-                  <option value="">{t('Every stream')}</option>
-                  {data.streams.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name_bn || s.name}
-                    </option>
-                  ))}
-                </select>
               </Field>
               <Field label={t('Full marks')} error={fieldErrors.full_marks} required>
                 <input

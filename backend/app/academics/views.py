@@ -17,6 +17,7 @@ classes, sections, subjects, sessions, streams and the routine under one
 checkbox: they are edited by the same person on the same screens.
 """
 
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -38,7 +39,8 @@ from .serializers import (AcademicClassSerializer, ClassRoutineSerializer,
                           EnrolmentSerializer, PeriodSerializer,
                           SectionSerializer, SubjectAssignmentSerializer,
                           SubjectSerializer)
-from .services import day_index, enrol_student, teacher_for_user
+from .services import (day_index, enrol_student, grant_from_routine,
+                       teacher_for_user)
 from .viewsets import TeacherScopedMixin
 
 
@@ -121,6 +123,19 @@ class ClassRoutineViewSet(TeacherScopedMixin, AcademicsViewSet):
                         'teacher', 'period', 'day_of_week', 'is_active']
     search_fields = ['room', 'subject__name', 'teacher__name']
     ordering_fields = ['day_of_week', 'period', 'created_at']
+
+    # Placing a teacher in a cell is also the moment they are given the class
+    # (docs/08 D6). Doing it in both hooks rather than in the serializer keeps
+    # the grant on the write path only — a dry  grants nothing.
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            super().perform_create(serializer)
+            grant_from_routine(serializer.instance)
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            super().perform_update(serializer)
+            grant_from_routine(serializer.instance)
 
     @action(detail=False, methods=['get'], url_path='today')
     def today(self, request):

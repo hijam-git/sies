@@ -88,19 +88,33 @@ class SectionSerializer(serializers.ModelSerializer):
 
 
 class SubjectSerializer(serializers.ModelSerializer):
+    """A subject is created *under* a class, and the class decides its stream.
+
+    `stream` is therefore read-only rather than a second thing to pick: an
+    `AcademicClass` already carries a non-null stream, so asking again could
+    only ever produce agreement or a contradiction the model has no way to
+    hold. It is still serialised out, because the routine and the marks screens
+    read it.
+    """
+
     class Meta:
         model = Subject
         fields = ['id', 'stream', 'academic_class', 'name', 'name_bn', 'code',
                   'full_marks', 'pass_marks', 'is_optional', 'has_practical',
                   'practical_marks', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'stream', 'created_at', 'updated_at']
 
     def validate(self, attrs):
-        _reject_foreign(
-            self,
-            stream=attrs.get('stream'),
-            academic_class=attrs.get('academic_class'),
+        _reject_foreign(self, academic_class=attrs.get('academic_class'))
+
+        # Derived, never sent. On a PATCH that leaves the class alone this
+        # re-reads the same stream; on one that moves the subject to another
+        # class it follows the move, which is the only correct answer.
+        academic_class = attrs.get('academic_class') or getattr(
+            self.instance, 'academic_class', None,
         )
+        if academic_class is not None:
+            attrs['stream'] = academic_class.stream
 
         full = attrs.get('full_marks', getattr(self.instance, 'full_marks', 100))
         passing = attrs.get('pass_marks', getattr(self.instance, 'pass_marks', 33))
