@@ -47,6 +47,7 @@ WEEKDAY_CODES = ['sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri']
 REASON_FUTURE = 'future'
 REASON_WEEKLY_OFF = 'weekly_off'
 REASON_WINDOW_CLOSED = 'window_closed'
+REASON_REGISTER_CLOSED = 'register_closed'
 REASON_NOT_ENROLLED = 'not_enrolled'
 REASON_OUTSIDE_MONTH = 'outside_month'
 REASON_UNKNOWN_STUDENT = 'unknown_student'
@@ -55,6 +56,10 @@ REASON_UNKNOWN_STUDENT = 'unknown_student'
 # codes rather than in the SPA so that a `skipped` list is readable in a curl
 # response and in a log, not only after the front end has rendered it.
 REASON_TEXT = {
+    REASON_REGISTER_CLOSED: (
+        'This day is too old to change. Ask the class teacher or the principal.',
+        'এই দিনটি পরিবর্তনের সময় শেষ। শ্রেণি শিক্ষক বা মুহতামিমকে বলুন।',
+    ),
     REASON_FUTURE: ('A future date cannot be marked.',
                     'ভবিষ্যতের তারিখে হাজিরা নেওয়া যাবে না।'),
     REASON_WEEKLY_OFF: ('Weekly off day.', 'সাপ্তাহিক ছুটির দিন।'),
@@ -142,10 +147,24 @@ def is_markable(branch, on_date, period=None, *, user=None, now=None):
         return Markability(False, REASON_WEEKLY_OFF)
 
     if period is None:
-        # Day-level attendance has no window. The window belongs to a period,
-        # because it is measured from that period's end time; applying one to a
-        # whole day would lock the register at some arbitrary hour.
-        return MARKABLE
+        # The DAILY register's own window, in days.
+        #
+        # An earlier version returned MARKABLE here, reasoning that a window
+        # measured in minutes from a period's end time is meaningless for a
+        # whole day. That is true, and the conclusion drawn from it was wrong:
+        # it left the register with no bound at all, so a teacher could rewrite
+        # any past school day in their classes indefinitely. A register that can
+        # be edited a month later is not a record of who was there.
+        #
+        # So the unit changes rather than the rule: days, not minutes.
+        back = getattr(branch, 'register_edit_days', 0) or 0
+        if back == 0:
+            return MARKABLE
+        if (today - on_date).days <= back:
+            return MARKABLE
+        if _may_update(user):
+            return MARKABLE
+        return Markability(False, REASON_REGISTER_CLOSED)
 
     window = getattr(branch, 'attendance_window_minutes', 0) or 0
     if window == 0:

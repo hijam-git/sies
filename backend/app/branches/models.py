@@ -143,6 +143,25 @@ class Branch(models.Model):
     # docs/08 D6. On by default, because role-only access control lets any
     # teacher holding `attendance.take` mark every class in the institution. A
     # small madrasah where three teachers cover everything turns it off.
+    # How far back a teacher holding only `attendance.take` may write the DAILY
+    # register. Older than this, correcting a day needs `attendance.update` —
+    # the class teacher or the principal.
+    #
+    # The period window is measured in MINUTES from a period's end time, which
+    # is meaningless for a whole day. So this one is in DAYS. Without it the
+    # daily register had no bound at all: a teacher could rewrite any past school
+    # day in their classes, forever, and a register that can be edited a month
+    # later is not a record of who was there.
+    #
+    # 3 by default — today, plus enough slack to cover a weekend and a day off
+    # sick. `0` means unlimited, matching `attendance_window_minutes`.
+    register_edit_days = models.PositiveIntegerField(
+        _('register edit window (days) · রেজিস্টার সংশোধনের সময় (দিন)'),
+        default=3,
+        help_text=_('How many days back a teacher may still mark the daily '
+                    'register. 0 = no limit.'),
+    )
+
     restrict_teachers_to_assigned_classes = models.BooleanField(
         _('restrict teachers to assigned classes · শিক্ষককে নির্ধারিত ক্লাসে সীমাবদ্ধ রাখুন'),
         default=True,
