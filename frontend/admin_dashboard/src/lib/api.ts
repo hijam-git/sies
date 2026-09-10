@@ -248,6 +248,368 @@ export interface Paginated<T> {
   results: T[];
 }
 
+// ── Phase 2 — students, staff, academics ──────────────────────────────────
+//
+// The shapes below are what the live serializers actually return, read off the
+// running API rather than inferred from the models. Two of them are not what a
+// reader would guess and are worth stating here:
+//
+//  - **A student carries no class or section.** `Student` is identity only; the
+//    class, the section, the roll and the admission number live on `Enrolment`,
+//    one row per session. The "admission history" a screen shows is that list of
+//    enrolments — there is no stored history field anywhere.
+//  - **Money is a string**, always. `monthly_fee` and the salary fields are
+//    Decimals server-side and are never parsed into a JS number here.
+
+export type Gender = 'male' | 'female' | 'other';
+
+export type StudentStatus = 'active' | 'passed_out' | 'withdrawn' | 'transferred';
+
+export type GuardianRelation = 'father' | 'mother' | 'brother' | 'other';
+
+export type AdmissionStatus =
+  | 'pending'
+  | 'interview'
+  | 'accepted'
+  | 'rejected'
+  | 'admitted'
+  | 'cancelled';
+
+export type EmploymentStatus =
+  | 'active'
+  | 'on_leave'
+  | 'suspended'
+  | 'resigned'
+  | 'terminated'
+  | 'transferred';
+
+export type EnrolmentStatus = 'active' | 'promoted' | 'passed' | 'withdrawn' | 'transferred';
+
+export type DocumentOwnerType = 'student' | 'teacher' | 'employee';
+
+/** The guardian as it arrives inlined on a student — the link row, not the
+ *  guardian record. Enough to phone somebody without a second request. */
+export interface StudentGuardianLink {
+  id: number;
+  student: number;
+  guardian: number;
+  guardian_name: string;
+  guardian_phone: string;
+  relation: GuardianRelation;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export interface Student {
+  id: number;
+  /** `SIES-000123`. Permanent, never reused, allocated by the server. */
+  student_id: string;
+  /** The login account, or null — and null is the normal case (`docs/08` D4). */
+  user: number | null;
+  has_login: boolean;
+  stream: number | null;
+  stream_name: string | null;
+  name: string;
+  name_bn: string;
+  photo: string | null;
+  date_of_birth: string | null;
+  gender: Gender | '';
+  birth_certificate_no: string;
+  nid: string;
+  blood_group: string;
+  religion_notes: string;
+  phone: string;
+  email: string;
+  // The address is four fields and not one, because the printed admission form
+  // has a box for each of them.
+  village: string;
+  post_office: string;
+  upazila: string;
+  district: string;
+  /** The four joined by the server, for display only. */
+  full_address: string;
+  present_address: string;
+  permanent_address: string;
+  previous_institution: string;
+  previous_class: string;
+  admitted_on: string | null;
+  status: StudentStatus;
+  status_display: string;
+  is_active: boolean;
+  guardians: StudentGuardianLink[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Guardian {
+  id: number;
+  name: string;
+  name_bn: string;
+  relation: GuardianRelation;
+  phone: string;
+  alt_phone: string;
+  nid: string;
+  occupation: string;
+  monthly_income: string;
+  address: string;
+  user: number | null;
+  is_active: boolean;
+  students: { id: number; name: string; student_id: string; is_primary: boolean }[];
+}
+
+export interface Admission {
+  id: number;
+  application_no: string;
+  session: number;
+  session_name: string;
+  stream: number | null;
+  stream_name: string | null;
+  academic_class: number | null;
+  applicant_name: string;
+  applicant_name_bn: string;
+  dob: string | null;
+  gender: Gender | '';
+  photo: string | null;
+  guardian_name: string;
+  guardian_phone: string;
+  village: string;
+  post_office: string;
+  upazila: string;
+  district: string;
+  address: string;
+  previous_institution: string;
+  previous_class: string;
+  previous_result: string;
+  status: AdmissionStatus;
+  status_display: string;
+  interview_date: string | null;
+  interview_score: string | null;
+  remarks: string;
+  /** Set by the admit endpoint and by nothing else. */
+  student: number | null;
+  student_name: string | null;
+  student_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * What one click of Admit produced.
+ *
+ * Admission is a single transaction that creates the Student, the Enrolment,
+ * the guardian link and three numbers. The screen shows all three back, because
+ * the numbers are what the office writes on the paper file and there is no
+ * second place to look them up from.
+ */
+export interface AdmitResult {
+  student: Student;
+  enrolment: number | null;
+  admission_number: string | null;
+  roll: number | null;
+}
+
+export interface StoredDocument {
+  id: number;
+  owner_type: DocumentOwnerType;
+  student: number | null;
+  teacher: number | null;
+  employee: number | null;
+  doc_type: string;
+  doc_type_display: string;
+  title: string;
+  filename: string;
+  /** The only way a file leaves the server — the stored path is never exposed,
+   *  because these are minors' birth certificates. */
+  download_url: string;
+  issued_on: string | null;
+  expires_on: string | null;
+  created_at: string;
+}
+
+/** The fields a teacher and an employee both have. */
+export interface StaffPerson {
+  id: number;
+  user: number | null;
+  name: string;
+  name_bn: string;
+  photo: string | null;
+  dob: string | null;
+  gender: Gender | '';
+  nid: string;
+  blood_group: string;
+  phone: string;
+  alt_phone: string;
+  email: string;
+  village: string;
+  post_office: string;
+  upazila: string;
+  district: string;
+  address: string;
+  designation: string;
+  joining_date: string | null;
+  leaving_date: string | null;
+  employment_status: EmploymentStatus;
+  employment_status_display: string;
+  basic_salary: string;
+  allowances: string;
+  deductions: string;
+  gross_salary: string;
+  bank_account: string;
+  mobile_banking: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherQualification {
+  id: number;
+  teacher: number;
+  degree: string;
+  institution: string;
+  year: number | null;
+  result: string;
+  certificate: string | null;
+}
+
+export interface Teacher extends StaffPerson {
+  teacher_id: string;
+  /** Stream ids — which sectors of the institution this teacher works in. */
+  streams: number[];
+  is_class_teacher: boolean;
+  specialization: string;
+  max_weekly_periods: number | null;
+  qualifications: TeacherQualification[];
+}
+
+export interface Employee extends StaffPerson {
+  employee_id: string;
+  department: string;
+  duty_shift: string;
+}
+
+export interface AcademicClass {
+  id: number;
+  stream: number | null;
+  session: number;
+  name: string;
+  name_bn: string;
+  /** Mirrored from the session by the model. Read-only. */
+  year: number;
+  level_order: number;
+  capacity: number;
+  class_teacher: number | null;
+  monthly_fee: string;
+  is_active: boolean;
+  /** Annotated on the list only — absent from a create or update response. */
+  section_count?: number;
+}
+
+export interface Section {
+  id: number;
+  academic_class: number;
+  name: string;
+  name_bn: string;
+  capacity: number;
+  room: string;
+  in_charge: number | null;
+  is_active: boolean;
+}
+
+export interface Subject {
+  id: number;
+  stream: number | null;
+  academic_class: number;
+  name: string;
+  name_bn: string;
+  code: string;
+  full_marks: number;
+  pass_marks: number;
+  is_optional: boolean;
+  has_practical: boolean;
+  practical_marks: number;
+  is_active: boolean;
+}
+
+/** One row of the bell schedule. Institution-wide, or per stream. */
+export interface Period {
+  id: number;
+  stream: number | null;
+  name: string;
+  name_bn: string;
+  order: number;
+  /** `"09:00:00"` — the API returns seconds, an `<input type="time">` does not. */
+  start_time: string;
+  end_time: string;
+  is_break: boolean;
+  is_active: boolean;
+}
+
+/** 0 = Saturday. Not `Date.getDay()`, which starts on Sunday. */
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface ClassRoutine {
+  id: number;
+  session: number;
+  academic_class: number;
+  section: number | null;
+  subject: number;
+  teacher: number;
+  period: number;
+  day_of_week: DayOfWeek;
+  room: string;
+  is_active: boolean;
+  teacher_name: string;
+  subject_name: string;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+  day_display: string;
+}
+
+/**
+ * A student in a class for a session — and the only place a class, a section, a
+ * roll or an admission number is recorded. The list of these for one student IS
+ * their admission history.
+ */
+export interface Enrolment {
+  id: number;
+  student: number;
+  session: number;
+  academic_class: number;
+  section: number | null;
+  roll: number | null;
+  admission_number: string;
+  status: EnrolmentStatus;
+  enrolled_on: string;
+  left_on: string | null;
+  is_hostel: boolean;
+  is_transport: boolean;
+  is_active: boolean;
+  student_name: string;
+  class_name: string;
+}
+
+/**
+ * Which teacher teaches which subject to which class (`docs/08` D6).
+ *
+ * Not a label: with `restrict_teachers_to_assigned_classes` on, this row is what
+ * makes a class reachable at all — attendance and marks for a class nobody
+ * assigned them answer 404.
+ */
+export interface SubjectAssignment {
+  id: number;
+  session: number;
+  teacher: number;
+  subject: number;
+  academic_class: number;
+  section: number | null;
+  is_active: boolean;
+  teacher_name: string;
+  subject_name: string;
+}
+
 export class ApiError extends Error {
   status: number;
   /** The stable identifier — `fee_already_paid`, not a sentence. */
@@ -432,6 +794,9 @@ class ApiClient {
     file: File,
     field = 'file',
     extra?: Record<string, string>,
+    // PATCH for a photo replacing one on a row that already exists; POST for a
+    // new document. A POST to a detail route is not a route at all.
+    method: 'POST' | 'PATCH' = 'POST',
   ): Promise<T> {
     const form = new FormData();
     form.append(field, file);
@@ -439,7 +804,7 @@ class ApiClient {
 
     const send = () =>
       fetch(`${this.getBaseUrl()}${this.withBranch(endpoint)}`, {
-        method: 'POST',
+        method,
         headers: { Authorization: `Bearer ${this.getAccessToken()}` },
         body: form,
       });
@@ -727,6 +1092,133 @@ class ApiClient {
     if (params.action) q.set('action', params.action);
     q.set('limit', String(params.limit ?? 50));
     return this.request<ActivityPage>(`/activity/?${q.toString()}`);
+  }
+
+  // ── Phase 2 — students, staff, academics ────────────────────────────────
+  //
+  // Generic verbs rather than sixty near-identical named methods. Phase 2 alone
+  // adds fourteen resources that are all plain DRF routers, and a per-resource
+  // wrapper for each would be fourteen copies of `JSON.stringify` hiding the
+  // three endpoints below that genuinely are not CRUD — admit, enable-login and
+  // the multipart uploads. Those keep their own names, which is the point.
+  //
+  // `branch` is never passed: `withBranch()` appends the switcher's institution
+  // to every request already, and the server ignores it for anyone tied to one.
+
+  list<T>(path: string, query = ''): Promise<Paginated<T>> {
+    return this.request<Paginated<T>>(`${path}${query}`);
+  }
+
+  /**
+   * Every row of a list, followed across pages.
+   *
+   * For the pickers and lookup maps a screen needs whole — the class list a
+   * routine grid is drawn from, the session's enrolments that give each student
+   * their class. `page_size` is capped at 200 by the backend, and this stops at
+   * `MAX_PAGES` rather than looping forever: a screen that would need more rows
+   * than that has outgrown being a picker and should be filtering server-side.
+   */
+  async listAll<T>(path: string, query = ''): Promise<T[]> {
+    const MAX_PAGES = 10;
+    const separator = query.includes('?') ? '&' : '?';
+    const out: T[] = [];
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const chunk = await this.request<Paginated<T>>(
+        `${path}${query}${separator}page=${page}&page_size=200`,
+      );
+      out.push(...chunk.results);
+      if (!chunk.next) break;
+    }
+    return out;
+  }
+
+  retrieve<T>(path: string, id: number): Promise<T> {
+    return this.request<T>(`${path}${id}/`);
+  }
+
+  create<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    return this.request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  patch<T>(path: string, id: number, body: Record<string, unknown>): Promise<T> {
+    return this.request<T>(`${path}${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** Hard delete. Only for rows with no financial or academic history behind
+   *  them — a section, a subject, a period, an assignment. Students, enrolments
+   *  and admissions have no destroy route at all; they deactivate instead. */
+  destroy(path: string, id: number): Promise<void> {
+    return this.request<void>(`${path}${id}/`, { method: 'DELETE' });
+  }
+
+  /**
+   * Turn an application into a student — `docs/02` §4.1.
+   *
+   * One transaction: the Student, the Enrolment, the guardian, and three
+   * allocated numbers. The response carries all three back because the office
+   * writes them onto the paper file, and nothing else reports them.
+   */
+  admit(
+    admissionId: number,
+    body: {
+      academic_class?: number | null;
+      section?: number | null;
+      roll?: number | null;
+      admitted_on?: string | null;
+      is_hostel?: boolean;
+      is_transport?: boolean;
+    },
+  ): Promise<AdmitResult> {
+    return this.request<AdmitResult>(`/admissions/${admissionId}/admit/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Give a student a login — `docs/08` D4.
+   *
+   * An action on the record and never a step in admission: most students have
+   * no phone, and requiring one to get a child onto the roll would mean
+   * inventing numbers.
+   */
+  enableStudentLogin(
+    studentId: number,
+    phone: string,
+    password?: string,
+  ): Promise<{ user: number; phone: string; must_change_password: boolean }> {
+    return this.request(`/students/${studentId}/enable-login/`, {
+      method: 'POST',
+      body: JSON.stringify(password ? { phone, password } : { phone }),
+    });
+  }
+
+  /** Attach a guardian, reusing the existing row when the phone already exists
+   *  in this institution — which is how siblings share one parent record. */
+  addStudentGuardian(
+    studentId: number,
+    body: { name: string; phone?: string; relation?: string; is_primary?: boolean },
+  ): Promise<StudentGuardianLink> {
+    return this.request<StudentGuardianLink>(`/students/${studentId}/guardians/`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /** A photo is a file, so it cannot ride along in the JSON body the rest of
+   *  the form is sent as. Saved as a second request once the row exists. */
+  uploadPersonPhoto<T>(path: string, id: number, file: File): Promise<T> {
+    return this.upload<T>(`${path}${id}/`, file, 'photo', undefined, 'PATCH');
+  }
+
+  uploadDocument(
+    file: File,
+    fields: Record<string, string>,
+  ): Promise<StoredDocument> {
+    return this.upload<StoredDocument>('/documents/', file, 'file', fields);
   }
 }
 

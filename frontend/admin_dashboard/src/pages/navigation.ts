@@ -74,11 +74,19 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+/** The last phase whose screens exist. Everything above it still routes to
+ *  `PhasePlaceholder`; raising it is what turns a placeholder into a real page,
+ *  and it is a single edit rather than a `phase` rewritten per item — the phase
+ *  a screen was built in stays true after it is built. */
+export const BUILT_THROUGH_PHASE = 2;
+
 /** Every item whose module is a later phase, for `App` to turn into placeholder
  *  routes. Permission gating is NOT applied here — a route the user cannot see
  *  in the sidebar still has to resolve if they type it, and a placeholder is a
  *  harmless thing to land on. Real screens gate their own data. */
-export const PLACEHOLDER_ITEMS: NavItem[] = NAV_ITEMS.filter((i) => i.phase > 1);
+export const PLACEHOLDER_ITEMS: NavItem[] = NAV_ITEMS.filter(
+  (i) => i.phase > BUILT_THROUGH_PHASE,
+);
 
 /** Every path the sidebar can reach, for the layout's active-item lookup. */
 export const ALL_NAV_PATHS: string[] = [OVERVIEW.path, ...NAV_ITEMS.map((i) => i.path)];

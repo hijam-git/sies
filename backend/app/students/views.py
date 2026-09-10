@@ -25,7 +25,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import HasResourcePermission
 from core.middleware import ALL_BRANCHES, get_branch
-from core.viewsets import BranchScopedViewSet
+from core.viewsets import BranchScopedViewSet, writable_branch
 from accounts.services import ActivityLogMixin
 
 from .models import Admission, Document, Guardian, Student, StudentGuardian
@@ -38,27 +38,6 @@ from .services import (admit_student, allocate_student_id, create_application,
                        enable_student_login, link_guardian)
 
 
-def _writable_branch(request):
-    """The Branch a write belongs to, or a 400 saying which parameter is missing.
-
-    `BranchScopedMixin.perform_create` answers this for a plain `serializer.save`,
-    but a service takes the branch as an argument and has to be handed a real
-    one. `get_branch()` rather than `request.branch` — the lazy proxy makes an
-    `is None` check pass for everyone (CLAUDE.md §5).
-    """
-    from branches.models import Branch
-
-    branch = get_branch(request)
-    if branch is None or branch == ALL_BRANCHES:
-        raise ValidationError({
-            'branch': ('Choose an institution before creating this. '
-                       'Add ?branch=<id> to the request.'),
-        })
-    if isinstance(branch, str):
-        # `?branch=<id>` is a string the middleware deliberately did not
-        # validate; resolving it here is the first point that legitimately can.
-        return Branch.objects.filter(pk=branch).first() or _no_such_branch()
-    return branch
 
 
 def _no_such_branch():
@@ -105,7 +84,7 @@ class StudentViewSet(ActivityLogMixin, BranchScopedViewSet):
         lost to a failed save is a hole in a series whose only promise is that it
         has none.
         """
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         with transaction.atomic():
             serializer.save(
                 branch=branch,
@@ -219,7 +198,7 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
         serializer would put a number-issuing `SELECT … FOR UPDATE` inside
         validation, where a later failure silently burns it.
         """
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         fields = dict(serializer.validated_data)
         session = fields.pop('session')
 
@@ -294,7 +273,7 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
 
         from academics.models import Section
 
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         section = Section.objects.filter(pk=section_id, branch=branch).first()
         if section is None:
             raise ValidationError({'section': 'No section with that id in this '
@@ -329,7 +308,7 @@ class DocumentViewSet(ActivityLogMixin, BranchScopedViewSet):
     ordering_fields = ['created_at', 'issued_on', 'expires_on']
 
     def save_new(self, serializer):
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         serializer.save(branch=branch, created_by=self.request.user,
                         uploaded_by=self.request.user)
 

@@ -27,11 +27,11 @@ _MODULE_URLS = [
     path('api/', include('academics.urls')),    # Phase 2 — classes, sections, subjects,
     #                                                       enrolment, periods, routine
     path('api/', include('students.urls')),     # Phase 2 — students, guardians, admissions
-    # path('api/', include('forms.urls')),        Phase 3 — admission form templates
-    # path('api/', include('attendance.urls')),   Phase 4 — register and period attendance
-    # path('api/', include('fees.urls')),         Phase 5 — categories, fees, payments
-    # path('api/', include('finance.urls')),      Phase 5 — income, expense
-    # path('api/', include('exams.urls')),        Phase 6 — exams, schedules, marks
+    path('api/', include('forms.urls')),  # Phase 3 — admission form templates
+    path('api/', include('attendance.urls')),  # Phase 4 — register and period attendance
+    path('api/', include('fees.urls')),  # Phase 5 — categories, fees, payments
+    path('api/', include('finance.urls')),  # Phase 5 — income, expense
+    path('api/', include('exams.urls')),  # Phase 6 — exams, schedules, marks
     #
     # /api/me/ is a separate endpoint family, not a weakened staff permission
     # (docs/08 D4). It lives in accounts.urls and filters to request.user.

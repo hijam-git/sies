@@ -9,6 +9,9 @@ import PhasePlaceholder from './pages/PhasePlaceholder';
 import BranchesPage from './pages/BranchesPage';
 import SettingsPage from './pages/SettingsPage';
 import UsersPage from './pages/UsersPage';
+import StudentsPage from './pages/StudentsPage';
+import StaffPage from './pages/StaffPage';
+import AcademicsPage from './pages/AcademicsPage';
 import { PLACEHOLDER_ITEMS } from './pages/navigation';
 import './App.css';
 
@@ -17,7 +20,8 @@ import './App.css';
  * not written out beside it. Two hand-maintained lists of the same paths drift
  * within a phase, and the failure mode is a sidebar entry that 404s.
  *
- * Real now: login, the overview, Institutions, Settings and Users. Everything
+ * Real now: login, the overview, Institutions, Settings, Users, and phase 2's
+ * Students, Staff and Academics. Everything
  * else resolves to a placeholder naming the phase that builds it, because a
  * link that quietly goes nowhere reads as a broken product rather than an
  * unfinished one — and a screen stubbed over a backend that does not exist is
@@ -58,6 +62,13 @@ function App() {
               <Route path="branches" element={<BranchesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="users" element={<UsersPage />} />
+
+              {/* Phase 2. Same rule as above — each gates its own data, and
+                  each tab inside gates its own resource, because the three
+                  screens carry six permissions between them. */}
+              <Route path="students" element={<StudentsPage />} />
+              <Route path="staff" element={<StaffPage />} />
+              <Route path="academics" element={<AcademicsPage />} />
 
               {PLACEHOLDER_ITEMS.map((item) => (
                 <Route

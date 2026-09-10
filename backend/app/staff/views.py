@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from accounts.permissions import HasResourcePermission
 from accounts.services import ActivityLogMixin
 from core.middleware import ALL_BRANCHES, get_branch
-from core.viewsets import BranchScopedViewSet
+from core.viewsets import BranchScopedViewSet, writable_branch
 from rest_framework.exceptions import ValidationError
 
 from .models import Employee, Teacher, TeacherQualification
@@ -27,22 +27,6 @@ from .serializers import (EmployeeSerializer, TeacherQualificationSerializer,
 from .services import create_employee, create_teacher
 
 
-def _writable_branch(request):
-    """The branch a write lands in, or a 400 saying which parameter is missing.
-
-    A platform admin posting without `?branch=` has not said which institution to
-    create the staff member in, and "create this teacher in every institution"
-    has no meaning. `get_branch()` and not `request.branch`, because the latter is
-    a `SimpleLazyObject` and an `is None` check against it is False even when the
-    branch is None (CLAUDE.md §5).
-    """
-    branch = get_branch(request)
-    if branch is None or branch == ALL_BRANCHES or not hasattr(branch, 'pk'):
-        raise ValidationError({
-            'branch': ('Choose an institution before creating this. '
-                       'Add ?branch=<id> to the request.'),
-        })
-    return branch
 
 
 class TeacherViewSet(ActivityLogMixin, BranchScopedViewSet):
@@ -69,7 +53,7 @@ class TeacherViewSet(ActivityLogMixin, BranchScopedViewSet):
         The base `BranchScopedMixin.perform_create` cannot be used either: it
         calls `serializer.save()` directly, which would leave `teacher_id` unset.
         """
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         data = dict(serializer.validated_data)
         streams = data.pop('streams', None)
         serializer.instance = create_teacher(
@@ -106,7 +90,7 @@ class EmployeeViewSet(ActivityLogMixin, BranchScopedViewSet):
     ordering_fields = ['name', 'employee_id', 'joining_date', 'created_at']
 
     def save_new(self, serializer):
-        branch = _writable_branch(self.request)
+        branch = writable_branch(self.request)
         serializer.instance = create_employee(
             branch=branch, created_by=self.request.user, **serializer.validated_data,
         )

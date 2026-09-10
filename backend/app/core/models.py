@@ -125,7 +125,9 @@ class NumberSequence(BaseModel):
         APPLICATION = 'application', 'Application number · আবেদন নম্বর'
         FORM = 'form', 'Printed form number · ফরম নম্বর'
         RECEIPT = 'receipt', 'Receipt number · রসিদ নম্বর'
-        VOUCHER = 'voucher', 'Voucher number · ভাউচার নম্বর'
+        INVOICE = 'invoice', 'Invoice number · চালান নম্বর'
+        INCOME_VOUCHER = 'income_voucher', 'Income voucher · আয় ভাউচার'
+        EXPENSE_VOUCHER = 'expense_voucher', 'Expense voucher · ব্যয় ভাউচার'
 
     # PROTECT: deleting an institution while its counter still exists would let
     # a fresh counter restart at 1 and re-issue numbers already printed on

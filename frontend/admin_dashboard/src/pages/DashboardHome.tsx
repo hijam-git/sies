@@ -31,14 +31,10 @@ import CompactActivityFeed from '../components/users/ActivityFeed';
 // contract, so writing it down now is what lets the endpoint be built against
 // something rather than invented alongside it.
 const PHASE_0_SUMMARY = {
-  students_enrolled: 0,
   present_today: 0,
   attendance_pending_classes: 0,
   collected_this_month: 0,
   outstanding_dues: 0,
-  teachers: 0,
-  employees: 0,
-  pending_admissions: 0,
   marks_pending: 0,
 };
 
@@ -51,30 +47,69 @@ const PHASE_0_SUMMARY = {
  * transfer and no new backend. When `GET /api/dashboard/summary/` exists these
  * three calls collapse into it and the cards do not change.
  */
-function usePhase1Counts(enabled: { branches: boolean; users: boolean; sessions: boolean }) {
+function usePhase1Counts(enabled: {
+  branches: boolean;
+  users: boolean;
+  sessions: boolean;
+  students: boolean;
+  teachers: boolean;
+  classes: boolean;
+  admissions: boolean;
+}) {
   const [counts, setCounts] = useState<{
     branches: number | null;
     users: number | null;
     sessions: number | null;
-  }>({ branches: null, users: null, sessions: null });
+    students: number | null;
+    teachers: number | null;
+    classes: number | null;
+    pendingAdmissions: number | null;
+  }>({
+    branches: null,
+    users: null,
+    sessions: null,
+    students: null,
+    teachers: null,
+    classes: null,
+    pendingAdmissions: null,
+  });
 
-  const { branches, users, sessions } = enabled;
+  const { branches, users, sessions, students, teachers, classes, admissions } = enabled;
 
   useEffect(() => {
     let alive = true;
+    const count = (path: string, query: string, on: boolean) =>
+      on
+        ? apiClient
+            .list<unknown>(path, query)
+            .then((p) => p.count)
+            .catch(() => null)
+        : Promise.resolve(null);
+
     const read = async () => {
-      const [b, u, s] = await Promise.all([
+      const [b, u, s, st, te, cl, pa] = await Promise.all([
         branches ? apiClient.listBranches('?page=1').then((p) => p.count).catch(() => null) : null,
         users ? apiClient.listUsers('?page=1&is_active=true').then((p) => p.count).catch(() => null) : null,
         sessions ? apiClient.listSessions(null).then((rows) => rows.filter((x) => x.is_current).length).catch(() => null) : null,
+        // `page_size=1` because only `count` is read — a page of 25 rows of
+        // student data to render one number is transfer nobody looks at.
+        count('/students/', '?page=1&page_size=1&status=active&is_active=true', students),
+        count('/teachers/', '?page=1&page_size=1&employment_status=active', teachers),
+        count('/classes/', '?page=1&page_size=1&is_active=true', classes),
+        count('/admissions/', '?page=1&page_size=1&status=pending', admissions),
       ]);
-      if (alive) setCounts({ branches: b, users: u, sessions: s });
+      if (alive) {
+        setCounts({
+          branches: b, users: u, sessions: s,
+          students: st, teachers: te, classes: cl, pendingAdmissions: pa,
+        });
+      }
     };
     void read();
     return () => {
       alive = false;
     };
-  }, [branches, users, sessions]);
+  }, [branches, users, sessions, students, teachers, classes, admissions]);
 
   return counts;
 }
@@ -93,6 +128,10 @@ export default function DashboardHome() {
     branches: platformWide && canView('branches'),
     users: canView('users'),
     sessions: canView('academics'),
+    students: canView('students'),
+    teachers: canView('teachers'),
+    classes: canView('academics'),
+    admissions: canView('admissions'),
   });
 
   const shown = (n: number | null) => (n === null ? '—' : formatNumber(n));
@@ -113,7 +152,7 @@ export default function DashboardHome() {
 
       {/* The figures phase 1 can actually answer. Kept above the phase 2–4
           cards so the first thing on the screen is a number that is real. */}
-      {(platformWide || canView('users') || canView('academics')) && (
+      {(platformWide || canView('users') || canView('academics') || canView('students') || canView('teachers')) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {platformWide && canView('branches') && (
             <StatCard
@@ -142,6 +181,36 @@ export default function DashboardHome() {
               sub={t('Academic years running now')}
             />
           )}
+
+          {/* Phase 2's three. Counted the same way — DRF's `count` is the total
+              before pagination, so one row of transfer answers each. */}
+          {canView('students') && (
+            <StatCard
+              tone="blue"
+              icon={<StatIcon d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m-7-9v5a7 7 0 0014 0v-5" />}
+              label={t('Students')}
+              value={shown(counts.students)}
+              sub={t('On the roll')}
+            />
+          )}
+          {canView('teachers') && (
+            <StatCard
+              tone="gray"
+              icon={<StatIcon d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />}
+              label={t('Teachers')}
+              value={shown(counts.teachers)}
+              sub={t('Currently teaching')}
+            />
+          )}
+          {canView('academics') && (
+            <StatCard
+              tone="amber"
+              icon={<StatIcon d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />}
+              label={t('Classes')}
+              value={shown(counts.classes)}
+              sub={t('Across every stream')}
+            />
+          )}
         </div>
       )}
 
@@ -150,16 +219,6 @@ export default function DashboardHome() {
       {/* One column at 360px, two from sm, four from xl. Never a fixed width:
           four cards across a phone is four unreadable cards. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {canView('students') && (
-          <StatCard
-            tone="blue"
-            icon={<StatIcon d="M12 14l9-5-9-5-9 5 9 5zm0 0v6m-7-9v5a7 7 0 0014 0v-5" />}
-            label={t('Students')}
-            value={formatNumber(s.students_enrolled)}
-            sub={t('Enrolled this session')}
-          />
-        )}
-
         {canView('attendance') && (
           <StatCard
             tone="green"
@@ -192,19 +251,6 @@ export default function DashboardHome() {
           />
         )}
 
-        {(canView('teachers') || canView('employees')) && (
-          <StatCard
-            tone="gray"
-            icon={<StatIcon d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />}
-            label={t('Staff')}
-            value={formatNumber(s.teachers + s.employees)}
-            sub={t('On the payroll')}
-            footer={[
-              { label: t('Teachers'), value: formatNumber(s.teachers) },
-              { label: t('Employees'), value: formatNumber(s.employees) },
-            ]}
-          />
-        )}
       </div>
 
       {/* Work that is WAITING, never a count of things already dealt with — a
@@ -221,7 +267,7 @@ export default function DashboardHome() {
                 tone="blue"
                 icon={<StatIcon d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />}
                 label={t('Pending admissions')}
-                value={formatNumber(s.pending_admissions)}
+                value={shown(counts.pendingAdmissions)}
               />
             )}
             {canView('attendance') && (
@@ -244,16 +290,16 @@ export default function DashboardHome() {
         </section>
       )}
 
-      {/* The institution, account and session counts above are real. These four
-          are not, and saying so is what stops a working screen being read as a
-          broken one. Removed as each module lands. */}
+      {/* The counts above are real. Attendance, fees and exams are not, and
+          saying so is what stops a working screen being read as a broken one.
+          Removed as each module lands. */}
       <aside className="rounded-xl border border-blue-100 bg-blue-50 p-4 sm:p-5">
         <p className="text-sm font-medium text-blue-900">
-          {t('Student, attendance, fee and exam figures arrive with their modules.')}
+          {t('Attendance, fee and exam figures arrive with their modules.')}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-blue-800">
           {t(
-            'Nothing is being hidden — the phases that raise fees, take attendance and admit students have not been built yet, so every figure above is honestly zero.',
+            'Nothing is being hidden — the phases that raise fees, take attendance and publish results have not been built yet, so those figures are honestly zero.',
           )}
         </p>
       </aside>

@@ -222,7 +222,7 @@ ADMITTABLE_STATUSES = {
 def admit_student(application, *, academic_class=None, section=None, roll=None,
                   stream=None, admitted_on=None, actor=None, request=None,
                   student_fields=None, guardian_fields=None,
-                  is_hostel=False, is_transport=False):
+                  is_hostel=False, is_transport=False, fee_amounts=None):
     """Turn an accepted application into a Student with an Enrolment.
 
     Returns `(student, enrolment)`.
@@ -234,7 +234,9 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
          `academics`' own service, which owns the roll and admission-number series
       3. the Guardian, reusing a sibling's row when the phone already exists
       4. the application marked `admitted` and pointed at the student
-      5. the activity log entry
+      5. the admission and session fee invoices, where `fee_amounts` gives a
+         price for them (`fees.services.raise_admission_fees`)
+      6. the activity log entry
 
     Step 5 is `atomic=True`, unlike ordinary CRUD logging: "who admitted this
     student, and when" is the question the log exists to answer for a record that
@@ -320,18 +322,26 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
     application.save(update_fields=['student', 'status', 'processed_by',
                                     'processed_at', 'updated_at'])
 
-    # ── Phase 5 hook — fee invoices ─────────────────────────────────────────
+    # ── Fee invoices ────────────────────────────────────────────────────────
     # docs/02 §4.1: the Admission Fee and the Session Fee are raised here, in
     # THIS transaction, so a student never exists without the invoices that
-    # admitting them creates. The call belongs at exactly this point — after the
-    # enrolment, which is what says which class's fee structure applies:
+    # admitting them creates. The call sits at exactly this point — after the
+    # enrolment, which is what says which class the student is in.
     #
-    #     from fees.services import raise_admission_fees
-    #     raise_admission_fees(enrolment=enrolment, actor=actor)
+    # Imported inside the function, not at module scope: `students` is imported
+    # by `fees` (Fee points at Student), and a module-level import here would
+    # close the loop into a circular import (CLAUDE.md §2).
     #
-    # Deliberately not stubbed with a no-op function: an empty implementation
-    # would let Phase 5 land without anyone noticing the call site was never
-    # wired up. `fees` does not exist yet (CLAUDE.md §8.1 — do not build ahead).
+    # `fee_amounts` is `{'ADM': Decimal(...), 'SES': Decimal(...)}` and comes
+    # from the caller because V1 stores no price for either head —
+    # `FeeStructure` is V2 and `AcademicClass.monthly_fee` is the monthly
+    # tuition only (docs/05 §5.4). Passing nothing raises nothing, which is the
+    # honest outcome: a ৳0 admission invoice would print, look paid, and hide
+    # the fact that the fee was never set.
+    from fees.services import raise_admission_fees
+
+    raise_admission_fees(enrolment=enrolment, student=student,
+                         amounts=fee_amounts, actor=actor, request=request)
 
     # 5 ── the audit trail
     log_activity(

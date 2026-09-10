@@ -30,7 +30,7 @@ from rest_framework.exceptions import ValidationError
 from accounts.permissions import HasResourcePermission
 from accounts.services import ActivityLogMixin
 from core.middleware import ALL_BRANCHES, get_branch
-from core.viewsets import BranchScopedViewSet
+from core.viewsets import BranchScopedViewSet, writable_branch
 
 from .models import (AcademicClass, ClassRoutine, Enrolment, Period, Section,
                      Subject, SubjectAssignment)
@@ -42,23 +42,6 @@ from .services import day_index, enrol_student, teacher_for_user
 from .viewsets import TeacherScopedMixin
 
 
-def _writable_branch(request):
-    """The branch a write lands in, or a 400 naming the missing parameter.
-
-    A platform admin posting without `?branch=` has not said which institution to
-    enrol the student into. Left alone the sentinel reaches the FK as the string
-    'ALL' and fails as a database type error — a 500 for what is really a missing
-    parameter. `get_branch()` and not `request.branch`, because the latter is a
-    `SimpleLazyObject` and an `is None` check against it is always False
-    (CLAUDE.md §5).
-    """
-    branch = get_branch(request)
-    if branch is None or branch == ALL_BRANCHES or not hasattr(branch, 'pk'):
-        raise ValidationError({
-            'branch': ('Choose an institution before creating this. '
-                       'Add ?branch=<id> to the request.'),
-        })
-    return branch
 
 
 class AcademicsViewSet(ActivityLogMixin, BranchScopedViewSet):
@@ -200,7 +183,7 @@ class EnrolmentViewSet(TeacherScopedMixin, AcademicsViewSet):
         because the service issues them.
         """
         serializer.instance = enrol_student(
-            branch=_writable_branch(self.request),
+            branch=writable_branch(self.request),
             created_by=self.request.user,
             **serializer.validated_data,
         )

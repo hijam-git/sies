@@ -12,6 +12,40 @@ from rest_framework.exceptions import ValidationError
 from .middleware import ALL_BRANCHES, get_branch
 
 
+def writable_branch(request):
+    """The branch a write lands in, as a real `Branch`, or a 400 saying why not.
+
+    Three apps each grew their own copy of this and they did not agree. Two
+    tested `hasattr(branch, 'pk')` and rejected a platform admin outright,
+    because `resolve_branch` hands that user the RAW STRING from `?branch=5` —
+    the middleware deliberately does not resolve it, since it runs before
+    authentication and must not query (docs/01 §5.2). So "Add teacher" answered
+    *"choose an institution"* to someone who had chosen one, while "Add student"
+    worked, and the two code paths differed only in that check.
+
+    `get_branch()` and not `request.branch`: the latter is a `SimpleLazyObject`
+    and `is None` against it is False even when the branch is None
+    (`CLAUDE.md` §5).
+    """
+    from branches.models import Branch
+
+    branch = get_branch(request)
+    if branch is None or branch == ALL_BRANCHES:
+        raise ValidationError({
+            'branch': ('Choose an institution before creating this. '
+                       'Add ?branch=<id> to the request.'),
+        })
+    if isinstance(branch, Branch):
+        return branch
+
+    try:
+        return Branch.objects.get(pk=int(branch))
+    except (TypeError, ValueError):
+        raise ValidationError({'branch': 'Not a valid institution id.'})
+    except Branch.DoesNotExist:
+        raise ValidationError({'branch': 'No institution with that id.'})
+
+
 class BranchScopedMixin:
     """Read filtering and write stamping. Mix into any generic view."""
 
@@ -41,44 +75,14 @@ class BranchScopedMixin:
         really a missing parameter. So it is caught here and answered as the 400
         it is, in a sentence the caller can act on.
 
-        A platform admin who DID pass `?branch=5` has `request.branch` as the
-        string `'5'` — the middleware deliberately does not resolve it, because
-        it runs before authentication and must not query (docs/01 §5.2). So it
-        is saved as `branch_id`, which is what a raw key is, rather than as
-        `branch`, which expects an instance. Getting this wrong is a 500 on
-        every create a platform admin attempts, while a branch user's identical
-        request succeeds — the two paths differ only in the type of this value,
-        which is exactly the kind of bug that reaches production.
+        `writable_branch()` above does the resolving and the refusing, so this
+        method and every app's custom create action answer identically. They did
+        not always: the copies that grew in three apps disagreed about a
+        platform admin, and "Add teacher" refused someone that "Add student"
+        accepted.
         """
-        # Imported here, not at module scope: core is imported BY branches, and
-        # the reverse at import time would be a cycle (docs/06 §2).
-        from branches.models import Branch
-
-        branch = get_branch(self.request)
-        if branch is None or branch == ALL_BRANCHES:
-            raise ValidationError({
-                'branch': (
-                    'Choose an institution before creating this. '
-                    'Add ?branch=<id> to the request.'
-                ),
-            })
-
-        if isinstance(branch, Branch):
-            serializer.save(branch=branch, created_by=self.request.user)
-            return
-
-        # A raw id off the query string. Validate it here rather than letting
-        # the FK reject it: an unknown institution is a 400 the caller can act
-        # on, not an integrity error with a traceback.
-        try:
-            branch_id = int(branch)
-        except (TypeError, ValueError):
-            raise ValidationError({'branch': 'Not a valid institution id.'})
-
-        if not Branch.objects.filter(pk=branch_id).exists():
-            raise ValidationError({'branch': 'No institution with that id.'})
-
-        serializer.save(branch_id=branch_id, created_by=self.request.user)
+        serializer.save(branch=writable_branch(self.request),
+                        created_by=self.request.user)
 
     def perform_update(self, serializer):
         # branch is not re-stamped: moving a student between institutions is not

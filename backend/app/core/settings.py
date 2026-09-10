@@ -97,11 +97,11 @@ _SIES_APPS = [
     'academics',    # Phase 2 — AcademicClass, Section, Subject, Enrolment,
                     #           Period, ClassRoutine, SubjectAssignment
     'students',     # Phase 2 — Student, Guardian, Admission, Document
-    # 'forms',        Phase 2 — FormTemplate, Question, AdmissionAnswer
-    # 'attendance',   Phase 4 — DailyAttendance, ClassAttendance
-    # 'fees',         Phase 5 — FeeCategory, Fee, Payment
-    # 'finance',      Phase 5 — Income, Expense and their categories
-    # 'exams',        Phase 6 — Exam, ExamSchedule, Mark
+    'forms',        # Phase 2 — FormTemplate, Question, AdmissionAnswer
+    'attendance',   # Phase 4 — DailyAttendance, ClassAttendance
+    'fees',         # Phase 3 — FeeCategory, Fee, Payment
+    'finance',      # Phase 3 — Income, Expense and their categories
+    'exams',        # Phase 5 — Exam, ExamSchedule, Mark
 ]
 
 INSTALLED_APPS = [

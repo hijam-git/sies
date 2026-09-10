@@ -12,6 +12,9 @@ import auth from './dict/auth';
 import dashboard from './dict/dashboard';
 import errors from './dict/errors';
 import admin from './dict/admin';
+import students from './dict/students';
+import staff from './dict/staff';
+import academics from './dict/academics';
 
 export const BN: Record<string, string> = {
   ...common,
@@ -20,4 +23,7 @@ export const BN: Record<string, string> = {
   ...dashboard,
   ...errors,
   ...admin,
+  ...students,
+  ...staff,
+  ...academics,
 };
