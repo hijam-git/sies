@@ -259,8 +259,13 @@ Two kinds, exactly as the brief separates them:
 
 Both carry `taken_by`, `taken_at`, and a `source` (web / mobile / biometric /
 imported), because "who marked my son absent" is a question that gets asked and
-must have an answer. Corrections are a new row plus an audit entry, never an
-in-place edit that erases what was originally recorded.
+must have an answer.
+
+**Corrections overwrite the cell in place** (`08` D3) — this sentence used to say
+the opposite, and D3 overrules it. There is no correction history in the
+attendance tables. What survives is the `ActivityLog` entry, which carries the
+before and after (`08` D8), so the question above still has an answer even
+though the register itself shows only the current value.
 
 Absence triggers an async SMS to the guardian on the branch's rule (e.g. after
 09:30, once per day, not on holidays). *(SMS is V2 — see `05` §5.4.)*

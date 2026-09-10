@@ -509,13 +509,38 @@ One row per person per day.
 | `taken_at` | DateTime | |
 | `source` | `web` / `mobile` / `biometric` / `import` | |
 
-`unique_together (branch, date, person_type, student, teacher, employee)` — one row per
-person per day, enforced by the database, not by application code.
+**One row per person per day — and `unique_together` alone does NOT deliver it.**
 
-> **Why a `person_type` + two nullable FKs instead of Django's generic
+An earlier version of this file specified
+`unique_together (branch, date, person_type, student, teacher, employee)`. That
+constraint does nothing useful on Postgres: **NULLs compare as distinct**, so two
+rows for the same student (both with `teacher` and `employee` NULL) never
+collide, and the same person could be marked twice on the same day. The same
+trap bit `NumberSequence` (§1) — a nullable column in a unique constraint is
+almost never doing what it looks like it is doing.
+
+What actually enforces it is **three partial unique constraints, one per person
+type**:
+
+```python
+UniqueConstraint(fields=['branch', 'date', 'student'],
+                 condition=Q(student__isnull=False), name='dailyatt_unique_student_day')
+UniqueConstraint(fields=['branch', 'date', 'teacher'],
+                 condition=Q(teacher__isnull=False), name='dailyatt_unique_teacher_day')
+UniqueConstraint(fields=['branch', 'date', 'employee'],
+                 condition=Q(employee__isnull=False), name='dailyatt_unique_employee_day')
+```
+
+`ClassAttendance` has the same problem through its nullable `section`, and takes
+the same fix.
+
+> **Why a `person_type` + three nullable FKs instead of Django's generic
 > relations:** GenericForeignKey cannot be joined efficiently and cannot carry a
-> database-level unique constraint. Two nullable FKs with a check constraint
-> keep both, at the cost of one `if` in the serializer.
+> database-level unique constraint. Three nullable FKs with a check constraint
+> keep both, at the cost of one `if` in the serializer. Three, not two, since
+> `08` D5 split Teacher from Employee — and `person_type` is folded INTO the
+> check constraint so the discriminator can never disagree with the FK that is
+> actually set.
 
 > **Corrections overwrite the row** (`08` D3). A fixed cell updates `status`,
 > `taken_by` and `taken_at` in place; `updated_at` records when. There is no
@@ -833,7 +858,7 @@ ActivityLog (global, append-only) — V1, powers the live feed (08 D8)
 |------------|----------|
 | `User.phone` unique, 11 digits, normalised | Duplicate humans, login ambiguity |
 | `Fee` unique on `(branch, student, category, period, session)` | The monthly job double-charging |
-| `DailyAttendance` unique on `(branch, date, person_type, student, teacher, employee)` | Two conflicting attendance records for one day |
+| `DailyAttendance` — THREE partial unique constraints, one per person type | Two conflicting attendance records for one day. `unique_together` over the nullable FKs does NOT do this: Postgres treats NULLs as distinct (§6) |
 | `Mark` unique on `(exam, student, subject)` | Two marks for one paper |
 | `Enrolment` unique on `(branch, session, class, section, roll)` | Two students on one roll |
 | Check: exactly one of `student` / `teacher` / `employee` set on `DailyAttendance` | Orphan or double-owned attendance rows |

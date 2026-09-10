@@ -312,6 +312,42 @@ dependent through `Enrolment.student`, exactly as F17 predicted. Generate
 `_SIES_APPS` in dependency order: `staff` → `academics` → `students`.
 `settings.py` still lists `staff` as Phase 3; that is wrong and must move.
 
+**F27 — `unique_together` over nullable FKs enforces nothing. Twice now.**
+`docs/03` §6 specified
+`unique_together (branch, date, person_type, student, teacher, employee)` for
+"one attendance row per person per day". On Postgres **NULLs compare as
+distinct**, so two rows for the same student — both with `teacher` and
+`employee` NULL — never collide, and a student could be marked twice on the same
+day with nothing to stop it.
+
+The real enforcement is **three partial unique constraints**, one per person
+type, each with `condition=Q(<fk>__isnull=False)`. `ClassAttendance` has the same
+hole through its nullable `section`, and takes the same fix.
+
+**This is the second time the same trap has appeared** — `NumberSequence`
+(F23/F24) needed exactly this treatment for its nullable `branch`. Treat any
+unique constraint containing a nullable column as wrong until proven otherwise;
+it almost never does what it looks like it does.
+
+The agent also folded `person_type` INTO the check constraint, so the
+discriminator can never disagree with the FK that is actually set. That is
+better than what the docs asked for.
+
+**F28 — two docs contradicted D3 and D5 and have been corrected.**
+`docs/02` §4.4 still read *"corrections are a new row plus an audit entry, never
+an in-place edit"* — the exact opposite of D3. `docs/03` §6 still described "two
+nullable FKs" after D5 made it three. Both fixed, and §4.4 now says where the
+history actually lives: not in the attendance table, but in the `ActivityLog`
+entry, which carries before and after (D8).
+
+**F29 — `branches.seeding` breaks `create_branch()` while `fees` is uninstalled.**
+The plug-in point imports `fees.models` inside the function, so `manage.py check`
+stays clean and the failure only appears at call time —
+`RuntimeError: Model class fees.models.FeeCategory doesn't declare an explicit
+app_label`. A phased build will hit this every time an app is written before it
+is wired, so seeding must **skip a stage whose app is not installed and log
+that it did**, rather than raising. Fixed at integration.
+
 ---
 
 ### Carried into Phase 1 as tasks *(from Phase 0 — now done)*
