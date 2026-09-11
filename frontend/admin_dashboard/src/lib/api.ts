@@ -907,6 +907,21 @@ export interface TabulationRow {
   is_passed: boolean;
   failed_subjects: string[];
   rank_in_class: number | null;
+  /** Rank among the students of the same section; null outside a section or
+   *  for a failed student. */
+  rank_in_section: number | null;
+  student_name_bn: string;
+  /** `SIES-000123`. */
+  student_code: string;
+  section: number | null;
+  section_name: string;
+  section_name_bn: string;
+}
+
+export interface TabulationSection {
+  id: number;
+  name: string;
+  name_bn: string;
 }
 
 export interface Tabulation {
@@ -914,7 +929,39 @@ export interface Tabulation {
   academic_class: number;
   /** Marks are not visible to students until this is true (`docs/06` #12). */
   is_published: boolean;
+  /** The sections that have students on this sheet, by name. */
+  sections: TabulationSection[];
   rows: TabulationRow[];
+}
+
+/** One exam on a student's report: the marksheet plus where they sat it. */
+export interface StudentReportExam extends StudentResult {
+  exam_name: string;
+  exam_name_bn: string;
+  exam_type: ExamType;
+  status: ExamStatus;
+  starts_on: string;
+  session: number;
+  session_name: string;
+  academic_class: number;
+  class_name: string;
+  class_name_bn: string;
+  section: number | null;
+  section_name: string;
+  section_name_bn: string;
+  roll: number | null;
+  rank_in_class: number | null;
+  rank_in_section: number | null;
+  class_size: number;
+}
+
+/** Every result one student has, newest exam first. */
+export interface StudentReport {
+  student: number;
+  student_code: string;
+  student_name: string;
+  student_name_bn: string;
+  exams: StudentReportExam[];
 }
 
 // ── The printable admission form — `docs/07` ──────────────────────────────
@@ -2002,6 +2049,11 @@ class ApiClient {
 
   getStudentResult(examId: number, student: number): Promise<StudentResult> {
     return this.request<StudentResult>(`/exams/${examId}/result/?student=${student}`);
+  }
+
+  /** Every exam this student sat that the caller may see, with ranks. */
+  getStudentReport(student: number): Promise<StudentReport> {
+    return this.request<StudentReport>(`/exams/student-report/?student=${student}`);
   }
 
   /** Principal-only, and the moment results become visible to students. There

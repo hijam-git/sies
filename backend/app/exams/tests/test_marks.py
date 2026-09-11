@@ -233,3 +233,50 @@ class ResultComputationTests(TestCase):
         # A failed student is not ranked. Every printed tabulation sheet in the
         # country reflects that.
         self.assertIsNone(failed['rank_in_class'])
+
+
+class SectionRankTests(TestCase):
+    """One sheet carries the class rank and the section rank side by side."""
+
+    def setUp(self):
+        from academics.models import Section
+
+        self.world = f.small_world()
+        w = self.world
+        self.section_a = Section.objects.create(branch=w['branch'], academic_class=w['class'], name='A')
+        self.section_b = Section.objects.create(branch=w['branch'], academic_class=w['class'], name='B')
+        third = f.make_student(w['branch'], name='Student 3')
+        self.third = f.make_enrolment(student=third, session=w['session'],
+                                      academic_class=w['class'], roll=3,
+                                      admission_number='DHK-0003')
+        first, second = w['enrolments']
+        for enrolment, section in ((first, self.section_a), (second, self.section_a),
+                                   (self.third, self.section_b)):
+            enrolment.section = section
+            enrolment.save(update_fields=['section'])
+
+        for subject, marks in ((w['arabic'], ('90', '70', '50')), (w['fiqh'], ('80', '60', '50'))):
+            save_marks(exam=w['exam'], subject=subject, actor=w['principal'], rows=[
+                {'enrolment': first.pk, 'obtained': marks[0]},
+                {'enrolment': second.pk, 'obtained': marks[1]},
+                {'enrolment': self.third.pk, 'obtained': marks[2]},
+            ])
+
+    def test_each_row_carries_its_class_and_section_rank(self):
+        sheet = tabulation(self.world['exam'], self.world['class'])
+        by_enrolment = {row['enrolment']: row for row in sheet['rows']}
+        first, second = self.world['enrolments']
+
+        self.assertEqual((by_enrolment[first.pk]['rank_in_class'],
+                          by_enrolment[first.pk]['rank_in_section']), (1, 1))
+        self.assertEqual((by_enrolment[second.pk]['rank_in_class'],
+                          by_enrolment[second.pk]['rank_in_section']), (2, 2))
+        # Last in the class, first in a section of one.
+        self.assertEqual((by_enrolment[self.third.pk]['rank_in_class'],
+                          by_enrolment[self.third.pk]['rank_in_section']), (3, 1))
+        self.assertEqual(by_enrolment[self.third.pk]['section_name'], 'B')
+
+    def test_the_sheet_lists_the_sections_it_contains(self):
+        sheet = tabulation(self.world['exam'], self.world['class'])
+        self.assertEqual([row['name'] for row in sheet['sections']], ['A', 'B'])
+

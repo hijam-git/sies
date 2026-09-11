@@ -426,6 +426,28 @@ def student_result(exam, student):
     }
 
 
+def _rank(rows, field):
+    """Write a merit rank into `field` on each passed row, in place.
+
+    Obtained marks, highest first; failures are left unranked. Equal totals
+    share a rank — 1, 2, 2, 4 — because breaking a genuine tie arbitrarily is a
+    decision the software does not get to make on a teacher's behalf.
+    """
+    ranked = sorted(
+        [row for row in rows if row['is_passed']],
+        key=lambda row: row['obtained_marks'], reverse=True,
+    )
+    previous_total = None
+    previous_rank = 0
+    for index, row in enumerate(ranked, start=1):
+        if row['obtained_marks'] == previous_total:
+            row[field] = previous_rank
+        else:
+            row[field] = index
+            previous_rank = index
+            previous_total = row['obtained_marks']
+
+
 def tabulation(exam, academic_class):
     """The class tabulation sheet: every student, every subject, ranked.
 
@@ -440,7 +462,7 @@ def tabulation(exam, academic_class):
         Enrolment.objects
         .filter(branch_id=exam.branch_id, session_id=exam.session_id,
                 academic_class=academic_class, is_active=True)
-        .select_related('student')
+        .select_related('student', 'section')
         .order_by('roll')
     )
     marks = (
@@ -489,6 +511,11 @@ def tabulation(exam, academic_class):
             'enrolment': enrolment.pk,
             'student': enrolment.student_id,
             'student_name': enrolment.student.name,
+            'student_name_bn': enrolment.student.name_bn,
+            'student_code': enrolment.student.student_id,
+            'section': enrolment.section_id,
+            'section_name': enrolment.section.name if enrolment.section_id else '',
+            'section_name_bn': enrolment.section.name_bn if enrolment.section_id else '',
             'roll': enrolment.roll,
             'marks': cells,
             'total_marks': total_full,
@@ -500,6 +527,7 @@ def tabulation(exam, academic_class):
             'is_passed': is_passed,
             'failed_subjects': failed,
             'rank_in_class': None,
+            'rank_in_section': None,
         })
 
     # Rank on obtained marks, failures last. A failed student with a high total
@@ -507,24 +535,33 @@ def tabulation(exam, academic_class):
     # country reflects that. Equal totals share a rank — 1, 2, 2, 4 — because
     # breaking a genuine tie arbitrarily is a decision the software does not get
     # to make on a teacher's behalf.
-    ranked = sorted(
-        [row for row in rows if row['is_passed']],
-        key=lambda row: row['obtained_marks'], reverse=True,
-    )
-    previous_total = None
-    previous_rank = 0
-    for index, row in enumerate(ranked, start=1):
-        if row['obtained_marks'] == previous_total:
-            row['rank_in_class'] = previous_rank
-        else:
-            row['rank_in_class'] = index
-            previous_rank = index
-            previous_total = row['obtained_marks']
+    _rank(rows, 'rank_in_class')
+
+    # The same rule again inside each section. A class split into ক and খ reads
+    # its merit list per section as often as for the whole class, and both come
+    # from the same marks — so both are on the row, and choosing a section on
+    # the screen is a filter rather than a second request.
+    by_section = {}
+    for row in rows:
+        if row['section'] is not None:
+            by_section.setdefault(row['section'], []).append(row)
+    for section_rows in by_section.values():
+        _rank(section_rows, 'rank_in_section')
+
+    sections = {}
+    for enrolment in enrolments:
+        if enrolment.section_id and enrolment.section_id not in sections:
+            sections[enrolment.section_id] = {
+                'id': enrolment.section_id,
+                'name': enrolment.section.name,
+                'name_bn': enrolment.section.name_bn,
+            }
 
     return {
         'exam': exam.pk,
         'academic_class': academic_class.pk,
         'is_published': exam.status == ExamStatus.PUBLISHED,
+        'sections': sorted(sections.values(), key=lambda row: row['name']),
         'rows': rows,
     }
 
@@ -544,3 +581,65 @@ __all__ = [
     'exam_subjects', 'grade_for', 'marks_are_visible_to', 'publish_exam',
     'save_marks', 'student_result', 'tabulation', 'visible_marks_for',
 ]
+
+
+def student_report(student, exams):
+    """Every exam this student sat, newest first, with their rank in each.
+
+    The screen this feeds is "find a student, see all their results", so it is
+    one request rather than one per exam. `exams` is the already-scoped, already
+    visibility-filtered list the view decided this caller may see; nothing here
+    widens it.
+
+    Rank needs the whole class, so each exam's class sheet is computed once.
+    A student sits a handful of exams a year, so that is a handful of sheets,
+    not a query per classmate.
+    """
+    first_mark_per_exam = {}
+    marks = (
+        Mark.objects
+        .filter(student=student, is_active=True, exam__in=exams)
+        .select_related('exam', 'exam__session', 'enrolment__academic_class',
+                        'enrolment__section')
+        .order_by('exam_id', 'id')
+    )
+    for mark in marks:
+        first_mark_per_exam.setdefault(mark.exam_id, mark)
+
+    lines = []
+    for mark in sorted(first_mark_per_exam.values(),
+                       key=lambda row: row.exam.starts_on, reverse=True):
+        exam = mark.exam
+        enrolment = mark.enrolment
+        sheet = tabulation(exam, enrolment.academic_class)
+        mine = next((row for row in sheet['rows'] if row['enrolment'] == enrolment.pk), None)
+        section = enrolment.section
+
+        lines.append({
+            **student_result(exam, student),
+            'exam_name': exam.name,
+            'exam_name_bn': exam.name_bn,
+            'exam_type': exam.exam_type,
+            'status': exam.status,
+            'starts_on': exam.starts_on,
+            'session': exam.session_id,
+            'session_name': exam.session.name,
+            'academic_class': enrolment.academic_class_id,
+            'class_name': enrolment.academic_class.name,
+            'class_name_bn': enrolment.academic_class.name_bn,
+            'section': enrolment.section_id,
+            'section_name': section.name if section else '',
+            'section_name_bn': section.name_bn if section else '',
+            'roll': enrolment.roll,
+            'rank_in_class': mine['rank_in_class'] if mine else None,
+            'rank_in_section': mine['rank_in_section'] if mine else None,
+            'class_size': len(sheet['rows']),
+        })
+
+    return {
+        'student': student.pk,
+        'student_code': student.student_id,
+        'student_name': student.name,
+        'student_name_bn': student.name_bn,
+        'exams': lines,
+    }

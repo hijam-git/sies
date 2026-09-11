@@ -292,3 +292,18 @@
     @apply p-4 sm:p-6;
   }
 }
+
+/* Printing a report prints the report. The top bar and the menu are the app
+   around it, and a wide sheet must not be clipped by its own scroll box. */
+@media print {
+  #app-topbar,
+  #sidebar-drawer {
+    display: none !important;
+  }
+  .scroll-x {
+    overflow: visible !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

@@ -135,3 +135,64 @@ class PublishPermissionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.world['exam'].refresh_from_db()
         self.assertEqual(self.world['exam'].status, 'draft')
+
+
+@override_settings(ROOT_URLCONF='exams.tests.urls')
+class StudentReportApiTests(TestCase):
+    """Every result of one student, found from the student alone."""
+
+    def setUp(self):
+        self.world = f.small_world()
+        w = self.world
+        save_marks(
+            exam=w['exam'], subject=w['arabic'], actor=w['principal'],
+            rows=[{'enrolment': w['enrolments'][0].pk, 'obtained': '90'},
+                  {'enrolment': w['enrolments'][1].pk, 'obtained': '60'}],
+        )
+        self.url = f'/api/exams/student-report/?student={w["students"][0].pk}'
+
+    def test_staff_see_every_exam_with_its_rank(self):
+        response = client_for(self.world['principal']).get(self.url)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        lines = response.json()['exams']
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]['exam'], self.world['exam'].pk)
+        self.assertEqual(lines[0]['rank_in_class'], 1)
+        self.assertEqual(lines[0]['class_size'], 2)
+
+    def test_another_institutions_student_is_404(self):
+        other = f.make_branch(code='CTG', name='Chittagong Madrasah')
+        stranger = f.make_student(other, name='Elsewhere')
+
+        response = client_for(self.world['principal']).get(
+            f'/api/exams/student-report/?student={stranger.pk}',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_a_student_sees_no_result_until_it_is_published(self):
+        w = self.world
+        user = f.make_user(w['branch'], phone='01799000002', user_type='student',
+                           permissions=['marks.view', 'exams.view'])
+        student = w['students'][0]
+        student.user = user
+        student.save(update_fields=['user'])
+        client = client_for(user)
+
+        self.assertEqual(client.get(self.url).json()['exams'], [])
+        publish_exam(w['exam'], actor=w['principal'])
+        self.assertEqual(len(client.get(self.url).json()['exams']), 1)
+
+    def test_a_student_cannot_read_a_classmates_report(self):
+        w = self.world
+        user = f.make_user(w['branch'], phone='01799000003', user_type='student',
+                           permissions=['marks.view', 'exams.view'])
+        student = w['students'][0]
+        student.user = user
+        student.save(update_fields=['user'])
+
+        response = client_for(user).get(
+            f'/api/exams/student-report/?student={w["students"][1].pk}',
+        )
+        self.assertEqual(response.status_code, 404)
+

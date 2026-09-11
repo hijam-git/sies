@@ -94,6 +94,26 @@ const exams: Record<string, string> = {
     'ফল প্রকাশিত হয়নি — শিক্ষার্থীরা এখনো এই নম্বর দেখতে পাচ্ছে না।',
   'Publishing makes these results visible to students, and marks can no longer be changed afterwards.':
     'ফল প্রকাশ করলে শিক্ষার্থীরা তা দেখতে পাবে, এবং এরপর নম্বর আর পরিবর্তন করা যাবে না।',
+  // ── Finding results ─────────────────────────────────────────────────────
+  'Class results': 'শ্রেণিভিত্তিক ফল',
+  'Student results': 'শিক্ষার্থীর ফল',
+  'Find a student by name, ID or phone': 'নাম, আইডি বা ফোন দিয়ে শিক্ষার্থী খুঁজুন',
+  'Could not search students.': 'শিক্ষার্থী খোঁজা যায়নি।',
+  'No student matches this.': 'এমন কোনো শিক্ষার্থী পাওয়া যায়নি।',
+  'All sections': 'সব শাখা',
+  'Examinees': 'পরীক্ষার্থী',
+  'Search in this sheet': 'এই তালিকায় খুঁজুন',
+  'By roll': 'রোল অনুযায়ী',
+  'By rank': 'মেধাক্রম অনুযায়ী',
+  'Print marksheet': 'নম্বরপত্র প্রিন্ট',
+  'Class rank': 'শ্রেণিতে মেধাক্রম',
+  'Section rank': 'শাখায় মেধাক্রম',
+  'Obtained': 'প্রাপ্ত নম্বর',
+  'Search for a student above to see every result they have.': 'উপরে শিক্ষার্থী খুঁজুন — তার সব পরীক্ষার ফল এখানে দেখা যাবে।',
+  'This student has no results yet.': 'এই শিক্ষার্থীর এখনো কোনো ফল নেই।',
+  'Could not load this student’s results.': 'এই শিক্ষার্থীর ফল লোড করা যায়নি।',
+  'No students match this filter.': 'এই ফিল্টারে কোনো শিক্ষার্থী নেই।',
+  'No exams in this session.': 'এই শিক্ষাবর্ষে কোনো পরীক্ষা নেই।',
 };
 
 export default exams;

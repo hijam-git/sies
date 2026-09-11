@@ -327,7 +327,7 @@ export default function DashboardLayout() {
           institution's name starts where the page starts — two columns, read as
           two columns. Translucent with a blur so a scrolled table shows through
           as movement rather than being cut off by a hard white slab. */}
-      <header className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
+      <header id="app-topbar" className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
         <div className="flex h-14 items-center gap-2 pr-3 sm:pr-5 lg:pr-6">
           <div className="flex h-full shrink-0 items-center gap-1 pl-2 sm:pl-3 lg:w-56 lg:border-r lg:border-gray-200/80 lg:pl-4">
             <button

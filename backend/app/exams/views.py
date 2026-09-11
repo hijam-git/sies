@@ -28,6 +28,7 @@ from academics.models import AcademicClass, Subject
 from accounts.permissions import HasResourcePermission
 from accounts.services import ActivityLogMixin
 from academics.viewsets import TeacherScopedMixin
+from core.middleware import get_branch
 from core.viewsets import BranchScopedViewSet, BranchScopedReadOnlyViewSet
 from students.models import Student
 
@@ -35,7 +36,8 @@ from .models import Exam, ExamClass, ExamSchedule, Mark
 from .serializers import (ExamClassSerializer, ExamScheduleSerializer,
                           ExamSerializer, MarkSerializer, MarksGridSerializer)
 from .services import (marks_are_visible_to, publish_exam, save_marks,
-                       student_result, tabulation, visible_marks_for)
+                       student_report, student_result, tabulation,
+                       visible_marks_for)
 
 
 class ExamsViewSet(ActivityLogMixin, BranchScopedViewSet):
@@ -66,6 +68,7 @@ class ExamViewSet(ExamsViewSet):
         'marks': 'enter',
         'tabulation': 'view',
         'result': 'view',
+        'report': 'view',
     }
 
     def get_permissions(self):
@@ -150,6 +153,38 @@ class ExamViewSet(ExamsViewSet):
                 raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
 
         return Response(student_result(exam, student))
+
+    @action(detail=False, methods=['get'], url_path='student-report')
+    def report(self, request):
+        """`GET /api/exams/student-report/?student=<id>` — every result of one student.
+
+        The same three gates as `result`, applied to a list: the student must be
+        in the caller's institution (404 otherwise), a student account may only
+        ask about themselves, and an exam whose results a caller may not see yet
+        is simply not in the list — an empty list, rather than a 404, because
+        "no published results yet" is a true and ordinary answer.
+        """
+        raw = str(request.GET.get('student', ''))
+        student = None
+        if raw.isdigit():
+            student = (
+                Student.objects.filter(pk=int(raw))
+                .for_branch(get_branch(request))
+                .first()
+            )
+        if student is None:
+            raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+
+        if getattr(request.user, 'user_type', None) == 'student':
+            own = getattr(request.user, 'student_profile', None)
+            if own is None or own.pk != student.pk:
+                raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+
+        exams = [
+            exam for exam in self.get_queryset().filter(marks__student=student).distinct()
+            if marks_are_visible_to(exam, request.user)
+        ]
+        return Response(student_report(student, exams))
 
     def _class_param(self, exam, request):
         academic_class = AcademicClass.objects.filter(
