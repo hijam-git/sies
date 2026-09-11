@@ -65,8 +65,11 @@ export default function LedgerTab({
   const { t } = useT();
   const { can } = usePermissions();
 
-  const mayCreate = can('finance', 'create');
-  const mayUpdate = can('finance', 'update');
+  // Each side is its own permission: an expense clerk records expenses and
+  // cannot touch income, and neither clerk corrects an entry (`update`).
+  const resource = kind === 'income' ? 'income' : 'expenses';
+  const mayCreate = can(resource, 'create');
+  const mayUpdate = can(resource, 'update');
 
   const path = PATH[kind];
 

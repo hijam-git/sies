@@ -65,8 +65,9 @@ and every institution eventually needs exactly that. So:
 | `employees` | view, create, update, delete | Non-teaching staff |
 | `attendance` | view, take, update | Taking and correcting attendance |
 | `fees` | view, create, update, collect, waive | Invoices, collection, discounts |
-| `finance` | view, create, update | Income, expenses, ledger |
-| `salary` | view, manage | Payroll — separate from `finance` on purpose |
+| `income` | view, create, update | Recording income; `update` corrects entries and manages income heads |
+| `expenses` | view, create, update | Recording expenses; `update` corrects entries and manages expense heads |
+| `salary` | view, manage | Payroll — separate from income and expenses on purpose |
 | `exams` | view, create, update, publish | Exams, schedules, marks, results |
 | `marks` | view, enter, update | Entering marks — a teacher gets this without `exams.create`. `view` exists so `canView()` needs no special case |
 | `reports` | view, export | Reports and their exports |
@@ -79,7 +80,11 @@ and every institution eventually needs exactly that. So:
 Two separations are deliberate and carry the same reasoning as Awliaa's
 `purchasing` split:
 
-- **`salary` is not `finance`.** Letting an accountant post the electricity bill
+- **`income` is not `expenses`.** The clerk who writes up donations is not
+  thereby trusted to pay bills from the same cash. Split from a single
+  `finance` resource on 2026-09-11; migration `accounts.0003` gave everyone who
+  held `finance.*` both sides, so nobody's access changed on deploy.
+- **`salary` is not income or expenses.** Letting an accountant post the electricity bill
   is a much smaller decision than letting them see what every teacher earns.
 - **`marks.enter` is not `exams.publish`.** A teacher enters their subject's
   marks; only the principal publishes a result, and publishing is the moment
@@ -93,9 +98,11 @@ starting point, never a cage — see §2.3.
 | Preset | Gets |
 |--------|------|
 | **Platform Admin** | Everything, across every institution: `branches.*`, `users.*`, `activity.view` |
-| **Platform Accountant** | Across every institution, money only: `dashboard.view` · `branches.view` · `finance.*` · `fees.view` · `reports.view/export` |
+| **Platform Accountant** | Across every institution, money only: `dashboard.view` · `branches.view` · `income.*` · `expenses.*` · `fees.view` · `reports.view/export` |
 | **Principal** | Everything in their institution except `branches.create` and `activity.view` |
-| **Accountant** | `dashboard.view` · `fees.*` · `finance.*` · `reports.view/export` · `students.view` · `academics.view` |
+| **Accountant** | `dashboard.view` · `fees.*` · `income.*` · `expenses.*` · `reports.view/export` · `students.view` · `academics.view` |
+| **Income Clerk** | `dashboard.view` · `income.view/create` — records income only; cannot correct, reverse, add heads or see expenses |
+| **Expense Clerk** | `dashboard.view` · `expenses.view/create` — records expenses only; cannot correct, reverse, add heads or see income |
 | **Admission Officer** | `dashboard.view` · `admissions.*` · `students.view/create/update` · `fees.view/create` · `documents.upload` |
 | **Teacher** | `dashboard.view` · `academics.view` · `attendance.view/take` · `marks.view/enter/update` · `students.view` · `exams.view` |
 | **Class Teacher** | Teacher, plus `attendance.update` · `documents.view` |
@@ -120,7 +127,8 @@ fixed role list never can:
   role, no second account.
 - A senior teacher who may enter marks but must not publish results → they have
   `marks.enter` and simply never get `exams.publish`.
-- An accountant who must not see payroll → `finance.*` without `salary.view`.
+- An accountant who must not see payroll → `income.*` and `expenses.*` without `salary.view`.
+- A clerk who may only enter costs → **Expense Clerk**, or `expenses.create` alone.
 - An office assistant trusted with admissions during the season → tick
   `admissions.create`, untick it in March.
 

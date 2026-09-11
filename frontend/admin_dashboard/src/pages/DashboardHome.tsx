@@ -60,14 +60,14 @@ const OWING = ['unpaid', 'partial', 'overdue'];
  *    month's rows are read and added here, exactly, in poisha. When a dashboard
  *    summary endpoint exists these collapse into it and the cards do not change.
  */
-function useMoneyFigures(enabled: { fees: boolean; finance: boolean }) {
+function useMoneyFigures(enabled: { fees: boolean; income: boolean; expenses: boolean }) {
   const [figures, setFigures] = useState<{
     collected: string | null;
     outstanding: string | null;
     expenses: string | null;
   }>({ collected: null, outstanding: null, expenses: null });
 
-  const { fees, finance } = enabled;
+  const { fees, income: mayIncome, expenses: mayExpenses } = enabled;
 
   useEffect(() => {
     let alive = true;
@@ -79,12 +79,12 @@ function useMoneyFigures(enabled: { fees: boolean; finance: boolean }) {
     const read = async () => {
       const [summary, income, expenses] = await Promise.all([
         fees ? apiClient.feeSummary('?is_active=true').catch(() => null) : null,
-        finance
+        mayIncome
           ? apiClient
               .listAll<Income>('/income/', '?is_active=true&source=fee_payment&ordering=-date')
               .catch(() => null)
           : null,
-        finance
+        mayExpenses
           ? apiClient
               .listAll<Expense>('/expenses/', '?is_active=true&ordering=-date')
               .catch(() => null)
@@ -104,7 +104,7 @@ function useMoneyFigures(enabled: { fees: boolean; finance: boolean }) {
     return () => {
       alive = false;
     };
-  }, [fees, finance]);
+  }, [fees, mayIncome, mayExpenses]);
 
   return figures;
 }
@@ -205,7 +205,11 @@ export default function DashboardHome() {
     admissions: canView('admissions'),
   });
 
-  const money = useMoneyFigures({ fees: canView('fees'), finance: canView('finance') });
+  const money = useMoneyFigures({
+    fees: canView('fees'),
+    income: canView('income'),
+    expenses: canView('expenses'),
+  });
 
   const shown = (n: number | null) => (n === null ? '—' : formatNumber(n));
   /** `null` means the request has not landed, or the permission withheld it —
@@ -305,7 +309,7 @@ export default function DashboardHome() {
           />
         )}
 
-        {canView('finance') && (
+        {canView('income') && (
           <StatCard
             tone="green"
             icon={<StatIcon d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />}
@@ -327,7 +331,7 @@ export default function DashboardHome() {
           />
         )}
 
-        {canView('finance') && (
+        {canView('expenses') && (
           <StatCard
             tone="amber"
             icon={<StatIcon d="M19 14l-7 7m0 0l-7-7m7 7V3" />}

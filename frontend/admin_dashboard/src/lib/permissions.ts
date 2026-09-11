@@ -22,7 +22,8 @@ export type Resource =
   | 'employees'
   | 'attendance'
   | 'fees'
-  | 'finance'
+  | 'income'
+  | 'expenses'
   | 'salary'
   | 'exams'
   | 'marks'
@@ -52,8 +53,10 @@ export type Action =
  * from this, so a resource missing an action here is an action nobody can be
  * granted however much the backend allows it.
  *
- * Two separations are deliberate:
- *  - `salary` is not `finance`. Letting an accountant post the electricity
+ * Three separations are deliberate:
+ *  - `income` is not `expenses`. The clerk who writes up donations is not
+ *    thereby trusted to pay bills out of the same cash.
+ *  - `salary` is not income or expenses. Letting an accountant post the electricity
  *    bill is a much smaller decision than letting them see what every teacher
  *    earns.
  *  - `marks.enter` is not `exams.publish`. A teacher enters their subject's
@@ -72,7 +75,10 @@ export const PERMISSION_CATALOG: Record<Resource, readonly Action[]> = {
   employees: ['view', 'create', 'update', 'delete'],
   attendance: ['view', 'take', 'update'],
   fees: ['view', 'create', 'update', 'collect', 'waive'],
-  finance: ['view', 'create', 'update'],
+  // `create` records an entry; `update` corrects or reverses one and manages
+  // the heads entries are filed under.
+  income: ['view', 'create', 'update'],
+  expenses: ['view', 'create', 'update'],
   salary: ['view', 'manage'],
   exams: ['view', 'create', 'update', 'publish'],
   // `view` is real here, not implied by the other two: the backend catalogue
@@ -104,6 +110,8 @@ export type RolePreset =
   | 'platform_accountant'
   | 'principal'
   | 'accountant'
+  | 'income_clerk'
+  | 'expense_clerk'
   | 'admission_officer'
   | 'teacher'
   | 'class_teacher'
@@ -134,7 +142,8 @@ export const ROLE_PERMISSIONS: Record<RolePreset, readonly string[]> = {
   platform_accountant: flatten({
     dashboard: ['view'],
     branches: ['view'],
-    finance: ['view'],
+    income: ['view', 'create', 'update'],
+    expenses: ['view', 'create', 'update'],
     fees: ['view'],
     reports: ['view', 'export'],
   }),
@@ -148,11 +157,17 @@ export const ROLE_PERMISSIONS: Record<RolePreset, readonly string[]> = {
   accountant: flatten({
     dashboard: ['view'],
     fees: ['view', 'create', 'update', 'collect', 'waive'],
-    finance: ['view', 'create', 'update'],
+    income: ['view', 'create', 'update'],
+    expenses: ['view', 'create', 'update'],
     reports: ['view', 'export'],
     students: ['view'],
     academics: ['view'],
   }),
+
+  // One side of the ledger each, input only — no correcting, reversing or
+  // adding heads, and no sight of the other side.
+  income_clerk: flatten({ dashboard: ['view'], income: ['view', 'create'] }),
+  expense_clerk: flatten({ dashboard: ['view'], expenses: ['view', 'create'] }),
 
   admission_officer: flatten({
     dashboard: ['view'],

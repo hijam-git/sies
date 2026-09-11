@@ -186,7 +186,7 @@ class PermissionCatalogEndpointTests(TestCase):
         self.client.force_login(make_platform_admin())
         body = self.client.get(reverse('accounts:permission-catalog')).json()['data']
 
-        self.assertEqual(len(body['resources']), 19)
+        self.assertEqual(len(body['resources']), 20)
         self.assertTrue(body['presets'])
 
         # The reason this endpoint exists: the SPA's checkboxes are generated

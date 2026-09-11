@@ -33,7 +33,10 @@ MONEY_FIELD = DecimalField(max_digits=12, decimal_places=2)
 
 class LedgerCategoryViewSet(ActivityLogMixin, BranchScopedViewSet):
     permission_classes = [IsAuthenticated, HasResourcePermission]
-    permission_resource = 'finance'
+    # Adding or removing a head is managing the ledger, not recording in it. A
+    # clerk holding only `income.create` records against the heads that exist;
+    # the accountant with `update` decides what those heads are.
+    permission_action_map = {'create': 'update', 'destroy': 'update'}
     filterset_fields = ['is_active', 'is_system']
     search_fields = ['code', 'name', 'name_bn']
     ordering_fields = ['display_order', 'name', 'code']
@@ -48,12 +51,14 @@ class LedgerCategoryViewSet(ActivityLogMixin, BranchScopedViewSet):
 
 
 class IncomeCategoryViewSet(LedgerCategoryViewSet):
+    permission_resource = 'income'
     queryset = IncomeCategory.objects.select_related('branch', 'fee_category').all()
     serializer_class = IncomeCategorySerializer
     activity_model = 'IncomeCategory'
 
 
 class ExpenseCategoryViewSet(LedgerCategoryViewSet):
+    permission_resource = 'expenses'
     queryset = ExpenseCategory.objects.select_related('branch').all()
     serializer_class = ExpenseCategorySerializer
     activity_model = 'ExpenseCategory'
@@ -63,7 +68,8 @@ class LedgerEntryViewSet(ActivityLogMixin, BranchScopedViewSet):
     """Shared behaviour for Income and Expense — including the read-only rule."""
 
     permission_classes = [IsAuthenticated, HasResourcePermission]
-    permission_resource = 'finance'
+    # The resource is set on each side below — `income` and `expenses` are
+    # separate checkboxes, so an expense clerk's token cannot write income.
     permission_action_map = {'summary': 'view', 'reverse': 'update'}
     filterset_fields = ['category', 'session', 'method', 'source',
                         'is_approved', 'is_reversed', 'is_active', 'date']
@@ -162,6 +168,7 @@ class LedgerEntryViewSet(ActivityLogMixin, BranchScopedViewSet):
 
 
 class IncomeViewSet(LedgerEntryViewSet):
+    permission_resource = 'income'
     queryset = Income.objects.select_related(
         'branch', 'category', 'session', 'recorded_by', 'payment',
     ).all()
@@ -193,6 +200,7 @@ class IncomeViewSet(LedgerEntryViewSet):
 
 
 class ExpenseViewSet(LedgerEntryViewSet):
+    permission_resource = 'expenses'
     queryset = Expense.objects.select_related(
         'branch', 'category', 'session', 'recorded_by',
     ).all()

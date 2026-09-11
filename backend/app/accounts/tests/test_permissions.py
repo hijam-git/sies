@@ -15,13 +15,14 @@ from .factories import make_branch, make_platform_admin, make_role, make_user
 
 
 class CatalogueTests(TestCase):
-    def test_the_catalogue_matches_the_nineteen_resources_of_the_docs(self):
+    def test_the_catalogue_matches_the_twenty_resources_of_the_docs(self):
         resources = [entry['resource'] for entry in PERMISSION_CATALOG]
-        self.assertEqual(len(resources), 19)
-        self.assertEqual(len(set(resources)), 19, 'a resource is listed twice')
+        self.assertEqual(len(resources), 20)
+        self.assertEqual(len(set(resources)), 20, 'a resource is listed twice')
         self.assertEqual(resources, [
             'dashboard', 'branches', 'academics', 'students', 'admissions',
-            'teachers', 'employees', 'attendance', 'fees', 'finance', 'salary',
+            'teachers', 'employees', 'attendance', 'fees', 'income', 'expenses',
+            'salary',
             'exams', 'marks', 'reports', 'notices', 'documents', 'settings',
             'users', 'activity',
         ])
@@ -51,6 +52,21 @@ class CatalogueTests(TestCase):
         self.assertNotIn('attendance.update', preset_for('Teacher'))
         self.assertIn('attendance.update', preset_for('Class Teacher'))
         self.assertEqual(preset_for('General Employee'), ['dashboard.view'])
+
+    def test_each_clerk_records_one_side_of_the_ledger_only(self):
+        income_clerk = preset_for('Income Clerk')
+        self.assertIn('income.create', income_clerk)
+        self.assertNotIn('income.update', income_clerk)
+        self.assertFalse([p for p in income_clerk if p.startswith('expenses.')])
+
+        expense_clerk = preset_for('Expense Clerk')
+        self.assertIn('expenses.create', expense_clerk)
+        self.assertNotIn('expenses.update', expense_clerk)
+        self.assertFalse([p for p in expense_clerk if p.startswith('income.')])
+
+        # The accountant still holds both sides.
+        for permission in ('income.update', 'expenses.update'):
+            self.assertIn(permission, preset_for('Accountant'))
 
 
 class CleanPermissionsTests(TestCase):

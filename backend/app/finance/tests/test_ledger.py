@@ -108,7 +108,7 @@ class AutoPostedRowsAreReadOnlyTests(TestCase):
     def test_a_fee_payment_row_cannot_be_deleted(self):
         response = self.client.delete(f'/api/income/{self.payment.income_id}/')
 
-        # 403: the `finance` resource has no `delete` action in the catalogue,
+        # 403: the `income` resource has no `delete` action in the catalogue,
         # so the request is refused before the viewset's own rule is reached.
         # The row survives either way, which is the property being held.
         self.assertEqual(response.status_code, 403)

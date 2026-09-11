@@ -48,6 +48,10 @@ export interface NavItem {
   /** The gate. Hidden unless `canView(resource)` passes — the same gate the API
    *  enforces, so a hidden item is one the server would refuse anyway. */
   resource: Resource;
+  /** Shown when ANY of these may be viewed, instead of `resource` alone — for a
+   *  section that serves two permissions, like Accounts serving an income clerk
+   *  and an expense clerk. */
+  anyResource?: Resource[];
   /** Which build phase makes this screen real. 0–1 = it exists now. */
   phase: number;
   /** Only for a teacher — somebody with a `Teacher` profile behind their
@@ -148,11 +152,12 @@ export const NAV_ITEMS: NavItem[] = [
     path: '/accounts',
     label: 'Accounts',
     icon: 'accounts',
-    resource: 'finance',
+    resource: 'income',
+    anyResource: ['income', 'expenses'],
     phase: 3,
     children: [
-      { tab: 'income', label: 'Income' },
-      { tab: 'expenses', label: 'Expenses' },
+      { tab: 'income', label: 'Income', anyOf: [['income', 'view']] },
+      { tab: 'expenses', label: 'Expenses', anyOf: [['expenses', 'view']] },
     ],
   },
   {

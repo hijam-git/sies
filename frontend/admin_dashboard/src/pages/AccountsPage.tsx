@@ -29,11 +29,15 @@ export default function AccountsPage() {
   const { t } = useT();
   const { canView } = usePermissions();
   const { activeBranchId } = useAuth();
-  const [tab, setTab] = useTabParam<Tab>(TABS, 'income');
+
+  // Income and expenses are separate permissions, so a clerk may hold only
+  // one side: they see that tab alone, and land on it.
+  const allowed = TABS.filter((key) => canView(key));
+  const [tab, setTab] = useTabParam<Tab>(allowed.length > 0 ? allowed : TABS, allowed[0] ?? 'income');
 
   const [sessions, setSessions] = useState<Session[]>([]);
 
-  const maySee = canView('finance');
+  const maySee = allowed.length > 0;
 
   useEffect(() => {
     if (!maySee) return;
@@ -49,10 +53,8 @@ export default function AccountsPage() {
     );
   }
 
-  const tabs: TabDef<Tab>[] = [
-    { key: 'income', label: t('Income') },
-    { key: 'expenses', label: t('Expenses') },
-  ];
+  const labels: Record<Tab, string> = { income: t('Income'), expenses: t('Expenses') };
+  const tabs: TabDef<Tab>[] = allowed.map((key) => ({ key, label: labels[key] }));
 
   return (
     <div className="space-y-3">

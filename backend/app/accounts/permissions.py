@@ -27,9 +27,14 @@ from rest_framework.permissions import BasePermission
 # ─────────────────────────────────────────────────────────────────────────────
 # The catalogue — docs/02 §2.1, exactly. Order is display order in the SPA.
 #
-# Two separations are deliberate and carry Awliaa's `purchasing` reasoning:
+# Three separations are deliberate and carry Awliaa's `purchasing` reasoning:
 #
-#   * `salary` is not `finance`. Letting an accountant post the electricity bill
+#   * `income` is not `expenses`. The person at the counter who writes up a
+#     donation is not thereby trusted to pay bills out of the same cash, and an
+#     institution that wants one clerk per side has to be able to say so.
+#     `create` is recording an entry; `update` is correcting or reversing one
+#     and managing the heads entries are filed under.
+#   * `salary` is not income or expenses. Letting an accountant post the electricity bill
 #     is a much smaller decision than letting them see what every teacher earns.
 #   * `marks.enter` is not `exams.publish`. A teacher enters their subject's
 #     marks; only the principal publishes, and publishing is the moment results
@@ -104,11 +109,21 @@ PERMISSION_CATALOG = [
         'hint_bn': 'বিল, আদায় ও ছাড়',
     },
     {
-        'resource': 'finance',
-        'label': 'Income & expense', 'label_bn': 'আয় ও ব্যয়',
+        'resource': 'income',
+        'label': 'Income', 'label_bn': 'আয়',
         'actions': ['view', 'create', 'update'],
-        'hint': 'Income, expenses and the ledger',
-        'hint_bn': 'আয়, ব্যয় ও খতিয়ান',
+        'hint': 'Recording income. Update also corrects entries and manages income '
+                'heads. Fee receipts post here on their own',
+        'hint_bn': 'আয় লেখা। সংশোধন অনুমতিতে এন্ট্রি ঠিক করা ও আয়ের খাত সম্পাদনা। '
+                   'ফি আদায় নিজে থেকেই এখানে যোগ হয়',
+    },
+    {
+        'resource': 'expenses',
+        'label': 'Expenses', 'label_bn': 'ব্যয়',
+        'actions': ['view', 'create', 'update'],
+        'hint': 'Recording expenses. Update also corrects entries and manages '
+                'expense heads',
+        'hint_bn': 'ব্যয় লেখা। সংশোধন অনুমতিতে এন্ট্রি ঠিক করা ও ব্যয়ের খাত সম্পাদনা',
     },
     {
         'resource': 'salary',
@@ -236,20 +251,35 @@ ROLE_PRESETS = {
         'dashboard': ['view'],
         'branches': ['view'],
         'fees': ['view'],
-        'finance': '*',
+        'income': '*',
+        'expenses': '*',
         'reports': ['view', 'export'],
     },
 
     'Accountant': {
         'dashboard': ['view'],
         'fees': '*',
-        'finance': '*',
+        'income': '*',
+        'expenses': '*',
         'reports': ['view', 'export'],
         'students': ['view'],
         'academics': ['view'],
         # Not salary. An accountant who posts the bills is not thereby entitled
         # to the payroll; an institution that wants both ticks salary.view on
         # that one person.
+    },
+
+    # One side of the ledger each, and input only: they record entries and
+    # read the list they are adding to, but cannot correct or reverse an entry,
+    # add a head, or see the other side at all. The accountant above does those.
+    'Income Clerk': {
+        'dashboard': ['view'],
+        'income': ['view', 'create'],
+    },
+
+    'Expense Clerk': {
+        'dashboard': ['view'],
+        'expenses': ['view', 'create'],
     },
 
     'Admission Officer': {
@@ -317,6 +347,8 @@ ROLE_NAMES_BN = {
     'Principal': 'অধ্যক্ষ / মুহতামিম',
     'Platform Accountant': 'প্ল্যাটফর্ম হিসাবরক্ষক',
     'Accountant': 'হিসাবরক্ষক',
+    'Income Clerk': 'আয় এন্ট্রি সহকারী',
+    'Expense Clerk': 'ব্যয় এন্ট্রি সহকারী',
     'Admission Officer': 'ভর্তি কর্মকর্তা',
     'Teacher': 'শিক্ষক',
     'Class Teacher': 'শ্রেণিশিক্ষক',

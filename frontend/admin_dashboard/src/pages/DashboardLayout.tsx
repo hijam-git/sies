@@ -179,7 +179,7 @@ export default function DashboardLayout() {
           // A teacher-only row is hidden from everybody else rather than shown
           // empty — see `NavItem.teacherOnly`.
           (!i.teacherOnly || user?.user_type === 'teacher') &&
-          canView(i.resource),
+          (i.anyResource ? i.anyResource.some((r) => canView(r)) : canView(i.resource)),
       ),
     [canView, isPlatformAdmin, user],
   );
