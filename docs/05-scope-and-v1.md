@@ -184,7 +184,7 @@ data and no rework of what V1 wrote:
 | `LeaveRequest` | Attendance status `leave`, marked by hand |
 | `Holiday` calendar | Attendance simply is not taken |
 | `FeeStructure` | `AcademicClass.monthly_fee`, as the brief implies |
-| `GradeScale` / `GradeBand` / `Result` | Marks are stored; totals and grades computed on read |
+| ~~`GradeScale` / `GradeBand` / `Result`~~ | **Moved into V1 on 2026-09-11** at the owner's request: an editable scale per বিভাগ (board GPA or Qawmi grades) under Settings → Grading, and results frozen at publish. See `exams/grading.py`. |
 | `Discount` (standing) | Per-invoice `discount` amount, entered when raised |
 | ~~`StudentCategory`~~ | **Deleted, not deferred** — `Category` is the stream (`08` D2) |
 | `Qualification` table | Text field on the staff profile |

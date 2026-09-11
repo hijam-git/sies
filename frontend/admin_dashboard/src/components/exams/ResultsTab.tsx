@@ -418,6 +418,11 @@ function ClassResults({
   }
 
   const isPublished = exam?.status === 'published';
+  // The Qawmi method has no GPA, so its sheet has no GPA column.
+  const isGpa = current?.method !== 'division';
+  const scaleLabel = current
+    ? lang === 'bn' ? current.scale_name_bn || current.scale_name : current.scale_name
+    : '';
   const manyStreams = new Set(sessionExams.map((e) => e.stream)).size > 1;
   const sectionLabel = (s: { name: string; name_bn: string }) => (lang === 'bn' ? s.name_bn || s.name : s.name);
 
@@ -517,6 +522,11 @@ function ClassResults({
                 ? t('Published — students can see these results.')
                 : t('Not published — students cannot see these marks yet.')}
             </span>
+            {scaleLabel && (
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                {scaleLabel}
+              </span>
+            )}
             {mayPublish && !isPublished && (
               <button type="button" onClick={() => setConfirming(true)} className={`${btnPrimary} ml-auto`}>
                 {t('Publish results')}
@@ -614,7 +624,7 @@ function ClassResults({
                 ))}
                 <th className="border-l border-gray-200 px-2 py-2 text-center font-medium">{t('Total')}</th>
                 <th className="px-2 py-2 text-center font-medium">%</th>
-                <th className="px-2 py-2 text-center font-medium">{t('GPA')}</th>
+                {isGpa && <th className="px-2 py-2 text-center font-medium">{t('GPA')}</th>}
                 <th className="px-2 py-2 text-center font-medium">{t('Grade')}</th>
                 <th className="whitespace-nowrap px-2 py-2 text-center font-medium">{t('Class rank')}</th>
                 {sections.length > 0 && (
@@ -674,9 +684,11 @@ function ClassResults({
                     <td className="px-2 py-1.5 text-center tabular-nums text-gray-700">
                       {hasMarks ? `${fmt(row.percentage)}%` : '—'}
                     </td>
-                    <td className="px-2 py-1.5 text-center tabular-nums text-gray-700">
-                      {hasMarks && row.is_passed ? fmt(row.gpa) : '—'}
-                    </td>
+                    {isGpa && (
+                      <td className="px-2 py-1.5 text-center tabular-nums text-gray-700">
+                        {hasMarks && row.is_passed && row.gpa !== null ? fmt(row.gpa) : '—'}
+                      </td>
+                    )}
                     <td className="px-2 py-1.5 text-center">
                       {hasMarks ? (
                         <GradeBadge grade={row.grade} label={lang === 'bn' ? row.grade_bn : row.grade} passed={row.is_passed} />
@@ -886,7 +898,11 @@ function ExamCard({
           <div className="hidden text-right sm:block">
             <p className="text-sm font-semibold tabular-nums text-gray-900">{fmt(line.percentage)}%</p>
             <p className="text-[11px] text-gray-500">
-              {t('GPA')} {line.is_passed ? fmt(line.gpa) : '—'}
+              {line.method === 'division'
+                ? lang === 'bn'
+                  ? line.scale_name_bn || line.scale_name
+                  : line.scale_name
+                : `${t('GPA')} ${line.is_passed && line.gpa !== null ? fmt(line.gpa) : '—'}`}
             </p>
           </div>
           <GradeBadge grade={line.grade} label={lang === 'bn' ? line.grade_bn : line.grade} passed={line.is_passed} />
@@ -926,6 +942,7 @@ function ExamCard({
                   <th className="px-2 py-2 text-center font-medium">{t('Pass marks')}</th>
                   {hasPractical && <th className="px-2 py-2 text-center font-medium">{t('Practical')}</th>}
                   <th className="px-2 py-2 text-center font-medium">{t('Obtained')}</th>
+                  <th className="px-2 py-2 text-center font-medium">{t('Grade')}</th>
                   <th className="px-4 py-2 text-right font-medium">{t('Result')}</th>
                 </tr>
               </thead>
@@ -948,6 +965,18 @@ function ExamCard({
                       }`}
                     >
                       {subject.is_absent ? t('Absent') : fmt(subject.total)}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-center text-xs font-semibold">
+                      {subject.grade ? (
+                        <span className={subject.is_passed ? 'text-gray-700' : 'text-red-600'}>
+                          {lang === 'bn' ? subject.grade_bn || subject.grade : subject.grade}
+                          {line.method !== 'division' && subject.point !== null && subject.point !== undefined && (
+                            <span className="ml-1 font-normal text-gray-400">{fmt(subject.point)}</span>
+                          )}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-4 py-2 text-right text-xs font-medium">
                       {subject.is_passed ? (
@@ -1017,6 +1046,7 @@ function printMarksheet({
         <td>${esc(fmt(s.full_marks))}</td>
         <td>${esc(fmt(s.pass_marks))}</td>
         <td>${s.is_absent ? esc(t('Absent')) : esc(fmt(s.total))}</td>
+        <td>${esc(bn ? s.grade_bn || s.grade || '' : s.grade || '')}</td>
       </tr>`,
     )
     .join('');
@@ -1060,13 +1090,15 @@ function printMarksheet({
     <div><b>${esc(t('Result'))}:</b> ${esc(line.is_passed ? t('Passed') : t('Failed'))}</div>
   </div>
   <table>
-    <thead><tr><th>${esc(t('Subject'))}</th><th>${esc(t('Full marks'))}</th><th>${esc(t('Pass marks'))}</th><th>${esc(t('Obtained'))}</th></tr></thead>
+    <thead><tr><th>${esc(t('Subject'))}</th><th>${esc(t('Full marks'))}</th><th>${esc(t('Pass marks'))}</th><th>${esc(t('Obtained'))}</th><th>${esc(t('Grade'))}</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="summary">
     <div><span>${esc(t('Total'))}</span><strong>${esc(fmt(line.obtained_marks))} / ${esc(fmt(line.total_marks))}</strong></div>
     <div><span>${esc(t('Percentage'))}</span><strong>${esc(fmt(line.percentage))}%</strong></div>
-    <div><span>${esc(t('GPA'))} · ${esc(t('Grade'))}</span><strong>${esc(line.is_passed ? fmt(line.gpa) : '—')} · ${esc(grade)}</strong></div>
+    ${line.method === 'division'
+      ? `<div><span>${esc(t('Grade'))}</span><strong>${esc(grade)}</strong></div>`
+      : `<div><span>${esc(t('GPA'))} · ${esc(t('Grade'))}</span><strong>${esc(line.is_passed && line.gpa !== null ? fmt(line.gpa) : '—')} · ${esc(grade)}</strong></div>`}
     <div><span>${esc(t('Class rank'))}</span><strong>${esc(line.rank_in_class ? `${line.rank_in_class} / ${line.class_size}` : '—')}</strong></div>
   </div>
   <div class="sign"><span>${esc(t('Class teacher'))}</span><span>${esc(t('Principal'))}</span></div>

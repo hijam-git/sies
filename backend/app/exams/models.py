@@ -1,26 +1,21 @@
 """Exams, their schedule and the marks entered against them (docs/03 §9).
 
-**V1 stores marks and nothing derived from them.** `GradeScale`, `GradeBand` and
-`Result` are V2 (docs/05 §5.4), so totals, percentages and grades are computed
-**on read** by `services.student_result()` against the default band table in
-`services.DEFAULT_GRADE_BANDS`. `Mark.grade` / `Mark.grade_point`, which docs/03
-§9 lists as "filled at publish from the grade scale", are therefore *not* fields
-here — there is no scale to fill them from yet, and a column nothing writes is a
-column a report eventually trusts.
-
-Where the stored `Result` slots in later: `publish_exam()` is the single hook.
-Today it flips the status; in V2 it additionally writes one `Result` row per
-student from exactly what `student_result()` returns, and `student_result()`
-becomes a read of that row for a published exam and a live computation for an
-unpublished one. Nothing else in this app changes, and no V1 data needs
-migrating — which is why computing on read now is safe rather than a shortcut.
+**Marks are the record; grades are read through the বিভাগ's scale.** A
+`GradeScale` per stream — board GPA or Qawmi grades, with bands the institution
+edits — turns marks into grades while an exam is open, and `publish_exam()`
+freezes the outcome into one `Result` row per student. A published marksheet
+therefore never moves when a scale is edited later. `grading.py` holds the two
+methods and their presets.
 
 Marks are `Decimal`, never `float`. A binary float cannot represent 0.1, so a
 tabulation sheet built on one disagrees with the sum of its own column, and the
 first person to notice is a guardian holding a marksheet.
 """
 
+from decimal import Decimal
+
 from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -353,3 +348,152 @@ class Mark(BranchScopedModel):
         if self.obtained is None and self.practical_obtained is None:
             return None
         return (self.obtained or 0) + (self.practical_obtained or 0)
+
+
+class GradingMethod(models.TextChoices):
+    """How a scale turns marks into a grade — see `grading.py`."""
+
+    GPA = 'gpa', _('GPA (board) · জিপিএ')
+    DIVISION = 'division', _('Qawmi grades · কওমি পদ্ধতি')
+
+
+class GradeScale(BranchScopedModel):
+    """How one বিভাগ grades. One per stream, plus an optional institution default.
+
+    Per stream because the Qawmi stream's marksheet is not the general stream's
+    GPA (docs/02 §4.7), and a madrasah runs both side by side.
+    """
+
+    # Null is the institution-wide fallback for a stream with no scale of its
+    # own. PROTECT: a scale is how every result in its stream was graded.
+    stream = models.ForeignKey(
+        'branches.Stream', verbose_name=_('stream · বিভাগ'),
+        null=True, blank=True, on_delete=models.PROTECT, related_name='grade_scales',
+    )
+    name = models.CharField(_('name'), max_length=80)
+    name_bn = models.CharField(_('নাম'), max_length=80, blank=True)
+    method = models.CharField(
+        _('method · পদ্ধতি'), max_length=20,
+        choices=GradingMethod.choices, default=GradingMethod.GPA,
+    )
+    # The board rule for an optional (4th) subject: only the points above this
+    # are added to the GPA. Ignored under the division method.
+    optional_bonus_above = models.DecimalField(
+        _('optional subject bonus above · ঐচ্ছিক বিষয়ের বোনাস'),
+        max_digits=3, decimal_places=2, default=Decimal('2.00'),
+    )
+    is_active = models.BooleanField(_('active · সক্রিয়'), default=True)
+
+    class Meta(BranchScopedModel.Meta):
+        verbose_name = _('grade scale · গ্রেডিং পদ্ধতি')
+        verbose_name_plural = _('grade scales · গ্রেডিং পদ্ধতি')
+        ordering = ['branch_id', 'stream_id', 'name']
+        constraints = [
+            # Two constraints rather than one unique_together: Postgres treats
+            # NULLs as distinct, so ('branch', 'stream') alone would allow any
+            # number of institution defaults (docs/WORKLOG, the same trap twice).
+            models.UniqueConstraint(
+                fields=['branch', 'stream'], condition=models.Q(stream__isnull=False),
+                name='gradescale_one_per_stream',
+            ),
+            models.UniqueConstraint(
+                fields=['branch'], condition=models.Q(stream__isnull=True),
+                name='gradescale_one_default_per_branch',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(optional_bonus_above__gte=0, optional_bonus_above__lte=5),
+                name='gradescale_bonus_within_scale',
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class GradeBand(BranchScopedModel):
+    """One grade: from this percentage up, this name and point."""
+
+    # CASCADE: a band means nothing without its scale — exactly the case
+    # CLAUDE.md §4.2 reserves CASCADE for. Published results do not point here;
+    # they carry the grade they were given.
+    scale = models.ForeignKey(
+        GradeScale, verbose_name=_('scale · পদ্ধতি'),
+        on_delete=models.CASCADE, related_name='bands',
+    )
+    min_percent = models.DecimalField(_('from % · শুরু %'), max_digits=5, decimal_places=2)
+    grade = models.CharField(_('grade · গ্রেড'), max_length=30)
+    grade_bn = models.CharField(_('গ্রেড (বাংলা)'), max_length=40, blank=True)
+    point = models.DecimalField(_('point · পয়েন্ট'), max_digits=3, decimal_places=2,
+                                default=Decimal('0.00'))
+    is_fail = models.BooleanField(_('fail · অনুত্তীর্ণ'), default=False)
+
+    class Meta(BranchScopedModel.Meta):
+        verbose_name = _('grade band · গ্রেড')
+        verbose_name_plural = _('grade bands · গ্রেডসমূহ')
+        ordering = ['scale_id', '-min_percent']
+        constraints = [
+            models.UniqueConstraint(fields=['scale', 'min_percent'],
+                                    name='gradeband_unique_floor'),
+            models.CheckConstraint(
+                condition=models.Q(min_percent__gte=0, min_percent__lte=100),
+                name='gradeband_floor_is_a_percentage',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(point__gte=0, point__lte=5),
+                name='gradeband_point_within_scale',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.grade} ≥ {self.min_percent}%'
+
+
+class Result(BranchScopedModel):
+    """One student's result for one exam, frozen when the exam was published.
+
+    `row` is the tabulation row exactly as it was computed and `subjects` the
+    marksheet's subject lines, so a result reprinted in three years is the
+    result that was read out — even after the scale is edited (docs/06 #12).
+    The scalar columns duplicate what matters for querying and reports.
+    """
+
+    exam = models.ForeignKey(Exam, verbose_name=_('exam · পরীক্ষা'),
+                             on_delete=models.PROTECT, related_name='results')
+    student = models.ForeignKey('students.Student', verbose_name=_('student · শিক্ষার্থী'),
+                                on_delete=models.PROTECT, related_name='exam_results')
+    enrolment = models.ForeignKey('academics.Enrolment', verbose_name=_('enrolment · ভর্তি'),
+                                  on_delete=models.PROTECT, related_name='exam_results')
+
+    method = models.CharField(_('method · পদ্ধতি'), max_length=20, choices=GradingMethod.choices)
+    scale_name = models.CharField(_('scale · পদ্ধতি'), max_length=80, blank=True)
+    scale_name_bn = models.CharField(_('পদ্ধতি (বাংলা)'), max_length=80, blank=True)
+
+    percentage = models.DecimalField(_('percentage · শতকরা'), max_digits=5, decimal_places=2)
+    gpa = models.DecimalField(_('GPA · জিপিএ'), max_digits=3, decimal_places=2,
+                              null=True, blank=True)
+    grade = models.CharField(_('grade · গ্রেড'), max_length=30)
+    grade_bn = models.CharField(_('গ্রেড (বাংলা)'), max_length=40, blank=True)
+    is_passed = models.BooleanField(_('passed · উত্তীর্ণ'))
+    rank_in_class = models.PositiveIntegerField(_('class rank · শ্রেণিতে মেধাক্রম'),
+                                                null=True, blank=True)
+    rank_in_section = models.PositiveIntegerField(_('section rank · শাখায় মেধাক্রম'),
+                                                  null=True, blank=True)
+
+    row = models.JSONField(_('tabulation row'), encoder=DjangoJSONEncoder)
+    subjects = models.JSONField(_('subject lines'), encoder=DjangoJSONEncoder)
+
+    class Meta(BranchScopedModel.Meta):
+        verbose_name = _('result · ফলাফল')
+        verbose_name_plural = _('results · ফলাফল')
+        ordering = ['exam_id', 'enrolment_id']
+        constraints = [
+            models.UniqueConstraint(fields=['exam', 'enrolment'],
+                                    name='result_one_per_exam_enrolment'),
+        ]
+        indexes = [
+            models.Index(fields=['branch', 'student'], name='result_student_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.exam_id}/{self.student_id}: {self.grade}'
+

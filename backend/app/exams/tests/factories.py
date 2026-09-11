@@ -107,7 +107,8 @@ def make_assignment(*, session, teacher, subject, academic_class):
 
 def make_exam(branch, session, name='Half-Yearly 2026', **extra):
     return Exam.objects.create(
-        branch=branch, session=session, stream=branch.stream_set.first(),
+        branch=branch, session=session,
+        stream=extra.pop('stream', None) or branch.stream_set.first(),
         name=name, exam_type=extra.pop('exam_type', ExamType.HALF_YEARLY),
         starts_on=extra.pop('starts_on', date(2026, 6, 1)),
         ends_on=extra.pop('ends_on', date(2026, 6, 10)),
@@ -144,7 +145,9 @@ def small_world(code='DHK', phone='01711000001'):
         for index, student in enumerate(students, start=1)
     ]
 
-    exam = make_exam(branch, session)
+    # The general stream, so the fixture grades by board GPA — the method most
+    # assertions here are written in. The Qawmi method has its own tests.
+    exam = make_exam(branch, session, stream=branch.stream_set.get(code='general'))
     make_schedule(exam=exam, academic_class=academic_class, subject=arabic)
     make_schedule(exam=exam, academic_class=academic_class, subject=fiqh,
                   date=date(2026, 6, 3))

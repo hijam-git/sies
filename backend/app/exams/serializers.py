@@ -11,11 +11,15 @@ the API would happily let a Dhaka clerk schedule a paper against Chittagong's
 subject and file marks under it.
 """
 
+from decimal import Decimal
+
+from django.db import transaction
 from rest_framework import serializers
 
 from core.middleware import get_branch
 
-from .models import Exam, ExamClass, ExamSchedule, Mark
+from .grading import write_bands
+from .models import Exam, ExamClass, ExamSchedule, GradeBand, GradeScale, Mark
 
 
 def request_branch_id(serializer):
@@ -192,3 +196,87 @@ class MarksGridSerializer(serializers.Serializer):
 
     subject = serializers.IntegerField()
     rows = MarkRowSerializer(many=True)
+
+
+class GradeBandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GradeBand
+        fields = ['id', 'min_percent', 'grade', 'grade_bn', 'point', 'is_fail']
+        read_only_fields = ['id']
+
+
+class GradeScaleSerializer(serializers.ModelSerializer):
+    """One বিভাগ's grading. `bands` is written whole: a scale is one decision,
+    and a PATCH that edited one band while leaving a now-overlapping neighbour
+    would store a scale nobody chose."""
+
+    bands = GradeBandSerializer(many=True)
+    stream_name = serializers.CharField(source='stream.name', read_only=True, default='')
+    stream_name_bn = serializers.CharField(source='stream.name_bn', read_only=True, default='')
+
+    class Meta:
+        model = GradeScale
+        fields = ['id', 'stream', 'stream_name', 'stream_name_bn', 'name', 'name_bn',
+                  'method', 'optional_bonus_above', 'is_active', 'bands', 'updated_at']
+        read_only_fields = ['id', 'updated_at']
+
+    def validate_stream(self, value):
+        return check_same_branch(
+            self, value, 'That বিভাগ belongs to another institution · ওই বিভাগ অন্য প্রতিষ্ঠানের।',
+        )
+
+    def validate_bands(self, bands):
+        if not bands:
+            raise serializers.ValidationError('A scale needs at least one grade · অন্তত একটি গ্রেড দিন।')
+        floors = [band['min_percent'] for band in bands]
+        if len(set(floors)) != len(floors):
+            raise serializers.ValidationError(
+                'Two grades start at the same percentage · দুটি গ্রেড একই শতকরা থেকে শুরু হতে পারে না।',
+            )
+        for band in bands:
+            if not Decimal('0') <= band['min_percent'] <= Decimal('100'):
+                raise serializers.ValidationError(
+                    'A grade must start between 0 and 100 · গ্রেড ০ থেকে ১০০-এর মধ্যে শুরু হতে হবে।',
+                )
+            if not Decimal('0') <= band.get('point', Decimal('0')) <= Decimal('5'):
+                raise serializers.ValidationError(
+                    'A point must be between 0 and 5 · পয়েন্ট ০ থেকে ৫-এর মধ্যে হতে হবে।',
+                )
+            if not str(band.get('grade', '')).strip():
+                raise serializers.ValidationError('Every grade needs a name · প্রতিটি গ্রেডের নাম দিন।')
+        if all(band.get('is_fail') for band in bands):
+            raise serializers.ValidationError(
+                'At least one grade must be a pass · অন্তত একটি উত্তীর্ণ গ্রেড থাকতে হবে।',
+            )
+        return bands
+
+    def validate(self, attrs):
+        if self.instance is None or 'stream' in attrs:
+            stream = attrs.get('stream')
+            branch_id = request_branch_id(self)
+            if branch_id is not None:
+                clash = GradeScale.objects.filter(branch_id=branch_id, stream=stream)
+                if self.instance is not None:
+                    clash = clash.exclude(pk=self.instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        'stream': 'This বিভাগ already has a grading scale · '
+                                  'এই বিভাগের গ্রেডিং পদ্ধতি আগেই আছে।',
+                    })
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        bands = validated_data.pop('bands')
+        scale = GradeScale.objects.create(**validated_data)
+        write_bands(scale, bands, actor=validated_data.get('created_by'))
+        return scale
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        bands = validated_data.pop('bands', None)
+        instance = super().update(instance, validated_data)
+        if bands is not None:
+            write_bands(instance, bands, actor=validated_data.get('updated_by'))
+        return instance
+

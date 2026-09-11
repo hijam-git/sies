@@ -17,6 +17,7 @@ Marks are additionally invisible to a student until the exam is published —
 a 404 rather than a 403 that confirms it exists.
 """
 
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.decorators import action
@@ -32,9 +33,11 @@ from core.middleware import get_branch
 from core.viewsets import BranchScopedViewSet, BranchScopedReadOnlyViewSet
 from students.models import Student
 
-from .models import Exam, ExamClass, ExamSchedule, Mark
+from .grading import DIVISION, GPA, reset_to_preset
+from .models import Exam, ExamClass, ExamSchedule, GradeScale, Mark
 from .serializers import (ExamClassSerializer, ExamScheduleSerializer,
-                          ExamSerializer, MarkSerializer, MarksGridSerializer)
+                          ExamSerializer, GradeScaleSerializer, MarkSerializer,
+                          MarksGridSerializer)
 from .services import (marks_are_visible_to, publish_exam, save_marks,
                        student_report, student_result, tabulation,
                        visible_marks_for)
@@ -242,3 +245,36 @@ class MarkViewSet(TeacherScopedMixin, BranchScopedReadOnlyViewSet):
         # Applied last, over the branch- and teacher-scoped queryset: a student
         # reads only their own marks, and only after the exam is published.
         return visible_marks_for(super().get_queryset(), self.request.user)
+
+
+class GradeScaleViewSet(ActivityLogMixin, BranchScopedViewSet):
+    """Settings → Grading. One scale per বিভাগ; its bands are written whole."""
+
+    permission_classes = [IsAuthenticated, HasResourcePermission]
+    # Institution configuration, like fee heads — `settings`, not `exams`. A
+    # teacher who may set up a monthly test must not thereby re-grade a year.
+    permission_resource = 'settings'
+    permission_action_map = {'create': 'update', 'destroy': 'update', 'reset': 'update'}
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    queryset = GradeScale.objects.select_related('stream').prefetch_related('bands')
+    serializer_class = GradeScaleSerializer
+    filterset_fields = ['stream', 'method', 'is_active']
+    activity_model = 'GradeScale'
+
+    @action(detail=True, methods=['post'])
+    def reset(self, request, pk=None):
+        """`POST /api/grade-scales/<id>/reset/` `{"method": "gpa"|"division"}`.
+
+        Replaces the bands with the standard set for a method — how a বিভাগ
+        switches method, and how an edited scale goes back to the standard.
+        Published results are unaffected; they were frozen at publish.
+        """
+        scale = self.get_object()
+        method = request.data.get('method') or scale.method
+        if method not in (GPA, DIVISION):
+            raise ValidationError({'method': 'Choose gpa or division · জিপিএ অথবা কওমি পদ্ধতি বেছে নিন।'})
+        with transaction.atomic():
+            reset_to_preset(scale, method, actor=request.user)
+        scale = self.get_queryset().get(pk=scale.pk)
+        return Response(self.get_serializer(scale).data)
+

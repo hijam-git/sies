@@ -873,6 +873,11 @@ export interface ResultSubjectLine {
   total: string | number;
   is_absent: boolean;
   is_passed: boolean;
+  is_optional?: boolean;
+  grade?: string;
+  grade_bn?: string;
+  /** The subject's grade point; null under the Qawmi method. */
+  point?: string | number | null;
 }
 
 export interface StudentResult {
@@ -883,12 +888,16 @@ export interface StudentResult {
   total_marks: string | number;
   obtained_marks: string | number;
   percentage: string | number;
-  gpa: string | number;
+  /** null under the Qawmi method, which has no GPA. */
+  gpa: string | number | null;
   grade: string;
   grade_bn: string;
   is_passed: boolean;
   failed_subjects: string[];
   is_published: boolean;
+  method?: GradingMethod;
+  scale_name?: string;
+  scale_name_bn?: string;
 }
 
 export interface TabulationRow {
@@ -897,11 +906,12 @@ export interface TabulationRow {
   student_name: string;
   roll: number | null;
   /** Keyed by subject id. */
-  marks: Record<string, { obtained: string | number | null; practical_obtained: string | number | null; total: string | number; is_absent: boolean }>;
+  marks: Record<string, { obtained: string | number | null; practical_obtained: string | number | null; total: string | number; is_absent: boolean; is_passed?: boolean; grade?: string; grade_bn?: string; point?: string | number | null }>;
   total_marks: string | number;
   obtained_marks: string | number;
   percentage: string | number;
-  gpa: string | number;
+  /** null under the Qawmi method, which has no GPA. */
+  gpa: string | number | null;
   grade: string;
   grade_bn: string;
   is_passed: boolean;
@@ -930,8 +940,37 @@ export interface Tabulation {
   /** Marks are not visible to students until this is true (`docs/06` #12). */
   is_published: boolean;
   /** The sections that have students on this sheet, by name. */
+  method?: GradingMethod;
+  scale_name?: string;
+  scale_name_bn?: string;
   sections: TabulationSection[];
   rows: TabulationRow[];
+}
+
+/** How a বিভাগ grades — see `exams/grading.py`. */
+export type GradingMethod = 'gpa' | 'division';
+
+export interface GradeBand {
+  id?: number;
+  min_percent: string | number;
+  grade: string;
+  grade_bn: string;
+  point: string | number;
+  is_fail: boolean;
+}
+
+export interface GradeScale {
+  id: number;
+  stream: number | null;
+  stream_name: string;
+  stream_name_bn: string;
+  name: string;
+  name_bn: string;
+  method: GradingMethod;
+  optional_bonus_above: string | number;
+  is_active: boolean;
+  bands: GradeBand[];
+  updated_at: string;
 }
 
 /** One exam on a student's report: the marksheet plus where they sat it. */

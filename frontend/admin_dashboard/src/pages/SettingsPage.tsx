@@ -11,6 +11,7 @@ import PhasePlaceholder from './PhasePlaceholder';
 import StreamsSessionsTab from '../components/settings/StreamsSessionsTab';
 import FormTemplatesTab from '../components/forms/FormTemplatesTab';
 import QuestionsTab from '../components/forms/QuestionsTab';
+import GradingTab from '../components/settings/GradingTab';
 import BranchForm from '../components/settings/BranchForm';
 import { draftFrom, draftToPayload, emptyDraft } from '../components/settings/branchDraft';
 import type { BranchDraft } from '../components/settings/branchDraft';
@@ -25,11 +26,12 @@ import type { BranchDraft } from '../components/settings/branchDraft';
  * the feature exists.
  */
 
-type Tab = 'institution' | 'streams' | 'fee-categories' | 'form-templates' | 'questions';
+type Tab = 'institution' | 'streams' | 'grading' | 'fee-categories' | 'form-templates' | 'questions';
 
 const TABS: Tab[] = [
   'institution',
   'streams',
+  'grading',
   'fee-categories',
   'form-templates',
   'questions',
@@ -170,6 +172,7 @@ export default function SettingsPage() {
   const tabs: TabDef<Tab>[] = [
     { key: 'institution', label: t('Institution') },
     { key: 'streams', label: t('Streams & Sessions') },
+    { key: 'grading', label: t('Grading') },
     { key: 'fee-categories', label: t('Fee categories') },
     { key: 'form-templates', label: t('Form templates') },
     // The question bank sits beside the templates rather than inside one: a
@@ -190,6 +193,7 @@ export default function SettingsPage() {
         </div>
       )}
       {tab === 'fee-categories' && <PhasePlaceholder labelKey="Fee categories" phase={3} />}
+      {tab === 'grading' && <GradingTab branchId={branchId} />}
       {tab === 'form-templates' && <FormTemplatesTab />}
       {tab === 'questions' && <QuestionsTab />}
     </div>

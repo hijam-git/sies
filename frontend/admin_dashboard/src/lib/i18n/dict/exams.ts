@@ -114,6 +114,24 @@ const exams: Record<string, string> = {
   'Could not load this student’s results.': 'এই শিক্ষার্থীর ফল লোড করা যায়নি।',
   'No students match this filter.': 'এই ফিল্টারে কোনো শিক্ষার্থী নেই।',
   'No exams in this session.': 'এই শিক্ষাবর্ষে কোনো পরীক্ষা নেই।',
+  // ── Grading ─────────────────────────────────────────────────────────────
+  'Grading': 'গ্রেডিং',
+  'GPA (board)': 'জিপিএ (বোর্ড)',
+  'Qawmi grades': 'কওমি গ্রেড',
+  'Standard grades': 'পূর্বনির্ধারিত গ্রেড',
+  'From (%)': 'শুরু (%)',
+  'Grade (Bangla)': 'গ্রেড (বাংলা)',
+  'Point': 'পয়েন্ট',
+  'Fail': 'অনুত্তীর্ণ',
+  'Add grade': 'গ্রেড যোগ করুন',
+  'Optional subject adds points above': 'ঐচ্ছিক বিষয়ে এর বেশি পয়েন্ট যোগ হবে',
+  'Could not load the grading scales.': 'গ্রেডিং পদ্ধতি লোড করা যায়নি।',
+  'Could not save this grading scale.': 'গ্রেডিং পদ্ধতি সংরক্ষণ করা যায়নি।',
+  'Switching the method replaces these grades with its standard set. Continue?': 'পদ্ধতি বদলালে এই গ্রেডগুলোর জায়গায় সেই পদ্ধতির পূর্বনির্ধারিত গ্রেড বসবে। চালিয়ে যাবেন?',
+  'Replace these grades with the standard set?': 'এই গ্রেডগুলোর জায়গায় পূর্বনির্ধারিত গ্রেড বসাবেন?',
+  'Create grading scale': 'গ্রেডিং পদ্ধতি তৈরি করুন',
+  'No grading scale yet.': 'এখনো গ্রেডিং পদ্ধতি নেই।',
+  'Choose an institution first.': 'আগে একটি প্রতিষ্ঠান বেছে নিন।',
 };
 
 export default exams;

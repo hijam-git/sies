@@ -12,9 +12,9 @@ Four things live here, and each is a rule the API is not allowed to restate:
 * **`publish_exam()`** — principal-only, gated on `exams.publish` and never on
   `marks.enter`. Publishing is the moment results become visible; entering marks
   is not.
-* **`student_result()` / `tabulation()`** — totals, percentages and grades
-  computed **on read**, because `GradeScale`, `GradeBand` and `Result` are V2
-  (docs/05 §5.4). See `models` for exactly where the stored `Result` slots in.
+* **`student_result()` / `tabulation()`** — totals, grades and ranks through
+  the বিভাগ's `GradeScale` (`grading.py`) while an exam is open, and read back
+  from the `Result` rows `publish_exam()` froze once it is published.
 
 Every arithmetic value here is a `Decimal`. `float` is banned project-wide and
 the reason applies with full force to a marksheet: 0.1 + 0.2 is not 0.3 in
@@ -28,43 +28,17 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from academics.models import Enrolment
+from academics.models import AcademicClass, Enrolment
 from academics.services import (teacher_for_user, teacher_scope_applies,
                                 teacher_subject_scope)
 from accounts.permissions import has_permission
 from accounts.services import log_activity
 from accounts.models import ActivityAction
 
-from .models import Exam, ExamSchedule, ExamStatus, Mark
+from .grading import evaluate, rank_key, scale_for
+from .models import Exam, ExamSchedule, ExamStatus, Mark, Result
 
 ZERO = Decimal('0.00')
-
-# The V1 grade bands, applied on read. **This table is what `GradeScale` /
-# `GradeBand` replace in V2** (docs/05 §5.4): a per-branch, per-stream scale
-# whose bands an institution edits. Until then every institution reads the
-# standard Bangladeshi scale, which is what a madrasah's marksheet already
-# prints, and no data has to migrate when the editable version lands — the rows
-# are new, and the marks they are computed from are unchanged.
-#
-# Ordered high to low; the first band whose floor the percentage reaches wins.
-DEFAULT_GRADE_BANDS = [
-    (Decimal('80'), 'A+', Decimal('5.00'), 'মুমতাজ'),
-    (Decimal('70'), 'A', Decimal('4.00'), 'জায়্যিদ জিদ্দান'),
-    (Decimal('60'), 'A-', Decimal('3.50'), 'জায়্যিদ'),
-    (Decimal('50'), 'B', Decimal('3.00'), 'মাকবুল'),
-    (Decimal('40'), 'C', Decimal('2.00'), 'রাসিব'),
-    (Decimal('33'), 'D', Decimal('1.00'), 'রাসিব'),
-]
-FAIL_GRADE = ('F', Decimal('0.00'), 'রাসিব')
-
-
-def grade_for(percentage):
-    """`(grade, point, grade_bn)` for a percentage. V1's read-time grading."""
-    for floor, grade, point, grade_bn in DEFAULT_GRADE_BANDS:
-        if percentage >= floor:
-            return grade, point, grade_bn
-    return FAIL_GRADE
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The second gate — docs/08 D6, at subject granularity
@@ -280,14 +254,10 @@ def publish_exam(exam, *, actor=None, request=None):
     exam.save(update_fields=['status', 'published_by', 'published_at',
                              'updated_by', 'updated_at'])
 
-    # ── V2 slots in here ────────────────────────────────────────────────────
-    # `Result` (docs/03 §9) is stored at publish so a marksheet reprinted in
-    # three years shows the same numbers even after the grade scale is edited.
-    # V1 has no editable scale, so there is nothing yet that could drift, and
-    # `student_result()` recomputes identically. When GradeScale/GradeBand/
-    # Result land, write one Result row per student *here*, from exactly what
-    # `student_result()` returns — nothing else in this app changes.
-    # ────────────────────────────────────────────────────────────────────────
+    # Frozen here, in the transaction that publishes: the marksheet printed
+    # today and the one reprinted in three years must show the same grade even
+    # if the institution edits its scale in between (docs/06 #12).
+    _store_results(exam, actor=actor)
 
     log_activity(
         action=ActivityAction.PUBLISH, user=actor, request=request,
@@ -351,113 +321,132 @@ def _full_marks_map(exam, academic_class=None):
     }
 
 
-def student_result(exam, student):
-    """This student's result for this exam, computed on read (V1).
+def _grade_marks(marks, fulls, scale):
+    """Grade one student's marks. Returns `(subject_lines, summary)`.
 
-    Returns a plain dict — subject lines, totals, percentage, grade, pass/fail
-    and the list of failed subjects — with the same keys the V2 `Result` row
-    will carry, so the screen and the marksheet template do not change when the
-    stored version arrives.
-
-    Absent counts as zero *obtained* but still counts its paper's full marks
-    towards the total. Dropping the paper instead would let a student who missed
-    their weakest subject come out with a higher percentage than one who sat it.
+    The schedule's full and pass marks are authoritative; a subject with no
+    schedule row falls back to the subject's own (see `_full_marks_map`).
     """
-    marks = list(
-        Mark.objects.filter(exam=exam, student=student, is_active=True)
-        .select_related('subject')
-    )
-    fulls = _full_marks_map(exam)
-
-    subjects = []
-    total_full = ZERO
-    total_obtained = ZERO
-    failed = []
-
+    papers = []
     for mark in marks:
         full, pass_mark = fulls.get(
             mark.subject_id,
             (Decimal(mark.subject.full_marks), Decimal(mark.subject.pass_marks)),
         )
-        obtained = ZERO if mark.is_absent else (mark.total_obtained or ZERO)
-        passed = (not mark.is_absent) and obtained >= pass_mark
+        papers.append({
+            'name': mark.subject.name,
+            'full': full,
+            'pass_mark': pass_mark,
+            'obtained': ZERO if mark.is_absent else (mark.total_obtained or ZERO),
+            'is_absent': mark.is_absent,
+            'is_optional': mark.subject.is_optional,
+        })
 
-        total_full += full
-        total_obtained += obtained
-        if not passed:
-            failed.append(mark.subject.name)
+    graded, summary = evaluate(scale, papers)
 
-        subjects.append({
+    lines = []
+    for mark, paper, grade in zip(marks, papers, graded):
+        lines.append({
             'subject': mark.subject_id,
             'subject_name': mark.subject.name,
             'subject_name_bn': mark.subject.name_bn,
-            'full_marks': full,
-            'pass_marks': pass_mark,
+            'full_marks': paper['full'],
+            'pass_marks': paper['pass_mark'],
             'obtained': None if mark.is_absent else mark.obtained,
             'practical_obtained': None if mark.is_absent else mark.practical_obtained,
-            'total': obtained,
+            'total': paper['obtained'],
             'is_absent': mark.is_absent,
-            'is_passed': passed,
+            'is_optional': paper['is_optional'],
+            'is_passed': grade['is_passed'],
+            'grade': grade['grade'],
+            'grade_bn': grade['grade_bn'],
+            'point': grade['point'],
         })
+    return lines, summary
 
-    percentage = (
-        (total_obtained / total_full * 100).quantize(Decimal('0.01'))
-        if total_full > ZERO else ZERO
+
+_SUMMARY_KEYS = ('total_marks', 'obtained_marks', 'percentage', 'gpa', 'grade',
+                 'grade_bn', 'is_passed', 'failed_subjects')
+
+
+def student_result(exam, student):
+    """This student's result for this exam.
+
+    Published: the `Result` row frozen at publish, unchanged by any later edit
+    to the scale. Open: computed now, through the বিভাগ's scale.
+
+    Absent counts as zero *obtained* but still counts its paper's full marks
+    towards the total. Dropping the paper instead would let a student who missed
+    their weakest subject come out with a higher percentage than one who sat it.
+    """
+    if exam.status == ExamStatus.PUBLISHED:
+        stored = Result.objects.filter(exam=exam, student=student).order_by('-pk').first()
+        if stored is not None:
+            return {
+                'exam': exam.pk,
+                'student': student.pk,
+                'student_name': student.name,
+                'subjects': stored.subjects,
+                **{key: stored.row.get(key) for key in _SUMMARY_KEYS},
+                'method': stored.method,
+                'scale_name': stored.scale_name,
+                'scale_name_bn': stored.scale_name_bn,
+                'is_published': True,
+            }
+
+    marks = list(
+        Mark.objects.filter(exam=exam, student=student, is_active=True)
+        .select_related('subject')
     )
-    grade, point, grade_bn = grade_for(percentage)
-    is_passed = bool(subjects) and not failed
+    scale = scale_for(exam)
+    lines, summary = _grade_marks(marks, _full_marks_map(exam), scale)
 
     return {
         'exam': exam.pk,
         'student': student.pk,
         'student_name': student.name,
-        'subjects': subjects,
-        'total_marks': total_full,
-        'obtained_marks': total_obtained,
-        'percentage': percentage,
-        # A failed student has no GPA on a Bangladeshi marksheet — printing one
-        # next to "রাসিব" is the kind of contradiction a guardian brings in.
-        'gpa': point if is_passed else Decimal('0.00'),
-        'grade': grade if is_passed else FAIL_GRADE[0],
-        'grade_bn': grade_bn if is_passed else FAIL_GRADE[2],
-        'is_passed': is_passed,
-        'failed_subjects': failed,
+        'subjects': lines,
+        **summary,
+        'method': scale.method,
+        'scale_name': scale.name,
+        'scale_name_bn': scale.name_bn,
         'is_published': exam.status == ExamStatus.PUBLISHED,
     }
 
 
-def _rank(rows, field):
+def _rank(rows, field, method):
     """Write a merit rank into `field` on each passed row, in place.
 
-    Obtained marks, highest first; failures are left unranked. Equal totals
-    share a rank — 1, 2, 2, 4 — because breaking a genuine tie arbitrarily is a
-    decision the software does not get to make on a teacher's behalf.
+    GPA then total marks under the board method, total marks under the Qawmi
+    one; failures are left unranked. Equal keys share a rank — 1, 2, 2, 4 —
+    because breaking a genuine tie arbitrarily is a decision the software does
+    not get to make on a teacher's behalf.
     """
     ranked = sorted(
         [row for row in rows if row['is_passed']],
-        key=lambda row: row['obtained_marks'], reverse=True,
+        key=lambda row: rank_key(method, row), reverse=True,
     )
-    previous_total = None
+    previous_key = None
     previous_rank = 0
     for index, row in enumerate(ranked, start=1):
-        if row['obtained_marks'] == previous_total:
+        key = rank_key(method, row)
+        if key == previous_key:
             row[field] = previous_rank
         else:
             row[field] = index
             previous_rank = index
-            previous_total = row['obtained_marks']
+            previous_key = key
 
 
-def tabulation(exam, academic_class):
-    """The class tabulation sheet: every student, every subject, ranked.
+def _compute_rows(exam, academic_class):
+    """Every student on this class's sheet, graded and ranked, computed now.
 
-    One query for the marks and one for the enrolments, then the arithmetic in
-    Python. Per-student `student_result()` calls would be N+1 queries against a
-    sheet that is printed for forty students at once.
-
-    Rank is computed here and not stored, for the V1 reason above: it is a
-    function of the marks, and the marks are the record.
+    Returns `(rows, scale, subject_lines_by_enrolment)`. One query for the marks
+    and one for the enrolments, then the arithmetic in Python: per-student
+    `student_result()` calls would be N+1 queries against a sheet that is
+    printed for forty students at once.
     """
+    scale = scale_for(exam)
     enrolments = (
         Enrolment.objects
         .filter(branch_id=exam.branch_id, session_id=exam.session_id,
@@ -477,35 +466,11 @@ def tabulation(exam, academic_class):
         by_student.setdefault(mark.student_id, []).append(mark)
 
     rows = []
+    lines_by_enrolment = {}
     for enrolment in enrolments:
-        total_full = ZERO
-        total_obtained = ZERO
-        failed = []
-        cells = {}
-
-        for mark in by_student.get(enrolment.student_id, []):
-            full, pass_mark = fulls.get(
-                mark.subject_id,
-                (Decimal(mark.subject.full_marks), Decimal(mark.subject.pass_marks)),
-            )
-            obtained = ZERO if mark.is_absent else (mark.total_obtained or ZERO)
-            total_full += full
-            total_obtained += obtained
-            if mark.is_absent or obtained < pass_mark:
-                failed.append(mark.subject.name)
-            cells[mark.subject_id] = {
-                'obtained': None if mark.is_absent else mark.obtained,
-                'practical_obtained': None if mark.is_absent else mark.practical_obtained,
-                'total': obtained,
-                'is_absent': mark.is_absent,
-            }
-
-        percentage = (
-            (total_obtained / total_full * 100).quantize(Decimal('0.01'))
-            if total_full > ZERO else ZERO
-        )
-        grade, point, grade_bn = grade_for(percentage)
-        is_passed = bool(cells) and not failed
+        lines, summary = _grade_marks(by_student.get(enrolment.student_id, []), fulls, scale)
+        lines_by_enrolment[enrolment.pk] = lines
+        section = enrolment.section
 
         rows.append({
             'enrolment': enrolment.pk,
@@ -514,28 +479,28 @@ def tabulation(exam, academic_class):
             'student_name_bn': enrolment.student.name_bn,
             'student_code': enrolment.student.student_id,
             'section': enrolment.section_id,
-            'section_name': enrolment.section.name if enrolment.section_id else '',
-            'section_name_bn': enrolment.section.name_bn if enrolment.section_id else '',
+            'section_name': section.name if section else '',
+            'section_name_bn': section.name_bn if section else '',
             'roll': enrolment.roll,
-            'marks': cells,
-            'total_marks': total_full,
-            'obtained_marks': total_obtained,
-            'percentage': percentage,
-            'gpa': point if is_passed else Decimal('0.00'),
-            'grade': grade if is_passed else FAIL_GRADE[0],
-            'grade_bn': grade_bn if is_passed else FAIL_GRADE[2],
-            'is_passed': is_passed,
-            'failed_subjects': failed,
+            'marks': {
+                line['subject']: {
+                    'obtained': line['obtained'],
+                    'practical_obtained': line['practical_obtained'],
+                    'total': line['total'],
+                    'is_absent': line['is_absent'],
+                    'is_passed': line['is_passed'],
+                    'grade': line['grade'],
+                    'grade_bn': line['grade_bn'],
+                    'point': line['point'],
+                }
+                for line in lines
+            },
+            **summary,
             'rank_in_class': None,
             'rank_in_section': None,
         })
 
-    # Rank on obtained marks, failures last. A failed student with a high total
-    # is not first in the class, and every printed tabulation sheet in the
-    # country reflects that. Equal totals share a rank — 1, 2, 2, 4 — because
-    # breaking a genuine tie arbitrarily is a decision the software does not get
-    # to make on a teacher's behalf.
-    _rank(rows, 'rank_in_class')
+    _rank(rows, 'rank_in_class', scale.method)
 
     # The same rule again inside each section. A class split into ক and খ reads
     # its merit list per section as often as for the whole class, and both come
@@ -546,24 +511,85 @@ def tabulation(exam, academic_class):
         if row['section'] is not None:
             by_section.setdefault(row['section'], []).append(row)
     for section_rows in by_section.values():
-        _rank(section_rows, 'rank_in_section')
+        _rank(section_rows, 'rank_in_section', scale.method)
 
+    return rows, scale, lines_by_enrolment
+
+
+def _sheet(exam, academic_class, rows, method, scale_name, scale_name_bn):
     sections = {}
-    for enrolment in enrolments:
-        if enrolment.section_id and enrolment.section_id not in sections:
-            sections[enrolment.section_id] = {
-                'id': enrolment.section_id,
-                'name': enrolment.section.name,
-                'name_bn': enrolment.section.name_bn,
+    for row in rows:
+        if row.get('section') and row['section'] not in sections:
+            sections[row['section']] = {
+                'id': row['section'],
+                'name': row.get('section_name', ''),
+                'name_bn': row.get('section_name_bn', ''),
             }
-
     return {
         'exam': exam.pk,
         'academic_class': academic_class.pk,
         'is_published': exam.status == ExamStatus.PUBLISHED,
+        'method': method,
+        'scale_name': scale_name,
+        'scale_name_bn': scale_name_bn,
         'sections': sorted(sections.values(), key=lambda row: row['name']),
         'rows': rows,
     }
+
+
+def tabulation(exam, academic_class):
+    """The class tabulation sheet: every student, every subject, graded, ranked.
+
+    Published: the rows frozen at publish. Open: computed now.
+    """
+    if exam.status == ExamStatus.PUBLISHED:
+        stored = list(Result.objects.filter(exam=exam, enrolment__academic_class=academic_class))
+        if stored:
+            rows = sorted(
+                (result.row for result in stored),
+                key=lambda row: (row.get('roll') is None, row.get('roll') or 0),
+            )
+            first = stored[0]
+            return _sheet(exam, academic_class, rows, first.method,
+                          first.scale_name, first.scale_name_bn)
+
+    rows, scale, _lines = _compute_rows(exam, academic_class)
+    return _sheet(exam, academic_class, rows, scale.method, scale.name, scale.name_bn)
+
+
+def _store_results(exam, actor=None):
+    """Freeze every class's sheet for this exam into `Result` rows.
+
+    Called by `publish_exam()` inside its transaction. Every enrolled student of
+    every class on the exam gets a row — including one who sat nothing, whose
+    row says so — so the published sheet is the sheet that was published.
+    """
+    Result.objects.filter(exam=exam).delete()
+
+    class_ids = set(
+        ExamSchedule.objects.filter(exam=exam).values_list('academic_class_id', flat=True)
+    )
+    class_ids |= set(
+        Mark.objects.filter(exam=exam, is_active=True)
+        .values_list('enrolment__academic_class_id', flat=True)
+    )
+
+    to_create = []
+    for academic_class in AcademicClass.objects.filter(pk__in=class_ids):
+        rows, scale, lines = _compute_rows(exam, academic_class)
+        for row in rows:
+            to_create.append(Result(
+                branch_id=exam.branch_id, exam=exam,
+                student_id=row['student'], enrolment_id=row['enrolment'],
+                method=scale.method, scale_name=scale.name, scale_name_bn=scale.name_bn,
+                percentage=row['percentage'], gpa=row['gpa'],
+                grade=row['grade'], grade_bn=row['grade_bn'], is_passed=row['is_passed'],
+                rank_in_class=row['rank_in_class'], rank_in_section=row['rank_in_section'],
+                row=row, subjects=lines[row['enrolment']],
+                created_by=actor, updated_by=actor,
+            ))
+    Result.objects.bulk_create(to_create)
+    return len(to_create)
 
 
 def exam_subjects(exam, academic_class):
@@ -577,9 +603,9 @@ def exam_subjects(exam, academic_class):
 
 
 __all__ = [
-    'DEFAULT_GRADE_BANDS', 'assert_can_enter_marks', 'can_enter_marks',
-    'exam_subjects', 'grade_for', 'marks_are_visible_to', 'publish_exam',
-    'save_marks', 'student_result', 'tabulation', 'visible_marks_for',
+    'assert_can_enter_marks', 'can_enter_marks', 'exam_subjects',
+    'marks_are_visible_to', 'publish_exam', 'save_marks', 'student_report',
+    'student_result', 'tabulation', 'visible_marks_for',
 ]
 
 

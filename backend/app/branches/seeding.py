@@ -89,6 +89,11 @@ def seed_branch(branch):
     else:
         logger.info('forms is not installed — skipping its templates for %s', branch.code)
 
+    if _app_installed('exams'):
+        # After streams, which it reads: one grading scale per বিভাগ.
+        from exams.grading import seed_grade_scales
+        created['grade_scales'] = seed_grade_scales(branch)
+
     logger.info('Seeded branch %s (%s): %s', branch.code, branch.institution_type, created)
     return created
 

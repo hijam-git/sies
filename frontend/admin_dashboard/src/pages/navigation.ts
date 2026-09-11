@@ -199,6 +199,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { tab: 'institution', label: 'Institution' },
       { tab: 'streams', label: 'Streams & Sessions' },
+      { tab: 'grading', label: 'Grading' },
       { tab: 'fee-categories', label: 'Fee categories' },
       { tab: 'form-templates', label: 'Form templates' },
       { tab: 'questions', label: 'Questions' },
