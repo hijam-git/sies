@@ -393,7 +393,12 @@ def save_register(*, branch, academic_class, cells, user, section=None,
     `taken_by` is stamped from *user* **per cell**, never read from the payload:
     the whole point of the column is that it says who actually marked it.
 
-    Returns `{'saved': int, 'skipped': [{student, date, reason, ...}]}`.
+    Returns `{'saved': int, 'skipped': [...], 'changed': [...]}`. `changed`
+    carries the **before-image** of every cell whose status this save replaced,
+    and it is not decoration: D3 drops cell history from the table *because* D8
+    keeps the correction in `ActivityLog`, and the log was being written with an
+    `after` and no `before` — so a corrected cell's previous value was
+    recoverable from nowhere at all.
     """
     now = now or timezone.localtime()
     bounds = None
@@ -412,11 +417,25 @@ def save_register(*, branch, academic_class, cells, user, section=None,
                                      section=section)
     }
 
+    # What these cells hold now, read once for the whole batch: the
+    # before-image the activity log records. One query, keyed the same way the
+    # upsert below is.
+    dates = {cell['date'] for cell in cells}
+    students = {cell['student'] for cell in cells}
+    previous = {
+        (row.student_id, row.date): row.status
+        for row in DailyAttendance.objects.filter(
+            branch=branch, person_type=PersonType.STUDENT,
+            student_id__in=students, date__in=dates,
+        ).only('student_id', 'date', 'status')
+    } if cells else {}
+
     # Markability is decided once per distinct date, not once per cell: sixty
     # students on the same Friday is one question, not sixty.
     markable_cache = {}
     saved = 0
     skipped = []
+    changed = []
 
     for cell in cells:
         on_date = cell['date']
@@ -472,9 +491,16 @@ def save_register(*, branch, academic_class, cells, user, section=None,
                 branch=branch, date=on_date,
                 person_type=PersonType.STUDENT, student_id=student_id,
             ).update(created_by=user if getattr(user, 'is_authenticated', False) else None)
+
+        was = previous.get((student_id, on_date))
+        if was is not None and was != cell['status']:
+            changed.append({
+                'student': student_id, 'date': on_date.isoformat(),
+                'from': was, 'to': cell['status'],
+            })
         saved += 1
 
-    return {'saved': saved, 'skipped': skipped}
+    return {'saved': saved, 'skipped': skipped, 'changed': changed}
 
 
 def _skip(student_id, on_date, reason):
@@ -524,10 +550,24 @@ def save_class_attendance(*, branch, academic_class, period, on_date, cells,
             'saved': 0,
             'skipped': [_skip(cell['student'], on_date, verdict.reason)
                         for cell in cells],
+            'changed': [],
         }
+
+    # The before-image, for the same reason the month register keeps one: D3
+    # drops cell history from the table because D8 keeps the correction in the
+    # activity log, and a log with no `before` records only that one happened.
+    previous = {
+        row.student_id: row.status
+        for row in ClassAttendance.objects.filter(
+            branch=branch, date=on_date, academic_class=academic_class,
+            section=section, period=period,
+            student_id__in={cell['student'] for cell in cells},
+        ).only('student_id', 'status')
+    } if cells else {}
 
     saved = 0
     skipped = []
+    changed = []
     for cell in cells:
         enrolment = enrolments.get(cell['student'])
         if enrolment is None:
@@ -552,9 +592,16 @@ def save_class_attendance(*, branch, academic_class, period, on_date, cells,
                 'updated_by': user if getattr(user, 'is_authenticated', False) else None,
             },
         )
+
+        was = previous.get(cell['student'])
+        if was is not None and was != cell['status']:
+            changed.append({
+                'student': cell['student'], 'date': on_date.isoformat(),
+                'from': was, 'to': cell['status'],
+            })
         saved += 1
 
-    return {'saved': saved, 'skipped': skipped}
+    return {'saved': saved, 'skipped': skipped, 'changed': changed}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

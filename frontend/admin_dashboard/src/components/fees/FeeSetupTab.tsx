@@ -46,7 +46,11 @@ export default function FeeSetupTab({
   const { t } = useT();
   const { can } = usePermissions();
 
-  const mayUpdate = can('fees', 'update');
+  // Reading heads is `fees.view`; **editing one is `settings.update`** — a head
+  // is the institution's price list, and the server gates it that way (the
+  // catalogue's `settings` hint names fee categories). Gating the buttons on
+  // `fees.update` offered an admission officer an editor that would 403.
+  const mayUpdate = can('settings', 'update');
 
   const [editing, setEditing] = useState<FeeCategory | null>(null);
   const [saving, setSaving] = useState(false);

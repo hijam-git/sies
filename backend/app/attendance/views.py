@@ -210,6 +210,13 @@ class RegisterBulkView(AttendanceView):
             summary=(f'Saved {result["saved"]} attendance cells for '
                      f'{academic_class} ({data["month"]})'),
             summary_bn=f'{academic_class} ({data["month"]}) — হাজিরা সংরক্ষণ করা হয়েছে',
+            # The before-image of every cell this save replaced. D3 keeps no
+            # history in the attendance table *because* D8 keeps it here, and
+            # without `before` a correction recorded only that one happened.
+            # Capped: a whole month re-saved is a thousand cells, and an audit
+            # row is read by a person.
+            before={'changed': result['changed'][:200],
+                    'changed_total': len(result['changed'])},
             after={'saved': result['saved'], 'skipped': len(result['skipped'])},
             atomic=False,
         )
@@ -321,6 +328,8 @@ class ClassAttendanceView(AttendanceView):
             summary=(f'Saved {result["saved"]} period attendance rows for '
                      f'{academic_class} ({period}, {data["date"]})'),
             summary_bn=f'{academic_class} — ক্লাস হাজিরা সংরক্ষণ করা হয়েছে',
+            before={'changed': result.get('changed', [])[:200],
+                    'changed_total': len(result.get('changed', []))},
             after={'saved': result['saved'], 'skipped': len(result['skipped'])},
             atomic=False,
         )

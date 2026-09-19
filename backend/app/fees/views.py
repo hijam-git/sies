@@ -65,12 +65,23 @@ class FeeCategoryViewSet(ActivityLogMixin, BranchScopedViewSet):
 
     queryset = FeeCategory.objects.select_related('branch').all()
     serializer_class = FeeCategorySerializer
+    # Reading a head costs `fees.view` — every collection screen needs the list.
+    # **Writing one costs `settings.update`**, which is what the catalogue says
+    # it covers ("Institution settings, fee categories and form templates"). It
+    # matters now that `default_amount` is writable: a head IS the institution's
+    # price list, and `fees.create` is held by an admission officer whose job is
+    # to take an admission, not to decide what a month costs.
     permission_classes = [IsAuthenticated, HasResourcePermission]
     permission_resource = 'fees'
     activity_model = 'FeeCategory'
     filterset_fields = ['recurrence', 'is_active', 'is_mandatory', 'is_system']
     search_fields = ['code', 'name', 'name_bn']
     ordering_fields = ['display_order', 'name', 'code', 'created_at']
+
+    def get_permissions(self):
+        write = self.request.method not in ('GET', 'HEAD', 'OPTIONS')
+        self.permission_resource = 'settings' if write else 'fees'
+        return super().get_permissions()
 
     def perform_destroy(self, instance):
         if instance.is_system:

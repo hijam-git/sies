@@ -58,6 +58,7 @@ export default function FeesReport({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const currentSession = useMemo(
@@ -84,6 +85,9 @@ export default function FeesReport({
       if (!req.isCurrent(mine)) return;
       setPayments(paymentRows);
       setFees(feeRows);
+      // `listAll` stops at ten pages of 200. An understated 'Collected' that
+      // says nothing is the one outcome a money report must not produce.
+      setTruncated(paymentRows.length >= 2000 || feeRows.length >= 2000);
     } catch (err) {
       if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
@@ -200,6 +204,12 @@ export default function FeesReport({
       </FilterBar>
 
       <FormError message={error} />
+
+      {truncated && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {t('This report reads at most 2,000 rows per list, and one of them reached that. The figures below are understated — narrow the period or the session.')}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <ReportStat

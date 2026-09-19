@@ -608,8 +608,12 @@ function ClassResults({
         <EmptyCard>{t('No students match this filter.')}</EmptyCard>
       )}
 
+      {/* `print:overflow-visible` on the table's own container: a scroll
+          container prints what is on screen and clips the rest, so a class with
+          eight subjects lost Total, GPA and the rank off the right-hand edge of
+          the paper. */}
       {current && shown.length > 0 && (
-        <div className="scroll-x rounded-xl border border-gray-200/80 bg-white shadow-sm">
+        <div className="scroll-x rounded-xl border border-gray-200/80 bg-white shadow-sm print:overflow-visible print:border-0 print:shadow-none">
           <table className="min-w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">

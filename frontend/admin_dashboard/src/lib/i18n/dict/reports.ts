@@ -102,6 +102,8 @@ const reports: Record<string, string> = {
   'without marks': 'নম্বর দেওয়া হয়নি',
   'Choose an institution in the header to read its registers.':
     'রেজিস্টার দেখতে উপরের তালিকা থেকে একটি প্রতিষ্ঠান বাছুন।',
+  'This report reads at most 2,000 rows per list, and one of them reached that. The figures below are understated — narrow the period or the session.':
+    'এই রিপোর্ট প্রতিটি তালিকা থেকে সর্বোচ্চ ২,০০০ সারি পড়ে, এবং একটি তালিকা সেই সীমায় পৌঁছেছে। নিচের হিসাব কম দেখাচ্ছে — সময়কাল বা শিক্ষাবর্ষ ছোট করুন।',
 };
 
 export default reports;

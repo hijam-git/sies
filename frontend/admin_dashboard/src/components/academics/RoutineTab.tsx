@@ -545,7 +545,14 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
                 className={selectCls}
               >
                 <option value="">{t('Choose a teacher')}</option>
-                {data.teachers.map((x) => (
+                {/* Serving staff only — the whole-institution view already
+                    excludes anyone who has left, so offering them here put a
+                    resigned teacher on next term's routine and counted their
+                    old rows as clashes. Anyone already on a row stays
+                    selectable, or editing that row would silently blank it. */}
+                {data.teachers
+                  .filter((x) => x.employment_status === 'active' || String(x.id) === draft.teacher)
+                  .map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.name_bn || x.name}
                   </option>

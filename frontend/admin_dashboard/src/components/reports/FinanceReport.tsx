@@ -65,6 +65,7 @@ export default function FinanceReport({
   const [expenses, setExpenses] = useState<LedgerEntry[]>([]);
   const [branchRows, setBranchRows] = useState<BranchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const currentSession = useMemo(
@@ -93,6 +94,9 @@ export default function FinanceReport({
       if (!req.isCurrent(mine)) return;
       setIncome(incomeRows);
       setExpenses(expenseRows);
+      // Same bound as everywhere else: ten pages of 200, and silence about
+      // hitting it would understate Income, Expenses and Net together.
+      setTruncated(incomeRows.length >= 2000 || expenseRows.length >= 2000);
     } catch (err) {
       if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
@@ -217,6 +221,12 @@ export default function FinanceReport({
       </FilterBar>
 
       <FormError message={error} />
+
+      {truncated && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {t('This report reads at most 2,000 rows per list, and one of them reached that. The figures below are understated — narrow the period or the session.')}
+        </p>
+      )}
 
       {view !== 'institutions' && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
