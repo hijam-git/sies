@@ -436,3 +436,126 @@ database into a scratch database, every table compared (students 144, invoices
 227, payments 57, marks 96, all equal) and the money still balancing in the copy
 (receipts ৳85,500 = posted income ৳85,500). Server and client are both
 PostgreSQL 16.11, so F6's version-skew trap is not present here.
+
+
+## Audit pass — the write half of isolation, and the races (2026-09-20)
+
+A read-only audit of the whole API and the whole SPA, then every confirmed
+finding fixed. Two of them are patterns rather than single mistakes, and are
+worth stating on their own.
+
+**F37 — scoping controlled what could be READ and almost nothing controlled
+what could be WRITTEN.** A branch-scoped queryset makes another institution's
+rows invisible; a plain `PrimaryKeyRelatedField` accepts one of their ids
+happily. `POST /api/fees/` naming a Chittagong student raised an invoice in
+Dhaka against their child, and `collect/` would then take money on it and post
+Dhaka's income. `students` and `academics` each grew a per-field check for
+this; `fees`, `finance` and `staff` never did — and the two copies had drifted,
+both reading `getattr(branch, 'pk', None)`, which is None for a platform
+admin's `?branch=5` because it arrives as a string. So the guard decided it
+could not tell, and skipped the check entirely for exactly the account that can
+reach every institution. `core/serializers.py` now holds one copy of the rule
+and a `BranchSafeSerializer` that walks everything `validate()` is handed, so a
+field added later is covered by default. `fees/tests/test_foreign_writes.py` is
+the POST and PATCH half of branch isolation, which the read tests could not see.
+
+**F38 — five read gates, each reachable past one check.** The exam result
+endpoints tested `user_type == 'student'` where `marks_are_visible_to` has
+always treated `('student', 'guardian')` as one class, so a guardian-typed
+account with `exams.view` read any child's marksheet by id. Those endpoints are
+custom `@action`s, which `TeacherScopedMixin` — a queryset filter — never
+touched, so a Class 5 teacher pulled Class 9's merit sheet by changing one
+query parameter. `StudentViewSet` was not teacher-scoped at all, so
+`students.view` returned every student's phone, NID and guardians institution
+wide: the register was scoped and the record behind it was not.
+`GET /admissions/<id>/form/?mode=filled` **writes** — it allocates a gapless
+form number under a lock — but a plain `APIView` has no `action`, so the
+permission layer priced it by method at `documents.view` and a read-only
+account could exhaust the numbered series in a loop. And reading a student's
+guardians cost `students.update`.
+
+**F39 — the class tuition priced every unrestricted monthly head.** "General
+head" meant "not hostel and not transport", so an institution adding
+Electricity at 200 taka had every student billed the class's 500 taka tuition
+for it, every month. It is the tuition head (`MON`) and nothing else now.
+
+**F40 — a cancelled invoice blocked its month for good.** Both the pre-check
+and the unique constraint counted soft-deleted rows, so a month cancelled by
+mistake could never be raised again. The constraint is partial on `is_active`
+(docs/03 updated): one *live* invoice per period per head, with the cancelled
+ones kept as the record of the cancellation.
+
+**F41 — a published exam could not be corrected.** `save_marks` refuses a
+published exam and says "unpublish it first"; nothing could. One mistyped mark
+at publish time was permanent. `unpublish_exam()` exists now, at the publish
+permission, and drops the frozen `Result` rows with it. A student who took a
+transfer certificate before publication also got no frozen row at all, so their
+marksheet silently fell back to a live recompute — the one property freezing
+exists to prevent.
+
+**F42 — an optional subject lowered the percentage it could only raise.** Its
+marks went into the printed total while being excluded from the GPA, so 80 and
+80 with an optional 20 printed as 60%: a student who sat an extra paper looked
+worse for it.
+
+**F43 — the SPA answered under the wrong heading, in seventeen places.** Every
+list loads on a filter the user can change while the request is in the air, and
+the slower of two answers wins by landing last. Two were not cosmetic: marks
+entry could write a whole class's Bangla marks to Math, and the class
+attendance roster — which loads twice on open — replaced the map and turned a
+teacher's taps back into Present with nothing to show it had happened.
+`lib/useRequestId.ts` is that guard, written once.
+
+**F44 — the dues did not add up.** Reports ▸ Fees counted unpaid and partial
+and not `overdue`, which is the status `mark_overdue` moves every past-due
+invoice into overnight; Fees ▸ Dues totalled every session while grouping by
+one; Reports ▸ Exams divided the pass rate by everyone on the roll while
+Results divides by the students whose marks are in; and `toPaisa` truncated a
+third decimal instead of rounding.
+
+**F45 — `must_change_password` did nothing.** Every account an admin creates
+carries it, because the password was said out loud to hand it over. The API's
+change-password endpoint had no caller anywhere in the SPA and no screen
+offered it, so every temporary password stayed live. A forced modal now sits on
+the flag, and the user menu carries the voluntary one.
+
+**F46 — a swallowed failure was reported as a fact.** Four loaders turned an
+error into an empty list: a part-paid invoice read "nothing has been collected"
+with the reverse controls gone, and the attendance report computed an
+institution-wide percentage over whichever classes happened to answer. That
+last one was hiding a real defect — every attendance endpoint is addressed by
+class, so it 404s for a platform admin looking at every institution at once,
+and the report drew a confident zero from six failures. Both attendance screens
+ask for an institution now.
+
+**F47 — D3 and D8 only work as a pair.** D3 drops attendance cell history from
+the table *because* D8 keeps the correction in `ActivityLog` with a before and
+an after. Both save paths logged an `after` alone, so a cell changed from Absent
+to Present left no record of what it had been.
+
+**F48 — a fee head is the institution's price list.** Writing one cost
+`fees.create`, held by the Admission Officer preset, so once `default_amount`
+became writable an officer could decide what a month costs for everybody.
+Writing is `settings.update` now — which is what the catalogue's own `settings`
+hint says it covers — while reading stays `fees.view`.
+
+Smaller, all fixed in the same pass: a failed attachment upload let a ledger
+voucher be created twice; Assignments rolled back the whole board from a stale
+snapshot, undoing another card's saved move; print selection survived paging on
+a button that issues numbered paper; unsaved attendance was discarded by the
+month arrow without asking; Cancel stayed live during an admission and
+destroyed the only panel showing the new student id; "Clear filters" cleared
+past the sensible default (§7b); the SPA re-derived permissions from the role
+preset although `/auth/me/` sends the effective list; an empty page past the
+first lost its pagination; raw enum values were printed into a Bengali report;
+`?session=abc` and `?user=abc` were 500s; `is_approved` was writable with no
+approver recorded; invoice numbers were reserved outside the savepoint that
+writes the row; a principal holding `branches.update` could not use it (identity
+fields stay platform-only); the money reports were silent on hitting their
+2,000-row bound; the routine offered resigned teachers; and the tabulation
+printed from inside a scroll container, clipping Total, GPA and rank off the
+page.
+
+Tests: **558/558** backend (39 new), tsc/eslint/vitest/vite build clean, the
+render check 48/48 at 360/390/768/1280, and the fixed screens re-checked in a
+browser with no failing request.
