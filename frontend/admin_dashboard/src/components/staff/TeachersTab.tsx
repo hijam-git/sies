@@ -4,6 +4,7 @@ import type { Stream, Teacher, TeacherQualification } from '../../lib/api';
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatDhakaDate } from '../../lib/timezone';
 import BaseModal from '../common/BaseModal';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
@@ -71,11 +72,17 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
   const [qualRows, setQualRows] = useState<TeacherQualification[]>([]);
   const [qualDraft, setQualDraft] = useState<QualificationDraft>(EMPTY_QUALIFICATION);
   const [qualError, setQualError] = useState<string | null>(null);
+  const [qualBusy, setQualBusy] = useState(false);
 
   const mayCreate = can('teachers', 'create');
   const mayUpdate = can('teachers', 'update');
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
     try {
@@ -84,14 +91,16 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
       if (statusFilter) query.set('employment_status', statusFilter);
       if (streamFilter) query.set('streams', streamFilter);
       const data = await apiClient.list<Teacher>('/teachers/', `?${query}`);
+      if (!req.isCurrent(mine)) return;
       setRows(data.results);
       setTotal(data.count);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the teachers.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [page, search, statusFilter, streamFilter, t]);
+  }, [page, search, statusFilter, streamFilter, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -171,8 +180,11 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
   };
 
   const addQualification = async () => {
-    if (!qualTarget || !qualDraft.degree.trim()) return;
+    // `qualBusy` and not only the empty-degree check: on a slow link the second
+    // tap of an impatient double-tap listed the degree twice on the record.
+    if (!qualTarget || !qualDraft.degree.trim() || qualBusy) return;
     setQualError(null);
+    setQualBusy(true);
     try {
       await apiClient.create<TeacherQualification>('/teacher-qualifications/', {
         teacher: qualTarget.id,
@@ -188,6 +200,8 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
       await load();
     } catch (err) {
       setQualError(apiErrorText(err, t, t('Could not save this qualification.')));
+    } finally {
+      setQualBusy(false);
     }
   };
 
@@ -298,7 +312,9 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
         active={filtering}
         onClear={() => {
           setSearch('');
-          setStatusFilter('');
+          // Back to serving staff, which is what the screen opens on — not to
+          // 'every status', which puts resigned staff into today's roster.
+          setStatusFilter('active');
           setStreamFilter('');
           setPage(1);
         }}
@@ -515,10 +531,10 @@ export default function TeachersTab({ streams }: { streams: Stream[] }) {
               <button
                 type="button"
                 onClick={() => void addQualification()}
-                disabled={!qualDraft.degree.trim()}
+                disabled={!qualDraft.degree.trim() || qualBusy}
                 className={`${btnPrimary} w-full sm:w-auto`}
               >
-                {t('Add qualification')}
+                {qualBusy ? t('Saving…') : t('Add qualification')}
               </button>
             </div>
           )}

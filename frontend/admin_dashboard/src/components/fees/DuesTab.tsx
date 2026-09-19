@@ -3,6 +3,7 @@ import { apiClient } from '../../lib/api';
 import type { Enrolment, Fee, FeeSummaryRow, Session } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatBDTExact, formatNumber, toBanglaDigits } from '../../lib/format';
 import { compareMoney, sumMoney } from '../../lib/money';
 import { todayInDhaka } from '../../lib/timezone';
@@ -92,10 +93,20 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
       .catch(() => setEnrolments([]));
   }, [sessionId]);
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. `req` says
+   * whether this answer is still the one being waited for. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
-    const scope = sessionChoice ? `&session=${sessionChoice}` : '';
+    // `sessionId`, not the raw choice: unset means the current session, the
+    // same session the enrolments above are read for. Filtering the invoices by
+    // nothing while the class lookup covers one session put every previous
+    // year's dues in the total and all of them under "No class recorded".
+    const scope = sessionId ? `&session=${sessionId}` : '';
     try {
       const [rows, ...buckets] = await Promise.all([
         apiClient.feeSummary(`?is_active=true${scope}`),
@@ -103,6 +114,7 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
           apiClient.listAll<Fee>('/fees/', `?is_active=true&status=${s}${scope}&ordering=due_date`),
         ),
       ]);
+      if (!req.isCurrent(mine)) return;
       setSummary(rows);
       const all = buckets.flat();
       setOwing(all);
@@ -110,13 +122,14 @@ export default function DuesTab({ sessions }: { sessions: Session[] }) {
       // between an understated total and a lie.
       setTruncated(buckets.some((b) => b.length >= 2000));
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the dues.')));
       setSummary(null);
       setOwing([]);
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [sessionChoice, t]);
+  }, [sessionId, req, t]);
 
   useEffect(() => {
     // Deferred by a tick rather than called in the effect body: a setState run

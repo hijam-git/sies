@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '../../lib/api';
 import type {
   AcademicClass,
@@ -12,6 +12,7 @@ import type {
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { FormError } from '../common/Field';
 import type { MyDayPeriod } from '../../lib/api';
 import { btnPrimary, btnSecondary } from '../common/styles';
@@ -153,7 +154,19 @@ export default function ClassAttendanceTab({
     if (classId) onSectionsNeeded(classId);
   }, [classId, onSectionsNeeded]);
 
+  const req = useRequestId();
+
+  /** Students this teacher has already tapped on the roster now on screen.
+   *  The roster loads twice on open — the fallback selection, then the live
+   *  period from the day board — and the second answer must not undo taps made
+   *  against the first. Keyed so that changing class, section, period or date
+   *  starts a clean sheet. */
+  const touched = useRef<{ key: string; ids: Set<number> }>({ key: '', ids: new Set() });
+
   const load = useCallback(async () => {
+    const mine = req.begin();
+    const key = `${classId}|${sectionId}|${periodId}|${date}`;
+    if (touched.current.key !== key) touched.current = { key, ids: new Set() };
     if (!classId || !periodId) {
       setRoster(null);
       return;
@@ -169,15 +182,29 @@ export default function ClassAttendanceTab({
         period: Number(periodId),
         date,
       });
+      if (!req.isCurrent(mine)) return;
       setRoster(data);
-      setStatuses(new Map(data.students.map((s) => [s.student, s.status])));
+      // Opening the tab loads twice — once on the fallback selection, once when
+      // the day board names the live period — and a teacher taps as soon as the
+      // first roster paints. Replacing the map wholesale turned three absences
+      // back into Present with no sign it had happened, and the register was
+      // submitted that way. Anything already tapped for THIS roster wins over
+      // the server's default.
+      const kept = touched.current.ids;
+      setStatuses((prev) => new Map(
+        data.students.map((s) => [
+          s.student,
+          (kept.has(s.student) ? prev.get(s.student) : undefined) ?? s.status,
+        ]),
+      ));
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setRoster(null);
       setLoadError(apiErrorText(err, t, t('Could not load the roster.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [classId, sectionId, periodId, date, t]);
+  }, [classId, sectionId, periodId, date, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 100);
@@ -216,6 +243,7 @@ export default function ClassAttendanceTab({
 
   const markAll = (status: AttendanceStatus) => {
     if (!roster) return;
+    roster.students.forEach((s) => touched.current.ids.add(s.student));
     setStatuses(new Map(roster.students.map((s) => [s.student, status])));
   };
 
@@ -414,7 +442,10 @@ export default function ClassAttendanceTab({
                           type="button"
                           disabled={!mayTake || !roster.is_markable}
                           onClick={() =>
-                            setStatuses((prev) => new Map(prev).set(student.student, s.value))
+                            {
+                              touched.current.ids.add(student.student);
+                              setStatuses((prev) => new Map(prev).set(student.student, s.value));
+                            }
                           }
                           aria-pressed={current === s.value}
                           aria-label={t(s.label)}

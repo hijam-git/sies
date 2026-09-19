@@ -5,6 +5,7 @@ import type { Enrolment, ExamSchedule, Mark, MarkRowInput } from '../../lib/api'
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary } from '../common/styles';
 import Picker from '../common/Picker';
@@ -106,7 +107,13 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
   const paper = classPapers.find((s) => String(s.subject) === subjectChoice) ?? classPapers[0];
   const subjectId = paper ? String(paper.subject) : '';
 
+  /* Switching subject mid-flight left Bangla's marks in a grid headed Math,
+   * and Save posts what the grid holds against whatever `subjectId` reads at
+   * submit time. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     if (!examId || !classId || !subjectId || !exam) {
       setEnrolments([]);
       setRows(new Map());
@@ -123,6 +130,12 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
         ),
         apiClient.listAll<Mark>('/marks/', `?exam=${examId}&subject=${subjectId}`),
       ]);
+      // Switching subject mid-flight used to leave Bangla's marks in a grid
+      // headed Math, and Save posts what the grid holds against whatever
+      // `subjectId` reads at submit time — a whole class's marks written to the
+      // wrong paper. The debounce above does not cover it: it only cancels a
+      // request that has not started.
+      if (!req.isCurrent(mine)) return;
       setEnrolments(enrolmentRows);
       const byEnrolment = new Map(markRows.map((m) => [m.enrolment, m]));
       setRows(
@@ -141,12 +154,13 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
         ),
       );
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setEnrolments([]);
       setLoadError(apiErrorText(err, t, t('Could not load the marks grid.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [examId, classId, subjectId, exam, t]);
+  }, [examId, classId, subjectId, exam, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 100);
@@ -181,7 +195,9 @@ export default function MarksEntryTab({ data }: { data: ExamsData }) {
   };
 
   const save = async () => {
-    if (!exam || !subjectId) return;
+    // Never post a grid that is being replaced: the rows on screen belong to
+    // the previous paper until the load in flight lands.
+    if (!exam || !subjectId || loading) return;
     setSaving(true);
     setSaveError(null);
     setSaved(null);

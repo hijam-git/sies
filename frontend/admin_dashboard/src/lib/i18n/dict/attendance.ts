@@ -76,6 +76,10 @@ const attendance: Record<string, string> = {
   'Live now': 'এখন চলছে',
   'Upcoming': 'আসন্ন',
   'Missed': 'বাদ পড়েছে',
+  'You have unsaved attendance on this grid. Leave it?':
+      'এই গ্রিডে সংরক্ষণ না করা হাজিরা রয়েছে। বাদ দিয়ে চলে যাবেন?',
+  'Choose an institution in the header to take or read attendance.':
+    'হাজিরা নিতে বা দেখতে উপরের তালিকা থেকে একটি প্রতিষ্ঠান বাছুন।',
 };
 
 export default attendance;

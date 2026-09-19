@@ -4,6 +4,7 @@ import type { Exam, ExamClass, ExamSchedule, ExamType } from '../../lib/api';
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FieldWide, FormError } from '../common/Field';
 import ResponsiveTable from '../common/ResponsiveTable';
@@ -78,21 +79,29 @@ export default function ExamsTab({ data }: { data: ExamsData }) {
   const selected = data.exams.find((e) => e.id === selectedId) ?? null;
   const isPublished = selected?.status === 'published';
 
+  /* Exam A's classes and papers must not land under exam B's heading — and
+   * "Add a paper" from that state would schedule a class that is not sitting
+   * exam B at all. */
+  const req = useRequestId();
+
   const loadDetail = useCallback(async (examId: number) => {
+    const mine = req.begin();
     setLoadError(null);
     try {
       const [classRows, scheduleRows] = await Promise.all([
         apiClient.listAll<ExamClass>('/exam-classes/', `?exam=${examId}`),
         apiClient.listAll<ExamSchedule>('/exam-schedules/', `?exam=${examId}&ordering=date`),
       ]);
+      if (!req.isCurrent(mine)) return;
       setExamClasses(classRows);
       setSchedules(scheduleRows);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setExamClasses([]);
       setSchedules([]);
       setLoadError(apiErrorText(err, t, t('Could not load this exam.')));
     }
-  }, [t]);
+  }, [req, t]);
 
   // Deferred a tick, as everywhere else in this dashboard: clearing and
   // fetching both set state, and doing that in an effect body cascades a render

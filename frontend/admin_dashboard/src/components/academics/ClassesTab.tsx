@@ -275,7 +275,9 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
         active={filtering}
         onClear={() => {
           setSearch('');
-          setSessionChoice('');
+          // The current session, not every session: "cleared" means no filter
+          // the user chose, and the default is the one the screen opens on.
+          setSessionChoice(null);
           setStreamFilter('');
           setActiveFilter('');
           setPage(1);

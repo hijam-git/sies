@@ -115,6 +115,7 @@ const academics: Record<string, string> = {
   'All teachers': 'সব শিক্ষক',
   'Double-booked': 'একই সময়ে দুই ক্লাস',
   'Nothing is scheduled yet.': 'এখনো কোনো রুটিন তৈরি হয়নি।',
+  'Could not load the bell schedule.': 'পিরিয়ড তালিকা আনা যায়নি।',
 };
 
 export default academics;

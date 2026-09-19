@@ -3,6 +3,7 @@ import { apiClient } from '../../lib/api';
 import type { Fee, Payment, Session } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatBDTExact, formatNumber } from '../../lib/format';
 import type { Period } from '../../lib/period';
 import { periodLabel } from '../../lib/period';
@@ -13,6 +14,8 @@ import ResponsiveTable from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
 import Picker from '../common/Picker';
 import ReportStat from './ReportStat';
+import { compareMoney } from '../../lib/money';
+import { todayInDhaka } from '../../lib/timezone';
 import { groupBy, inPeriod, monthOf, periodRange, sumPoisha, taka } from './reportUtils';
 
 /**
@@ -29,6 +32,12 @@ import { groupBy, inPeriod, monthOf, periodRange, sumPoisha, taka } from './repo
  */
 
 type View = 'collection' | 'dues' | 'defaulters';
+
+/** The three statuses that mean money is owed, the same set Fees ▸ Dues uses.
+ *  `overdue` is not optional here: `mark_overdue` moves every past-due invoice
+ *  into it overnight, so a list of unpaid+partial alone reports the dues of a
+ *  system where nobody is ever late. */
+const OWING: Fee['status'][] = ['unpaid', 'partial', 'overdue'];
 
 export default function FeesReport({
   period,
@@ -57,7 +66,13 @@ export default function FeesReport({
   );
   const session = sessionId || currentSession;
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. `req` says
+   * whether this answer is still the one being waited for. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setError(null);
     try {
@@ -66,14 +81,16 @@ export default function FeesReport({
         apiClient.listAll<Payment>('/payments/', '?ordering=-paid_at'),
         apiClient.listAll<Fee>('/fees/', session ? `?session=${session}` : ''),
       ]);
+      if (!req.isCurrent(mine)) return;
       setPayments(paymentRows);
       setFees(feeRows);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [session, t]);
+  }, [session, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -105,7 +122,7 @@ export default function FeesReport({
   }, [collected, groupMode]);
 
   const outstanding = useMemo(
-    () => fees.filter((f) => f.is_active && (f.status === 'unpaid' || f.status === 'partial')),
+    () => fees.filter((f) => f.is_active && OWING.includes(f.status)),
     [fees],
   );
 
@@ -124,7 +141,9 @@ export default function FeesReport({
   );
 
   /** Overdue, not merely unpaid: a fee due next week is not a defaulter. */
-  const today = new Date().toISOString().slice(0, 10);
+  // Dhaka, not the browser: between midnight and 6am UTC-local machines read
+  // yesterday, and a day's worth of defaulters would drop off the list.
+  const today = todayInDhaka();
   const defaulters = useMemo(
     () =>
       [...groupBy(outstanding.filter((f) => f.due_date < today), (f) => f.student).entries()]
@@ -136,7 +155,7 @@ export default function FeesReport({
           oldest: rows.map((r) => r.due_date).sort()[0],
           balance: taka(sumPoisha(rows.map((r) => r.balance))),
         }))
-        .sort((a, b) => Number(b.balance) - Number(a.balance)),
+        .sort((a, b) => compareMoney(b.balance, a.balance)),
     [outstanding, today],
   );
 

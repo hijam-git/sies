@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import type { AcademicClass, Period, Section, Subject } from '../lib/api';
-import { usePermissions } from '../lib/auth-context';
+import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT } from '../lib/i18n';
 import { useTabParam } from '../lib/useTabParam';
 import TabStrip from '../components/common/TabStrip';
@@ -41,6 +41,13 @@ export default function AttendancePage() {
 
   const mayView = canView('attendance');
 
+  // Every attendance endpoint is addressed by CLASS, and a class belongs to one
+  // institution — so they answer 404 while a platform admin is looking at all
+  // of them at once. Asking for an institution first is the honest screen; the
+  // alternative was a register that loaded nothing and said nothing.
+  const { user, activeBranchId } = useAuth();
+  const needsBranch = user?.branch === null && activeBranchId === null;
+
   /** Sections and subjects are fetched per class and kept, so switching back to
    *  a class already looked at costs nothing. */
   const fetched = useRef(new Set<string>());
@@ -77,6 +84,17 @@ export default function AttendancePage() {
       <div className="mx-auto max-w-lg rounded-xl border border-gray-100 bg-white p-8 text-center shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">{t('Attendance')}</h1>
         <p className="mt-2 text-sm text-gray-500">{t('You do not have permission to do this.')}</p>
+      </div>
+    );
+  }
+
+  if (needsBranch) {
+    return (
+      <div className="mx-auto max-w-lg rounded-xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+        <h1 className="text-lg font-bold text-gray-900">{t('Attendance')}</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          {t('Choose an institution in the header to take or read attendance.')}
+        </p>
       </div>
     );
   }

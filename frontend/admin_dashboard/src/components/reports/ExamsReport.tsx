@@ -3,6 +3,7 @@ import { apiClient } from '../../lib/api';
 import type { AcademicClass, Exam, Subject, Tabulation, TabulationRow } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatNumber, formatPercent } from '../../lib/format';
 import ExportCsvButton from '../common/ExportCsvButton';
 import FilterBar, { filterSelectCls } from '../common/FilterBar';
@@ -72,7 +73,15 @@ export default function ExamsReport({
     ? classChoice
     : preferredClassId(classes, null);
 
+  /* Every load here is keyed on a filter the user can change while the request
+   * is in the air, and the slower of two answers wins by landing last. The
+   * debounce below does not cover it — it only cancels a request that has not
+   * started. `req` says whether this answer is still the one being waited for.
+   */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     if (!examId || !classId) {
       setSheet(null);
       return;
@@ -80,14 +89,17 @@ export default function ExamsReport({
     setLoading(true);
     setError(null);
     try {
-      setSheet(await apiClient.getTabulation(Number(examId), Number(classId)));
+      const data = await apiClient.getTabulation(Number(examId), Number(classId));
+      if (!req.isCurrent(mine)) return;
+      setSheet(data);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
       setSheet(null);
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [examId, classId, t]);
+  }, [examId, classId, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -133,7 +145,12 @@ export default function ExamsReport({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, subjects]);
 
-  const passed = rows.filter((r) => r.is_passed).length;
+  // Out of the students whose marks are IN, not out of everyone on the roll.
+  // Dividing by `rows.length` made a class of forty with twenty entered read
+  // 50% while Exams → Results read 100% for the same data — and this is the
+  // one of the two that gets exported.
+  const marked = rows.filter((r) => Object.keys(r.marks ?? {}).length > 0);
+  const passed = marked.filter((r) => r.is_passed).length;
 
   return (
     <div className="space-y-4">
@@ -177,11 +194,17 @@ export default function ExamsReport({
       {classId && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <ReportStat label={t('Students')} value={formatNumber(rows.length)} />
+            <ReportStat
+              label={t('Students')}
+              value={formatNumber(rows.length)}
+              sub={rows.length === marked.length
+                ? undefined
+                : `${formatNumber(rows.length - marked.length)} ${t('without marks')}`}
+            />
             <ReportStat label={t('Passed')} value={formatNumber(passed)} />
             <ReportStat
               label={t('Pass rate')}
-              value={formatPercent(share(passed, rows.length))}
+              value={formatPercent(share(passed, marked.length))}
               sub={sheet?.is_published ? t('Published') : t('Not published')}
             />
           </div>

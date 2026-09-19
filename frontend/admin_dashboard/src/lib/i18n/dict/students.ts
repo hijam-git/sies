@@ -137,6 +137,7 @@ const students: Record<string, string> = {
   'A login is not part of this. Open the student record to give them one.':
     'লগইন এর অংশ নয়। প্রয়োজনে শিক্ষার্থীর রেকর্ড খুলে চালু করুন।',
   'Could not admit this applicant.': 'আবেদনকারীকে ভর্তি করা যায়নি।',
+  'Could not load the class list.': 'শ্রেণি তালিকা আনা যায়নি।',
 };
 
 export default students;

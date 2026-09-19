@@ -172,7 +172,13 @@ export default function InvoicesTab({
     setDetail(fee);
     setPayments(null);
     setActionError(null);
-    apiClient.feePayments(fee.id).then(setPayments).catch(() => setPayments([]));
+    // A failure is NOT an empty list. Reported as one, a part-paid invoice
+    // read "Nothing has been collected against this invoice" and the reverse
+    // controls — which only exist beside a receipt — disappeared with it.
+    apiClient
+      .feePayments(fee.id)
+      .then(setPayments)
+      .catch((err) => setActionError(apiErrorText(err, t, t('Could not load the receipts for this invoice.'))));
   };
 
   const runAction = async () => {

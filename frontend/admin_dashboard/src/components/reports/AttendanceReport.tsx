@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../../lib/api';
 import type { AcademicClass, MonthRegister, Session } from '../../lib/api';
+import { useAuth } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatNumber, formatPercent } from '../../lib/format';
 import type { Period } from '../../lib/period';
 import ExportCsvButton from '../common/ExportCsvButton';
@@ -74,6 +76,10 @@ export default function AttendanceReport({
   const [view, setView] = useState<'classes' | 'defaulters'>('classes');
   const [sessionId, setSessionId] = useState('');
   const [registers, setRegisters] = useState<MonthRegister[]>([]);
+  /** Classes whose register did not load. They are dropped from the figures
+   *  below, and a headline percentage computed over the survivors with no
+   *  sign of it is the kind of wrong number nobody checks. */
+  const [missing, setMissing] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +105,29 @@ export default function AttendanceReport({
     [classes, session],
   );
 
+  /* Every load here is keyed on a filter the user can change while the request
+   * is in the air, and the slower of two answers wins by landing last. The
+   * debounce below does not cover it — it only cancels a request that has not
+   * started. `req` says whether this answer is still the one being waited for.
+   */
+  // `/attendance/register/` is addressed by CLASS, so it answers 404 while a
+  // platform admin is looking at every institution at once — there is no
+  // register of all of them. Every class then failed, the failures were
+  // swallowed, and the report drew a confident zero. Asking for an institution
+  // first is the honest screen.
+  const { user, activeBranchId } = useAuth();
+  const needsBranch = user?.branch === null && activeBranchId === null;
+
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
+    if (needsBranch) {
+      setRegisters([]);
+      setMissing(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -110,13 +138,20 @@ export default function AttendanceReport({
             .catch(() => null),
         ),
       );
+      if (!req.isCurrent(mine)) return;
       setRegisters(results.filter((r): r is MonthRegister => r !== null));
+      // A class whose register failed is dropped from the list above, and the
+      // institution-wide percentage below is then computed over the survivors.
+      // Saying how many are missing is the difference between an understated
+      // figure and a wrong one.
+      setMissing(results.filter((r) => r === null).length);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [sessionClasses, month, t]);
+  }, [sessionClasses, month, needsBranch, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -204,6 +239,18 @@ export default function AttendanceReport({
       </p>
 
       <FormError message={error} />
+
+      {needsBranch && (
+        <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          {t('Choose an institution in the header to read its registers.')}
+        </p>
+      )}
+
+      {missing > 0 && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {`${formatNumber(missing)} ${t('classes could not be read, and are not in these figures.')}`}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <ReportStat label={t('Classes')} value={formatNumber(classRows.length)} />

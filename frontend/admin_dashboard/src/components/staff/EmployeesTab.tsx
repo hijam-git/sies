@@ -4,6 +4,7 @@ import type { Employee } from '../../lib/api';
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatDhakaDate } from '../../lib/timezone';
 import BaseModal from '../common/BaseModal';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
@@ -57,7 +58,12 @@ export default function EmployeesTab() {
   const mayCreate = can('employees', 'create');
   const mayUpdate = can('employees', 'update');
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
     try {
@@ -65,14 +71,16 @@ export default function EmployeesTab() {
       if (search.trim()) query.set('search', search.trim());
       if (statusFilter) query.set('employment_status', statusFilter);
       const data = await apiClient.list<Employee>('/employees/', `?${query}`);
+      if (!req.isCurrent(mine)) return;
       setRows(data.results);
       setTotal(data.count);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the employees.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [page, search, statusFilter, t]);
+  }, [page, search, statusFilter, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -194,7 +202,9 @@ export default function EmployeesTab() {
         active={!!(search || statusFilter)}
         onClear={() => {
           setSearch('');
-          setStatusFilter('');
+          // Back to serving staff, which is what the screen opens on — not to
+          // 'every status', which puts resigned staff into today's roster.
+          setStatusFilter('active');
           setPage(1);
         }}
       >

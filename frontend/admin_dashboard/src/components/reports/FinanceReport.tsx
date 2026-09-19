@@ -3,6 +3,7 @@ import { apiClient } from '../../lib/api';
 import type { Branch, LedgerEntry, Session } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatBDTExact, formatNumber, formatPercent } from '../../lib/format';
 import type { Period } from '../../lib/period';
 import { periodLabel } from '../../lib/period';
@@ -72,7 +73,13 @@ export default function FinanceReport({
   );
   const session = sessionId || currentSession;
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. `req` says
+   * whether this answer is still the one being waited for. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setError(null);
     try {
@@ -83,14 +90,16 @@ export default function FinanceReport({
         apiClient.listAll<LedgerEntry>('/income/', query),
         apiClient.listAll<LedgerEntry>('/expenses/', query),
       ]);
+      if (!req.isCurrent(mine)) return;
       setIncome(incomeRows);
       setExpenses(expenseRows);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [session, t]);
+  }, [session, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);

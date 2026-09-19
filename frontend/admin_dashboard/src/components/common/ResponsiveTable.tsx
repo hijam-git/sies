@@ -92,9 +92,15 @@ export default function ResponsiveTable<T>({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-        {empty}
-      </div>
+      <>
+        <div className="rounded-xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+          {empty}
+        </div>
+        {/* The footer is usually the pagination, and returning without it left
+            a reader who deleted the last row of page 3 on an empty screen with
+            no way back to page 1. */}
+        {footer}
+      </>
     );
   }
 

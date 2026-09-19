@@ -188,6 +188,7 @@ const fees: Record<string, string> = {
   'No fee heads yet. They are seeded when the institution is created.':
     'এখনো কোনো ফি খাত নেই। প্রতিষ্ঠান তৈরির সময় এগুলো যুক্ত হয়।',
   'The fee head could not be saved.': 'ফি খাতটি সংরক্ষণ করা যায়নি।',
+  'Could not load the receipts for this invoice.': 'এই বিলের রসিদ আনা যায়নি।',
 };
 
 export default fees;

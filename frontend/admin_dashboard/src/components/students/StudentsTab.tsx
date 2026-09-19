@@ -4,6 +4,7 @@ import type { AcademicClass, Enrolment, Section, Session, Student, Stream } from
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import Picker from '../common/Picker';
@@ -87,8 +88,10 @@ export default function StudentsTab({
     void apiClient
       .listAll<Enrolment>('/enrolments/', `?session=${sessionId}&is_active=true`)
       .then(setEnrolments)
-      .catch(() => setEnrolments([]));
-  }, [sessionId]);
+      // Not silently empty: this is what puts a class and a section beside
+      // every name, and a blank Class column reads like "not enrolled".
+      .catch((err) => setLoadError(apiErrorText(err, t, t('Could not load the class list.'))));
+  }, [sessionId, t]);
 
   const enrolmentOf = useMemo(() => {
     const byStudent = new Map<number, Enrolment>();
@@ -107,7 +110,15 @@ export default function StudentsTab({
     return ids;
   }, [enrolments, classFilter, sectionFilter]);
 
+  /* Every load here is keyed on a filter the user can change while the request
+   * is in the air, and the slower of two answers wins by landing last. The
+   * debounce below does not cover it — it only cancels a request that has not
+   * started. `req` says whether this answer is still the one being waited for.
+   */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
     const filters = new URLSearchParams();
@@ -118,20 +129,23 @@ export default function StudentsTab({
     try {
       if (byClassSection) {
         const all = await apiClient.listAll<Student>('/students/', `?${filters}`);
+        if (!req.isCurrent(mine)) return;
         const matching = all.filter((s) => byClassSection.has(s.id));
         setTotal(matching.length);
         setRows(matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
       } else {
         const data = await apiClient.list<Student>('/students/', `?${filters}&page=${page}`);
+        if (!req.isCurrent(mine)) return;
         setRows(data.results);
         setTotal(data.count);
       }
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the students.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [page, search, streamFilter, statusFilter, byClassSection, t]);
+  }, [page, search, streamFilter, statusFilter, byClassSection, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);

@@ -211,14 +211,22 @@ export default function AssignmentsTab({
   // other optimistic move on the board alone.
 
   const runWrite = async (card: Card, apply: (p: Placement) => Placement, send: () => Promise<void>) => {
-    const before = place;
     setBusy((b) => ({ ...b, [card.key]: true }));
     setError(null);
+    // The slice this card owns, read at the moment of the move. `place` as a
+    // whole is the wrong snapshot: with two moves in flight, the second one's
+    // copy predates the first, so B failing put A back on screen while the
+    // server had kept it — and these rows are access grants, so the admin then
+    // believed a teacher had no access when they did.
+    const beforeClass = card.kind === 'class' ? place.classTeacher[card.id] ?? null : null;
+    const beforeSubject = card.kind === 'class' ? undefined : place.subject[card.id];
     setPlace(apply);
     try {
       await send();
     } catch (err) {
-      setPlace(before);
+      setPlace((current) => (card.kind === 'class'
+        ? { ...current, classTeacher: { ...current.classTeacher, [card.id]: beforeClass } }
+        : { ...current, subject: { ...current.subject, [card.id]: beforeSubject } }));
       setError(apiErrorText(err, t, t('Could not save this assignment.')));
       setAnnounce(t('That did not save — the card went back.'));
     } finally {

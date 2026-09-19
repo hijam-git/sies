@@ -3,6 +3,7 @@ import { apiClient } from '../../lib/api';
 import type { AcademicClass, Admission, Enrolment, Section, Session, Stream } from '../../lib/api';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatNumber } from '../../lib/format';
 import type { Period } from '../../lib/period';
 import { periodLabel } from '../../lib/period';
@@ -27,6 +28,14 @@ import { groupBy, inPeriod, monthOf, periodRange } from './reportUtils';
  */
 
 type View = 'strength' | 'admissions' | 'withdrawals';
+
+/** The two ways a student leaves, as a reader would say them. The raw enum was
+ *  being printed straight onto the screen and into the CSV, in both
+ *  languages — `withdrawn`, in a Bengali report. */
+const LEAVING_LABEL: Record<string, string> = {
+  withdrawn: 'Withdrawn',
+  transferred: 'Transferred',
+};
 
 interface StrengthRow {
   key: string;
@@ -71,7 +80,13 @@ export default function StudentsReport({
   );
   const session = sessionId || currentSession;
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. `req` says
+   * whether this answer is still the one being waited for. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setError(null);
     try {
@@ -80,6 +95,7 @@ export default function StudentsReport({
         apiClient.listAll<Enrolment>('/enrolments/', query),
         apiClient.listAll<Admission>('/admissions/', query).catch(() => [] as Admission[]),
       ]);
+      if (!req.isCurrent(mine)) return;
       setEnrolments(enrolmentRows);
       setAdmissions(admissionRows);
       // Gender comes from the student record, not the enrolment, and the boys /
@@ -93,11 +109,12 @@ export default function StudentsReport({
         ),
       );
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load this report.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [session, t]);
+  }, [session, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -267,7 +284,7 @@ export default function StudentsReport({
                 ...withdrawals.map((e) => [
                   e.student_name,
                   className(e.academic_class),
-                  e.status,
+                  t(LEAVING_LABEL[e.status] ?? e.status),
                   e.left_on ?? '',
                 ]),
               ]}
@@ -277,7 +294,7 @@ export default function StudentsReport({
             columns={[
               { key: 'student', label: t('Student'), primary: true, render: (e) => e.student_name },
               { key: 'class', label: t('Class'), render: (e) => className(e.academic_class) },
-              { key: 'status', label: t('Status'), render: (e) => e.status },
+              { key: 'status', label: t('Status'), render: (e) => t(LEAVING_LABEL[e.status] ?? e.status) },
               { key: 'left', label: t('Left on'), render: (e) => e.left_on ?? '—' },
             ]}
             rows={withdrawals}

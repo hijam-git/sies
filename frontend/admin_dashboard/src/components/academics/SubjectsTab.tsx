@@ -4,6 +4,7 @@ import type { Subject } from '../../lib/api';
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import BaseModal from '../common/BaseModal';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
@@ -76,7 +77,12 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
     ? classChoice
     : preferredClassId(data.classes, ownTeacherId);
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     if (!classId) {
       setRows([]);
       return;
@@ -84,13 +90,16 @@ export default function SubjectsTab({ data }: { data: AcademicsData }) {
     setLoading(true);
     setLoadError(null);
     try {
-      setRows(await apiClient.listAll<Subject>('/subjects/', `?academic_class=${classId}`));
+      const data = await apiClient.listAll<Subject>('/subjects/', `?academic_class=${classId}`);
+      if (!req.isCurrent(mine)) return;
+      setRows(data);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the subjects.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [classId, t]);
+  }, [classId, req, t]);
 
   // Deferred by a tick rather than called from the effect body: `load` sets
   // state synchronously, which during an effect cascades a render before the

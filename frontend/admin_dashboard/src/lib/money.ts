@@ -36,9 +36,13 @@ export function toPaisa(amount: string | number | null | undefined): number {
   const wholeDigits = whole.replace(/\D/g, '') || '0';
   // Pad, then cut: "5" is fifty poisha, "5678" is fifty-six (the API never
   // sends more than two, but a truncating parse is the safe one).
-  const fractionDigits = `${fraction.replace(/\D/g, '')}00`.slice(0, 2);
+  // Pad to three, then round the third away: "1250.509" is 125051 poisha, not
+  // 125050. The API sends two decimals, but a preview computed on screen can
+  // produce a third, and truncating it made the receipt and the "balance
+  // remaining" line disagree by a poisha.
+  const fractionDigits = `${fraction.replace(/\D/g, '')}000`.slice(0, 3);
 
-  const value = Number(wholeDigits) * 100 + Number(fractionDigits);
+  const value = Number(wholeDigits) * 100 + Math.round(Number(fractionDigits) / 10);
   return Number.isFinite(value) ? (negative ? -value : value) : 0;
 }
 

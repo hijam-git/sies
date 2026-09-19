@@ -14,6 +14,7 @@ import type {
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary } from '../common/styles';
 import { currentMonthInDhaka, todayInDhaka } from '../../lib/timezone';
@@ -121,7 +122,12 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
     if (classId) onSectionsNeeded(classId);
   }, [classId, onSectionsNeeded]);
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     if (!classId) {
       setRegister(null);
       return;
@@ -134,7 +140,12 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
         section: sectionId ? Number(sectionId) : null,
         month,
       });
+      if (!req.isCurrent(mine)) return;
       setRegister(data);
+      // The draft is dropped here because the grid it belongs to is gone. The
+      // guard that asks first is on the controls that change class, section or
+      // month — nudging the month arrow with twenty cells marked used to
+      // discard all twenty silently.
       setDraft(new Map());
       setSkipped([]);
       setSavedCount(null);
@@ -144,12 +155,13 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
       const todayIndex = data.days.findIndex((d) => d.date === today);
       setDayIndex(todayIndex >= 0 ? todayIndex : Math.max(0, data.days.length - 1));
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setRegister(null);
       setLoadError(apiErrorText(err, t, t('Could not load the register.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [classId, sectionId, month, t]);
+  }, [classId, sectionId, month, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 100);
@@ -564,6 +576,18 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
     </div>
   );
 
+  /** Changing class, section or month reloads the grid, and the grid is where
+   *  the unsaved marks live. Twenty cells marked and the month arrow nudged
+   *  used to discard all twenty with no prompt — a confirm is the whole fix,
+   *  and it only appears when there is something to lose. */
+  const leavingDraft = (go: () => void) => {
+    if (draft.size > 0
+        && !window.confirm(t('You have unsaved attendance on this grid. Leave it?'))) {
+      return;
+    }
+    go();
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -571,10 +595,10 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Class')}</span>
           <Picker
             value={classId}
-            onChange={(v) => {
+            onChange={(v) => leavingDraft(() => {
               setClassChoice(v);
               setSectionId('');
-            }}
+            })}
             options={classes.map((c) => ({ value: String(c.id), label: c.name_bn || c.name }))}
             emptyLabel={t('No classes are assigned to you.')}
           />
@@ -584,7 +608,7 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
           <span className="mb-1 block text-sm font-medium text-gray-700">{t('Section')}</span>
           <Picker
             value={sectionId}
-            onChange={setSectionId}
+            onChange={(v) => leavingDraft(() => setSectionId(v))}
             options={classSections.map((s) => ({ value: String(s.id), label: s.name_bn || s.name }))}
             anyLabel={t('Whole class')}
           />
@@ -599,7 +623,7 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setMonth(shiftMonth(month, -1))}
+              onClick={() => leavingDraft(() => setMonth(shiftMonth(month, -1)))}
               className={`${btnSecondary} shrink-0`}
               aria-label={t('Previous month')}
             >
@@ -608,12 +632,13 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
             <input
               type="month"
               value={month}
-              onChange={(e) => e.target.value && setMonth(e.target.value)}
+              onChange={(e) => e.target.value
+                && leavingDraft(() => setMonth(e.target.value))}
               className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="button"
-              onClick={() => setMonth(shiftMonth(month, 1))}
+              onClick={() => leavingDraft(() => setMonth(shiftMonth(month, 1)))}
               className={`${btnSecondary} shrink-0`}
               aria-label={t('Next month')}
             >

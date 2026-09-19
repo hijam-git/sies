@@ -6,6 +6,7 @@ import type {
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatBDTExact, formatNumber, toBanglaDigits } from '../../lib/format';
 import { formatDhakaDate, todayInDhaka } from '../../lib/timezone';
 import { thisMonthRange } from '../../lib/defaults';
@@ -106,7 +107,12 @@ export default function LedgerTab({
 
   const dateNarrowed = from !== '' || to !== '';
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
 
@@ -120,27 +126,31 @@ export default function LedgerTab({
       const [summaryData] = await Promise.all([
         apiClient.ledgerSummary(path, `?${q}`),
       ]);
+      if (!req.isCurrent(mine)) return;
       setSummary(summaryData);
 
       if (dateNarrowed) {
         const all = await apiClient.listAll<LedgerEntry>(path, `?${q}`);
+        if (!req.isCurrent(mine)) return;
         const matching = all.filter((r) => (!from || r.date >= from) && (!to || r.date <= to));
         setTotal(matching.length);
         setRows(matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
       } else {
         const data = await apiClient.list<LedgerEntry>(path, `?${q}&page=${page}`);
+        if (!req.isCurrent(mine)) return;
         setRows(data.results);
         setTotal(data.count);
       }
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the ledger.')));
       setRows([]);
       setTotal(0);
       setSummary(null);
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [path, search, category, page, dateNarrowed, from, to, t]);
+  }, [path, search, category, page, dateNarrowed, from, to, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -463,6 +473,12 @@ function LedgerEntryModal({
         try {
           await apiClient.uploadLedgerAttachment<LedgerEntry>(PATH[kind], saved.id, file);
         } catch (err) {
+          // The row exists. Remembering it turns the next Save into a PATCH of
+          // that row rather than a second POST — without this, a scan that
+          // failed to upload left the modal open with Save enabled and
+          // `entry` still null, and pressing it again booked the expense twice.
+          setEntry(saved);
+          setFile(null);
           setFormError(
             `${t('The entry was saved, but the attachment did not upload.')} ${apiErrorText(err, t, '')}`.trim(),
           );

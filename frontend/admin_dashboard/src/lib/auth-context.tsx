@@ -18,6 +18,10 @@ interface AuthContextType {
   /** 11-digit phone + password. There is no other way in. */
   login: (phone: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-read `/auth/me/`. Used after a change that the server records on the
+   *  account itself — a password change clearing `must_change_password` — where
+   *  the screen must stop asking without a reload. */
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 
   // ── Branch switching, platform admin only ─────────────────────────────
@@ -177,10 +181,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // `role_name`, not `role`: the preset table here is keyed by name, and the
   // API's `role` is a database id that differs between deployments.
-  const permissions = useMemo(
-    () => effectivePermissions(user && { permissions: user.permissions, role: user.role_name }),
-    [user],
-  );
+  const permissions = useMemo(() => {
+    // `effective_permissions` is what the SERVER enforces, so it is what the
+    // screen should gate on. Resolving it here again meant an account whose
+    // every box an admin had just unticked — an empty effective list — fell
+    // through to the hard-coded preset, and the SPA offered every nav row and
+    // control they had just been denied, each ending in a 403.
+    if (user?.effective_permissions) return user.effective_permissions;
+    return effectivePermissions(user && { permissions: user.permissions, role: user.role_name });
+  }, [user]);
+
+  const refreshUser = useCallback(async () => {
+    const current = await apiClient.getCurrentUser();
+    if (current) setUser(current);
+  }, []);
 
   const value: AuthContextType = useMemo(() => ({
     user,
@@ -190,11 +204,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearError,
     login,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
     branches,
     activeBranchId,
     setActiveBranchId,
-  }), [user, permissions, loading, error, clearError, login, logout, branches, activeBranchId, setActiveBranchId]);
+  }), [user, permissions, loading, error, clearError, login, logout, refreshUser, branches, activeBranchId, setActiveBranchId]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

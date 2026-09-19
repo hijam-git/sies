@@ -97,6 +97,11 @@ const reports: Record<string, string> = {
   'Highest': 'সর্বোচ্চ',
   'No marks have been entered for this class.': 'এই শ্রেণির কোনো নম্বর দেওয়া হয়নি।',
   'Nobody has passed this exam yet.': 'এই পরীক্ষায় এখনো কেউ উত্তীর্ণ হয়নি।',
+  'classes could not be read, and are not in these figures.':
+      'শ্রেণির হাজিরা আনা যায়নি, তাই এই হিসাবে নেই।',
+  'without marks': 'নম্বর দেওয়া হয়নি',
+  'Choose an institution in the header to read its registers.':
+    'রেজিস্টার দেখতে উপরের তালিকা থেকে একটি প্রতিষ্ঠান বাছুন।',
 };
 
 export default reports;

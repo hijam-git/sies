@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, usePermissions } from '../lib/auth-context';
+import ChangePasswordModal from '../components/account/ChangePasswordModal';
 import { useT, LanguageToggle } from '../lib/i18n';
 import NavIcon from '../components/common/NavIcon';
 import { ALL_NAV_PATHS, NAV_ITEMS, OVERVIEW } from './navigation';
@@ -98,6 +99,9 @@ export default function DashboardLayout() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  /** Opened from the user menu, and forced open below when the account is
+   *  still on the password an admin handed over. */
+  const [changingPassword, setChangingPassword] = useState(false);
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
 
   // The platform admin is the operator of SIES; everybody else belongs to one
@@ -320,6 +324,7 @@ export default function DashboardLayout() {
   );
 
   return (
+    <>
     <div className="min-h-dvh bg-gray-50">
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       {/* One 56px bar at every width. The left block is exactly the sidebar's
@@ -432,6 +437,19 @@ export default function DashboardLayout() {
                     <div className="border-t border-gray-100 p-1.5">
                       <button
                         role="menuitem"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setChangingPassword(true);
+                        }}
+                        className="flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        {t('Change password')}
+                      </button>
+                      <button
+                        role="menuitem"
                         onClick={logout}
                         className="flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] font-medium text-gray-700 transition-colors hover:bg-red-50 hover:text-red-700"
                       >
@@ -505,5 +523,17 @@ export default function DashboardLayout() {
         </main>
       </div>
     </div>
+
+      {/* Every account an admin creates carries `must_change_password`, because
+          the password was said out loud to hand it over. Nothing enforced it:
+          the endpoint had no caller and no screen offered it, so every
+          temporary password stayed live. Forced, this modal has no way out. */}
+      {(changingPassword || user?.must_change_password) && (
+        <ChangePasswordModal
+          forced={!changingPassword && !!user?.must_change_password}
+          onClose={() => setChangingPassword(false)}
+        />
+      )}
+    </>
   );
 }

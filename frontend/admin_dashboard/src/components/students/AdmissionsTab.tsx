@@ -14,6 +14,7 @@ import type {
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import { formatDhakaDate, todayInDhaka } from '../../lib/timezone';
 import BaseModal from '../common/BaseModal';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
@@ -245,7 +246,12 @@ export default function AdmissionsTab({
   // screen to read.
   const sessionFilter = sessionChoice ?? defaultSession;
 
+  /* The filter can change while the request is in the air, and the slower of
+   * two answers wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     setLoadError(null);
     try {
@@ -254,14 +260,21 @@ export default function AdmissionsTab({
       if (statusFilter) query.set('status', statusFilter);
       if (sessionFilter) query.set('session', sessionFilter);
       const data = await apiClient.list<Admission>('/admissions/', `?${query}`);
+      if (!req.isCurrent(mine)) return;
       setRows(data.results);
       setTotal(data.count);
+      // Ticks belong to the page they were made on. Kept across a page change,
+      // the toolbar counted seven and "Print selected forms" printed the two
+      // that happened to still be on screen — a count that lies about what the
+      // button is going to do, on a button that issues paper.
+      setSelected((prev) => prev.filter((id) => data.results.some((row) => row.id === id)));
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the applications.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [page, search, statusFilter, sessionFilter, t]);
+  }, [page, search, statusFilter, sessionFilter, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -586,7 +599,11 @@ export default function AdmissionsTab({
         onClear={() => {
           setSearch('');
           setStatusFilter('');
-          setSessionChoice('');
+          // `null`, not `''`: null is "no choice, use the current session" and
+          // empty string is "every session". Clearing to the latter put three
+          // years of applications on a screen whose own comment says that is
+          // not what an admission clerk opens it to read (§7b).
+          setSessionChoice(null);
           setPage(1);
         }}
       >
@@ -872,6 +889,10 @@ export default function AdmissionsTab({
               <button
                 type="button"
                 onClick={() => setAdmitDraft(null)}
+                // Not while the admission is in flight: it commits server-side
+                // either way, and this panel is the only place the new student
+                // id, admission number and roll are ever shown.
+                disabled={saving}
                 className={`${btnSecondary} flex-1`}
               >
                 {t('Cancel')}

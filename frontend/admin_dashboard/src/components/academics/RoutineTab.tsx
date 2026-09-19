@@ -4,6 +4,7 @@ import type { ClassRoutine, DayOfWeek, Period, Section, Subject } from '../../li
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import { useRequestId } from '../../lib/useRequestId';
 import BaseModal from '../common/BaseModal';
 import Field, { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
@@ -101,15 +102,23 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
       apiClient
         .listAll<Period>('/periods/', '?is_active=true&ordering=order')
         .then(setPeriods)
-        .catch(() => setPeriods([])),
-    [],
+        // An empty period list renders "Add a period above before building the
+        // routine", which on a school with a full bell schedule invites the
+        // user to add a second copy of one. A failure says so instead.
+        .catch((err) => setLoadError(apiErrorText(err, t, t('Could not load the bell schedule.')))),
+    [t],
   );
 
   useEffect(() => {
     void loadPeriods();
   }, [loadPeriods]);
 
+  /* Two answers race whenever the session or class changes mid-flight, and the
+   * slower one wins by landing last — under the new heading. */
+  const req = useRequestId();
+
   const load = useCallback(async () => {
+    const mine = req.begin();
     if (!sessionId) {
       setAllRoutines([]);
       setSubjects([]);
@@ -131,15 +140,17 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
           ? apiClient.listAll<Section>('/sections/', `?academic_class=${classId}&is_active=true`)
           : Promise.resolve([] as Section[]),
       ]);
+      if (!req.isCurrent(mine)) return;
       setAllRoutines(routines);
       setSubjects(subjectRows);
       setSections(sectionRows);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setLoadError(apiErrorText(err, t, t('Could not load the routine.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [sessionId, classId, t]);
+  }, [sessionId, classId, req, t]);
 
   // Deferred by a tick, not called straight from the effect body: `load` sets
   // state synchronously, and doing that during an effect cascades a render

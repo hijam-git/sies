@@ -19,6 +19,12 @@ describe('poisha arithmetic', () => {
     expect(toPaisa('')).toBe(0);
     expect(toPaisa(null)).toBe(0);
     expect(toPaisa('-40.25')).toBe(-4025);
+    // A third decimal rounds rather than truncating: it is only ever produced
+    // by a figure computed on screen, and truncating it made the "balance
+    // remaining" preview and the printed receipt disagree by a poisha.
+    expect(toPaisa('1250.509')).toBe(125051);
+    expect(toPaisa('1250.504')).toBe(125050);
+    expect(toPaisa('0.999')).toBe(100);
   });
 
   it('round-trips through the string form the API uses', () => {
