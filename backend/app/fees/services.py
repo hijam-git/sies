@@ -323,41 +323,43 @@ def raise_admission_fees(*, enrolment=None, student=None, amounts=None,
     transaction** (docs/02 §4.1), so a student never exists without the invoices
     admitting them creates. Returns the list of invoices actually raised.
 
-    `amounts` is `{'ADM': Decimal('1000'), 'SES': Decimal('500')}`. It has to be
-    passed, and this is the V1 gap worth naming: `FeeStructure` — the table that
-    says what a class costs per category — is V2 (docs/05 §5.4), and the only
-    price V1 stores is `AcademicClass.monthly_fee`, which is the *monthly*
-    tuition and nothing else. So a category with no price resolves to nothing
-    and is skipped rather than raised at zero: an invoice for ৳0 looks paid,
-    prints, and hides the fact that nobody set the admission fee.
+    `amounts` is `{'ADM': Decimal('1000'), 'SES': Decimal('500')}` — what this
+    particular admission charges, which wins when it is given. Without it each
+    head is priced from its own `default_amount`, set on Fees → Fee setup, so
+    an institution that priced its heads once does not have to repeat the
+    figure on every admission.
+
+    A head with neither is skipped rather than raised at zero: an invoice for
+    ৳0 looks paid, prints, and hides the fact that nobody set the admission fee.
     """
     if enrolment is None:
         raise CodedError('An enrolment is required to raise admission fees.',
                          'enrolment_required')
 
     amounts = amounts or {}
-    if not amounts:
-        # Nothing priced, nothing to raise — and returning before touching the
-        # enrolment matters: `admit_student()` is the caller, and its own tests
-        # stand a stub in for the enrolment service. A hook that read fields off
-        # the enrolment merely to decide it had no work would make this module
-        # a dependency of every admission test in the project.
+    branch = getattr(enrolment, 'branch', None)
+    if branch is None:
+        # A stand-in enrolment. `admit_student()` is the caller and its own
+        # tests substitute the enrolment service, whose stand-in carries no
+        # branch — there is nothing to price against, so nothing to raise.
         return []
 
     student = student or enrolment.student
-    branch = enrolment.branch
     raised = []
 
     for code in ('ADM', 'SES'):
-        amount = amounts.get(code)
-        if amount is None:
-            continue
-
         category = FeeCategory.objects.filter(
             branch=branch, code=code, is_active=True,
         ).first()
         if category is None:
             logger.warning('Branch %s has no active %s fee category', branch.code, code)
+            continue
+
+        # This admission's own figure first, then the head's standing price.
+        amount = amounts.get(code)
+        if amount is None:
+            amount = category.default_amount
+        if amount is None:
             continue
 
         fee, created = raise_fee(
@@ -408,32 +410,41 @@ def _applies_to_enrolment(category, enrolment):
 def monthly_amount(category, enrolment, *, amounts=None):
     """What this category costs this student this month, or None if unpriced.
 
-    V1 has exactly one stored price — `AcademicClass.monthly_fee` — because
-    `FeeStructure` is V2 (docs/05 §5.4). So:
+    Three price sources, most specific first:
 
-    * a general monthly category (Monthly Fee) is priced from the class;
-    * a hostel- or transport-only category has **no V1 price source**, and
-      returns None unless the caller passes one in `amounts`.
+    * `amounts` — what this run was told to charge, which is how a one-off
+      generation prices a head differently for a month;
+    * `AcademicClass.monthly_fee` — the per-class tuition, and **only** for a
+      general head: it is the tuition, not the hostel and not the bus;
+    * `FeeCategory.default_amount` — the institution's own price for this head,
+      typed on Fees → Fee setup.
+
+    The third used to be missing, which made that screen a lie: the field was
+    served by the API and editable, an accountant set ৳500 against Transport
+    Fee, and the monthly job still skipped it as unpriced. `FeeStructure` — a
+    price per class *and* head — is still V2 (docs/05 §5.4); this is the
+    per-institution price, which is what the seeded heads are.
 
     Returning None rather than 0 is deliberate. A ৳0 hostel invoice is
     indistinguishable from a paid one on every screen, so it would quietly
     replace "nobody has set the hostel fee" with "this student owes nothing" —
     and by the time anyone notices, a term of hostel fees was never billed.
-    See the note in the phase report: docs/03 §7 needs a per-branch price for
-    these three heads.
     """
     override = (amounts or {}).get(category.code)
     if override is not None:
         return money(override, category.code)
 
     rule = category.applies_to or {}
-    if rule.get('hostel_only') or rule.get('transport_only'):
-        return None
+    restricted = bool(rule.get('hostel_only') or rule.get('transport_only'))
 
-    fee = getattr(enrolment.academic_class, 'monthly_fee', None)
-    if fee is None:
-        return None
-    return money(fee, 'monthly_fee')
+    if not restricted:
+        fee = getattr(enrolment.academic_class, 'monthly_fee', None)
+        if fee is not None:
+            return money(fee, 'monthly_fee')
+
+    if category.default_amount is not None:
+        return money(category.default_amount, category.code)
+    return None
 
 
 def current_period(on_date=None):

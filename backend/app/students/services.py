@@ -332,12 +332,12 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
     # by `fees` (Fee points at Student), and a module-level import here would
     # close the loop into a circular import (CLAUDE.md §2).
     #
-    # `fee_amounts` is `{'ADM': Decimal(...), 'SES': Decimal(...)}` and comes
-    # from the caller because V1 stores no price for either head —
-    # `FeeStructure` is V2 and `AcademicClass.monthly_fee` is the monthly
-    # tuition only (docs/05 §5.4). Passing nothing raises nothing, which is the
-    # honest outcome: a ৳0 admission invoice would print, look paid, and hide
-    # the fact that the fee was never set.
+    # `fee_amounts` is `{'ADM': Decimal(...), 'SES': Decimal(...)}` — what THIS
+    # admission charges, for the student admitted on a concession or a raised
+    # rate. Left out, each head falls back to its own `default_amount` from
+    # Fees → Fee setup, so the usual admission needs no figure here. A head
+    # priced nowhere raises nothing, which is the honest outcome: a ৳0
+    # admission invoice would print, look paid, and hide that nobody set it.
     from fees.services import raise_admission_fees
 
     raise_admission_fees(enrolment=enrolment, student=student,

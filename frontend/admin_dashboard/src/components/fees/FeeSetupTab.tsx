@@ -23,20 +23,15 @@ import { RECURRENCES } from './feeConstants';
  * error, because from the job's point of view nothing was wrong. So every row
  * missing an amount is called out here, in the row and in a count at the top.
  *
- * ### What this screen cannot do, and says so rather than pretending
+ * ### The amount is editable, and the screen decides that from the payload
  *
- * `FeeCategorySerializer` on the live API does **not expose `default_amount`**.
- * The column is on the model and the seeded rows all have it null; the field is
- * simply not in the serializer's `fields`, so a PATCH carrying it is accepted
- * and silently drops the value — DRF ignores keys it does not know. Rendering an
- * editable box over that would be a control that appears to work and does not,
- * which is worse than not offering it.
- *
- * So the amount is shown read-only with an explanation, and the rest of the row
- * — recurrence, who it applies to, mandatory, active — edits normally. When the
- * field is added to the serializer this screen picks it up with no change: the
- * input is enabled by the field being **present in the payload**, not by a
- * version flag.
+ * `default_amount` was once on the model but missing from
+ * `FeeCategorySerializer`, so a PATCH carrying it was accepted and silently
+ * dropped — every head stayed unpriced and the monthly job raised nothing. The
+ * serializer carries it now, and `amountServed` below reads that off the rows
+ * themselves rather than off a version flag: present in the payload means the
+ * input is enabled and sent, absent means it is shown read-only with the
+ * reason. An API that loses the field again degrades instead of pretending.
  */
 
 export default function FeeSetupTab({

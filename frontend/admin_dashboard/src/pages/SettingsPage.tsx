@@ -7,7 +7,6 @@ import { apiErrorText, apiFieldErrors } from '../lib/apiErrors';
 import { useTabParam } from '../lib/useTabParam';
 import TabStrip from '../components/common/TabStrip';
 import type { TabDef } from '../components/common/TabStrip';
-import PhasePlaceholder from './PhasePlaceholder';
 import StreamsSessionsTab from '../components/settings/StreamsSessionsTab';
 import FormTemplatesTab from '../components/forms/FormTemplatesTab';
 import QuestionsTab from '../components/forms/QuestionsTab';
@@ -17,22 +16,24 @@ import { draftFrom, draftToPayload, emptyDraft } from '../components/settings/br
 import type { BranchDraft } from '../components/settings/branchDraft';
 
 /**
- * Settings — one page, four tabs.
+ * Settings — the institution's own configuration, five tabs, all built.
  *
- * The sidebar carries no sub-items, so the alternatives live here as a tab
- * strip. Two of the four are built: the institution's own record, and its
- * streams and sessions. The other two keep `PhasePlaceholder` **inside the tab
- * panel**, so the shape of the finished screen is visible without pretending
- * the feature exists.
+ * The sidebar lists the same five as sub-items; the tab strip is the other
+ * door to them (`pages/navigation.ts`).
+ *
+ * **Fee heads are not here.** They were a placeholder on this page while fees
+ * were unbuilt, and the finished screen went where the money is — Fees → Fee
+ * setup, beside the invoices it prices (`components/fees/FeeSetupTab`). Two
+ * doors to one editor is one door too many, and the placeholder outlived the
+ * feature it stood in for (`CLAUDE.md` §2a).
  */
 
-type Tab = 'institution' | 'streams' | 'grading' | 'fee-categories' | 'form-templates' | 'questions';
+type Tab = 'institution' | 'streams' | 'grading' | 'form-templates' | 'questions';
 
 const TABS: Tab[] = [
   'institution',
   'streams',
   'grading',
-  'fee-categories',
   'form-templates',
   'questions',
 ];
@@ -173,7 +174,6 @@ export default function SettingsPage() {
     { key: 'institution', label: t('Institution') },
     { key: 'streams', label: t('Streams & Sessions') },
     { key: 'grading', label: t('Grading') },
-    { key: 'fee-categories', label: t('Fee categories') },
     { key: 'form-templates', label: t('Form templates') },
     // The question bank sits beside the templates rather than inside one: a
     // question with no template is reusable across every form this institution
@@ -192,7 +192,6 @@ export default function SettingsPage() {
           {t('You do not have permission to do this.')}
         </div>
       )}
-      {tab === 'fee-categories' && <PhasePlaceholder labelKey="Fee categories" phase={3} />}
       {tab === 'grading' && <GradingTab branchId={branchId} />}
       {tab === 'form-templates' && <FormTemplatesTab />}
       {tab === 'questions' && <QuestionsTab />}

@@ -14,7 +14,7 @@ promoted into `08-decisions.md`; this file is the trail.
 | Phase | Contents | State |
 |-------|----------|-------|
 | 0a | Backend skeleton — `core` app, middleware, base models | ✅ done, 16 tests green |
-| 0b | Frontend shell — SPA ported from Awliaa myadmin | ⚠️ done — responsive verified by CSS audit, not rendered (F16) |
+| 0b | Frontend shell — SPA ported from Awliaa myadmin | ✅ done — responsiveness now verified by rendering, 48/48 (F16 closed) |
 | 0c | Infra — Traefik, env, scripts, prod compose | ✅ done |
 | 1 | `accounts` + `branches` | ✅ backend + screens |
 | 2 | `academics` + `students` + `staff` | ✅ backend · screens 🔄 · `forms` 🔄 |
@@ -391,3 +391,48 @@ served to the SPA, and a first-class `Role` row with a `permission_matrix` JSON
 is directly serialisable, whereas Groups need a parallel lookup table that has to
 be kept in step. This also removes Awliaa's `get_staff_role()` string-matching
 against a hard-coded `['Manager', 'Staff']` list.
+
+---
+
+## Handover pass — closing what was owed
+
+**F34 — a placeholder outlived the feature it stood in for.** Settings kept a
+`PhasePlaceholder` on "Fee categories" from when fees were unbuilt, and the
+sidebar listed it as a sub-item. Fee heads have had a real screen since Phase 3,
+at Fees → Fee setup, beside the invoices they price. So the tab and its nav
+entry are removed rather than pointed at the same editor: two doors to one
+screen is one door too many, and `CLAUDE.md` §2a calls a live-backend
+placeholder a bug, not a pending task. A bookmark carrying the old
+`?tab=fee-categories` falls back to the first tab — `useTabParam` already does
+that for an unknown value — rather than rendering an empty panel; checked in a
+browser, not assumed.
+
+**F35 — `FeeSetupTab`'s own docstring had gone stale in the same way.** It still
+said `default_amount` was missing from `FeeCategorySerializer` and that the
+amount was therefore read-only. The field was added to the serializer when that
+finding was fixed; the screen had already adapted on its own, because
+`amountServed` reads the field's presence off the payload rather than off a
+version flag. Only the prose was wrong, which is the kind of comment that sends
+the next reader looking for a bug that is not there.
+
+**F36 — a head priced on Fee setup raised no invoice.** The screen serves and
+edits `FeeCategory.default_amount`, and nothing read it: `monthly_amount()`
+priced a general head from `AcademicClass.monthly_fee` and returned None for a
+hostel- or transport-only head unless the caller passed a figure, while
+`raise_admission_fees()` returned early whenever `amounts` was empty. So an
+accountant could type ৳300 against Transport Fee, watch it save, and the monthly
+job would still count it unpriced — silently, because from the job's side
+nothing was wrong. Both now fall back to the head's own price, in a stated
+order: the run's own figure, then the class tuition (general heads only,
+because it *is* the tuition), then `default_amount`. Priced nowhere still
+raises nothing — a ৳0 invoice prints and looks paid, which is the failure this
+rule exists to avoid. Nine tests in `fees/tests/test_pricing.py` pin the order,
+including the stand-in enrolment `admit_student()`'s own tests rely on.
+
+**Both items owed in `ACCEPTANCE.md` §5 are now done by running them.**
+Responsiveness is verified by rendering twelve screens at four widths — 48/48
+clean — which closes F16. A backup was restored: `pg_dump -Fc` of the live dev
+database into a scratch database, every table compared (students 144, invoices
+227, payments 57, marks 96, all equal) and the money still balancing in the copy
+(receipts ৳85,500 = posted income ৳85,500). Server and client are both
+PostgreSQL 16.11, so F6's version-skew trap is not present here.

@@ -104,9 +104,20 @@ be judged by using it rather than by reading a report:
 
 ## 5. Stated honestly, not quietly
 
-Two things are still owed and will be reported as owed rather than glossed:
+Both of these were owed for most of the build and are now done, by running
+them rather than by reasoning about them:
 
-- [ ] **Responsiveness verified by rendering**, at 360 / 390 / 768 / 1280 — not
-      by auditing the emitted CSS, which is all that has happened so far (F16).
-- [ ] **A restore actually performed** from `auto_backup.sh` output. A backup
-      never restored is not a backup (F6).
+- [x] **Responsiveness verified by rendering**, at 360 / 390 / 768 / 1280.
+      A headless Chromium walks twelve screens at the four widths — 48 renders —
+      and fails on a body that scrolls sideways, a control under 28px
+      (`CLAUDE.md` §7a rule 4, compact controls) or an input under 16px on a
+      phone. Last run: **48/48 clean**. This replaces the CSS audit F16 called
+      out as not good enough.
+- [x] **A restore actually performed.** `pg_dump -Fc` of the live dev database,
+      restored into a scratch database, row counts compared table by table:
+      students 144 = 144, enrolments 144 = 144, invoices 227 = 227, payments
+      57 = 57, income rows 57 = 57, marks 96 = 96 — and the money still
+      balances in the copy (receipts ৳85,500 = posted income ৳85,500). Server
+      and client are both PostgreSQL 16.11, so the version-skew trap of F6 is
+      not present. The scratch database is dropped at the end; nothing the dev
+      stack uses is touched.
