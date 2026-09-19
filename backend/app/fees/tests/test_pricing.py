@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from fees.models import Fee
+from fees.models import Fee, FeeCategory, Recurrence
 from fees.services import generate_monthly_fees, raise_admission_fees
 
 from .factories import FeeFixture, category, make_enrolment
@@ -122,3 +122,69 @@ class AdmissionPriceSourceTests(FeeFixture, TestCase):
 
         stand_in = SimpleNamespace(pk=1, student=None, session=self.session)
         self.assertEqual(raise_admission_fees(enrolment=stand_in), [])
+
+
+class SecondMonthlyHeadTests(FeeFixture, TestCase):
+    """The class tuition prices the tuition, and only the tuition.
+
+    "General head" used to mean "not hostel and not transport", so an
+    institution that added a second monthly head — Electricity at ৳200, priced
+    on Fees → Fee setup — had every student billed the class's ৳500 tuition for
+    it instead, every month, with nothing on any screen to say so.
+    """
+
+    def setUp(self):
+        self.build_fixture()
+        self.electricity = FeeCategory.objects.create(
+            branch=self.branch, code='ELC', name='Electricity', name_bn='বিদ্যুৎ বিল',
+            recurrence=Recurrence.MONTHLY, default_amount=Decimal('200.00'),
+        )
+
+    def test_a_second_monthly_head_is_priced_from_its_own_figure(self):
+        generate_monthly_fees(self.branch, period='2026-03')
+
+        fee = Fee.objects.get(student=self.enrolment.student, category=self.electricity)
+        self.assertEqual(fee.amount, Decimal('200.00'))
+
+    def test_the_tuition_head_still_takes_the_class_price(self):
+        generate_monthly_fees(self.branch, period='2026-03')
+
+        fee = Fee.objects.get(student=self.enrolment.student, category__code='MON')
+        self.assertEqual(fee.amount, self.academic_class.monthly_fee)
+
+
+class CancelledInvoiceTests(FeeFixture, TestCase):
+    """A month cancelled by mistake has to be raisable again.
+
+    The pre-check and the unique constraint both counted cancelled rows, so
+    `generate_monthly_fees` skipped that (student, category, period) for good —
+    a soft delete that quietly took the month with it.
+    """
+
+    def setUp(self):
+        self.build_fixture()
+
+    def test_a_cancelled_invoice_does_not_block_the_month(self):
+        generate_monthly_fees(self.branch, period='2026-03')
+        fee = Fee.objects.get(student=self.enrolment.student, category__code='MON')
+        fee.is_active = False
+        fee.save(update_fields=['is_active'])
+
+        generate_monthly_fees(self.branch, period='2026-03')
+
+        live = Fee.objects.filter(student=self.enrolment.student,
+                                  category__code='MON', is_active=True)
+        self.assertEqual(live.count(), 1)
+        self.assertNotEqual(live.first().pk, fee.pk)
+        # The cancelled row is still there: it is the record of the cancellation.
+        self.assertTrue(Fee.objects.filter(pk=fee.pk, is_active=False).exists())
+
+    def test_a_live_invoice_still_blocks_a_second_one(self):
+        generate_monthly_fees(self.branch, period='2026-03')
+        generate_monthly_fees(self.branch, period='2026-03')
+
+        self.assertEqual(
+            Fee.objects.filter(student=self.enrolment.student,
+                               category__code='MON').count(),
+            1,
+        )

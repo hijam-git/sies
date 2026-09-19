@@ -153,8 +153,13 @@ class BranchAccessTests(TestCase):
         self.assertFalse(Branch.objects.filter(code='SNK').exists())
 
     @needs_user_branch
-    def test_a_branch_user_cannot_update_even_their_own_institution(self):
-        """Renaming an institution is the platform operator's job (docs/08 D1)."""
+    def test_a_branch_user_cannot_rename_even_their_own_institution(self):
+        """Renaming an institution is the platform operator's job (docs/08 D1).
+
+        Its *settings* are a different question, and the test below is the other
+        half of the line: the identity is the platform's record of who its
+        customer is, and a rename would follow onto every receipt printed since.
+        """
         self.client.force_authenticate(make_branch_user(self.a))
 
         response = self.client.patch(
@@ -164,6 +169,39 @@ class BranchAccessTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.a.refresh_from_db()
         self.assertEqual(self.a.name, 'Dhaka Madrasah')
+
+    @needs_user_branch
+    def test_a_principal_runs_their_own_institutions_settings(self):
+        """`branches.update` is in the Principal preset for this.
+
+        `fine_rule` and `restrict_teachers_to_assigned_classes` are edited on
+        Settings → Institution and there is no second endpoint, so a blanket
+        platform-admin check on update made an institution's own policy
+        unreachable for the one person it exists for.
+        """
+        self.client.force_authenticate(make_branch_user(self.a))
+
+        response = self.client.patch(
+            f'/api/branches/{self.a.pk}/',
+            {'restrict_teachers_to_assigned_classes': False}, format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.a.refresh_from_db()
+        self.assertFalse(self.a.restrict_teachers_to_assigned_classes)
+        self.assertEqual(self.a.name, 'Dhaka Madrasah')
+
+    @needs_user_branch
+    def test_a_principal_still_cannot_touch_another_institution(self):
+        """404, not 403 — the id must not confirm the institution exists."""
+        self.client.force_authenticate(make_branch_user(self.a))
+
+        response = self.client.patch(
+            f'/api/branches/{self.b.pk}/',
+            {'restrict_teachers_to_assigned_classes': False}, format='json',
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_a_platform_admin_lists_every_institution(self):
         self.client.force_authenticate(make_platform_admin())

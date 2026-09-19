@@ -220,3 +220,38 @@ class GradeScaleApiTests(TestCase):
         client = APIClient()
         client.force_authenticate(other['principal'])
         self.assertEqual(client.get(self.url).status_code, 404)
+
+
+class OptionalSubjectPercentageTests(TestCase):
+    """The optional (4th) subject can only help — in the percentage too.
+
+    Its marks used to go into the printed total, so a student who sat an extra
+    paper and scored modestly in it looked *worse* for having taken it: 80 and
+    80 with an optional 20 printed as 60%. The GPA path had always excluded it;
+    the percentage did not.
+    """
+
+    scale = preset_scale(GPA)
+
+    def test_an_optional_paper_does_not_lower_the_percentage(self):
+        _, result = evaluate(self.scale, [
+            paper('Bangla', '80'), paper('Math', '80'),
+            paper('Agriculture', '20', optional=True),
+        ])
+
+        self.assertEqual(result['percentage'], D('80.00'))
+
+    def test_the_same_marks_without_the_optional_paper_read_the_same(self):
+        _, result = evaluate(self.scale, [paper('Bangla', '80'), paper('Math', '80')])
+
+        self.assertEqual(result['percentage'], D('80.00'))
+
+    def test_a_strong_optional_paper_still_lifts_the_gpa(self):
+        """Excluded from the total, included in the bonus — both halves of the rule."""
+        _, with_optional = evaluate(self.scale, [
+            paper('Bangla', '60'), paper('Math', '60'),
+            paper('Agriculture', '90', optional=True),
+        ])
+        _, without = evaluate(self.scale, [paper('Bangla', '60'), paper('Math', '60')])
+
+        self.assertGreater(with_optional['gpa'], without['gpa'])

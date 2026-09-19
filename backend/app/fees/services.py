@@ -248,9 +248,13 @@ def raise_fee(*, branch, student, category, session, amount, period='',
     behaviour there too.
     """
     period = period or ''
+    # `is_active=True`: a cancelled invoice is soft-deleted (CLAUDE.md §4.2), and
+    # counting it here meant a month cancelled by mistake could never be raised
+    # again — `generate_monthly_fees` skipped that (student, category, period)
+    # for good, with nothing on any screen to say why.
     existing = Fee.objects.filter(
         branch=branch, student=student, category=category,
-        period=period, session=session,
+        period=period, session=session, is_active=True,
     ).first()
     if existing is not None:
         return existing, False
@@ -271,7 +275,10 @@ def raise_fee(*, branch, student, category, session, amount, period='',
         category=category,
         session=session,
         period=period,
-        invoice_no=next_invoice_no(branch),
+        # Filled inside the savepoint below, not here: a number reserved in the
+        # outer transaction survives a lost unique-constraint race and leaves a
+        # gap in a series the office quotes by number.
+        invoice_no='',
         amount=amount,
         discount=discount,
         fine=ZERO,
@@ -286,13 +293,14 @@ def raise_fee(*, branch, student, category, session, amount, period='',
 
     try:
         with transaction.atomic():
+            fee.invoice_no = next_invoice_no(branch)
             fee.save()
     except IntegrityError:
         # Lost the race, or the invoice was raised between the pre-check and
         # here. The winner's row is what the caller wanted either way.
         existing = Fee.objects.filter(
             branch=branch, student=student, category=category,
-            period=period, session=session,
+            period=period, session=session, is_active=True,
         ).first()
         if existing is None:
             raise
@@ -407,6 +415,10 @@ def _applies_to_enrolment(category, enrolment):
     return True
 
 
+#: The monthly বেতন, the one head `AcademicClass.monthly_fee` prices.
+TUITION_CODE = 'MON'
+
+
 def monthly_amount(category, enrolment, *, amounts=None):
     """What this category costs this student this month, or None if unpriced.
 
@@ -414,8 +426,9 @@ def monthly_amount(category, enrolment, *, amounts=None):
 
     * `amounts` — what this run was told to charge, which is how a one-off
       generation prices a head differently for a month;
-    * `AcademicClass.monthly_fee` — the per-class tuition, and **only** for a
-      general head: it is the tuition, not the hostel and not the bus;
+    * `AcademicClass.monthly_fee` — the per-class tuition, and **only** for the
+      tuition head: it is the monthly বেতন, not the hostel, not the bus, and not
+      the electricity charge an institution adds later;
     * `FeeCategory.default_amount` — the institution's own price for this head,
       typed on Fees → Fee setup.
 
@@ -434,10 +447,11 @@ def monthly_amount(category, enrolment, *, amounts=None):
     if override is not None:
         return money(override, category.code)
 
-    rule = category.applies_to or {}
-    restricted = bool(rule.get('hostel_only') or rule.get('transport_only'))
-
-    if not restricted:
+    # `MON` and nothing else. "Not hostel and not transport" was the wrong
+    # test: an institution that adds a second monthly head — Electricity at
+    # ৳200, priced on Fees → Fee setup — had every student billed the class
+    # tuition for it instead, every month, silently.
+    if category.code == TUITION_CODE:
         fee = getattr(enrolment.academic_class, 'monthly_fee', None)
         if fee is not None:
             return money(fee, 'monthly_fee')

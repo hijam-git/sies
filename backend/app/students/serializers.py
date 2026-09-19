@@ -14,41 +14,18 @@ against Chittagong's session.
 from rest_framework import serializers
 
 from accounts.phone import normalize_bd_phone
-from core.middleware import get_branch
+from core.serializers import check_same_branch, request_branch_id  # noqa: F401
 
 from .models import (Admission, Document, DocumentOwner, Guardian, Student,
                      StudentGuardian)
 
 
-def request_branch_id(serializer):
-    """The branch id this write belongs to, or None if it cannot be worked out.
-
-    `get_branch()` and not `request.branch`: the latter is a `SimpleLazyObject`
-    and an `is None` check against it silently passes for everyone (CLAUDE.md
-    §5). A platform admin's `?branch=` arrives as a string, which is why the id
-    is what is returned rather than the object.
-    """
-    request = serializer.context.get('request')
-    branch = get_branch(request) if request is not None else None
-
-    if hasattr(branch, 'pk'):
-        return branch.pk
-    if isinstance(branch, str) and branch.isdigit():
-        return int(branch)
-    # ALL_BRANCHES or an unresolved scope: fall back to the row being edited, so
-    # a platform admin patching an existing student is still checked against
-    # *that student's* institution rather than against nothing at all.
-    return getattr(serializer.instance, 'branch_id', None)
-
-
-def check_same_branch(serializer, value, message):
-    """Reject a related row belonging to another institution."""
-    if value is None:
-        return value
-    branch_id = request_branch_id(serializer)
-    if branch_id is not None and value.branch_id != branch_id:
-        raise serializers.ValidationError(message)
-    return value
+# `request_branch_id` and `check_same_branch` now live in `core.serializers`,
+# imported above and re-exported for the `validate_*` methods below. They were
+# written here first and copied into `academics` and `staff` by hand; the copies
+# drifted — two of them could not read a platform admin's `?branch=5`, which is
+# a string — so there is one of each now, and `BranchSafeSerializer` for whole
+# serializers that would otherwise have to remember every field.
 
 
 class GuardianSerializer(serializers.ModelSerializer):

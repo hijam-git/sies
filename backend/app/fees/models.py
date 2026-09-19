@@ -299,8 +299,15 @@ class Fee(BranchScopedModel):
             # Fee per session unless the caller distinguishes the invoices by
             # `period`. That is the documented behaviour of the key docs/03 §7
             # specifies, and the reason `raise_fee()` takes `period` explicitly.
+            # The constraint the monthly job's idempotency rests on, and it is
+            # **partial**: a cancelled invoice is soft-deleted, not removed, and
+            # while it counted here a month cancelled by mistake could never be
+            # raised again — generation skipped that (student, category, period)
+            # for good. One LIVE invoice per period per head is the rule; the
+            # cancelled ones stay as the record of what was cancelled.
             models.UniqueConstraint(
                 fields=['branch', 'student', 'category', 'period', 'session'],
+                condition=models.Q(is_active=True),
                 name='fee_unique_per_student_category_period',
             ),
             # Printed on a slip the guardian keeps.

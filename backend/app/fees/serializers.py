@@ -17,13 +17,15 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from core.serializers import BranchSafeSerializer
+
 from .models import (Fee, FeeCategory, FeeStatus, Payment, PaymentMethod,
                      Recurrence)
 
 MONEY = {'max_digits': 12, 'decimal_places': 2}
 
 
-class FeeCategorySerializer(serializers.ModelSerializer):
+class FeeCategorySerializer(BranchSafeSerializer):
     class Meta:
         model = FeeCategory
         fields = [
@@ -44,8 +46,14 @@ class FeeCategorySerializer(serializers.ModelSerializer):
         return (value or '').strip().upper()
 
 
-class FeeSerializer(serializers.ModelSerializer):
-    """One invoice. `amount`, `discount` and `due_date` are the writable half."""
+class FeeSerializer(BranchSafeSerializer):
+    """One invoice. `amount`, `discount` and `due_date` are the writable half.
+
+    `BranchSafeSerializer` because `student`, `enrolment`, `category` and
+    `session` are writable FKs: without it a POST naming another institution's
+    student raised an invoice in this branch against their child, and `collect/`
+    would then take money on it and post the income.
+    """
 
     student_name = serializers.CharField(source='student.name', read_only=True)
     student_admission_no = serializers.CharField(
@@ -77,6 +85,7 @@ class FeeSerializer(serializers.ModelSerializer):
         return str(fee.balance)
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         amount = attrs.get('amount', getattr(self.instance, 'amount', None))
         discount = attrs.get('discount', getattr(self.instance, 'discount', None))
         if amount is not None and discount is not None and discount > amount:
@@ -87,7 +96,7 @@ class FeeSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentSerializer(BranchSafeSerializer):
     """A receipt. Entirely read-only — it is written by `collect_fee()` only."""
 
     student_name = serializers.CharField(source='student.name', read_only=True)

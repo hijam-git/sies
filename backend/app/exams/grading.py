@@ -218,8 +218,14 @@ def evaluate(scale, papers):
         else:
             band = scale.fail_band()
 
-        total_full += full
-        total_obtained += obtained
+        if not paper['is_optional']:
+            # The optional (4th) subject is out of the percentage for the same
+            # reason it is out of the GPA divisor: it can only add. Counting its
+            # marks in the total made *taking* it lower the printed percentage —
+            # 80 and 80 with an optional 20 read as 60%, and a student who sat
+            # an extra paper looked worse for it.
+            total_full += full
+            total_obtained += obtained
 
         if paper['is_optional']:
             # Board rule: the optional subject can only help, and only by what

@@ -18,12 +18,12 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import HasResourcePermission
+from accounts.permissions import HasResourcePermission, has_permission
 from accounts.services import ActivityLogMixin
 from core.middleware import get_branch
 from core.viewsets import BranchScopedReadOnlyViewSet, BranchScopedViewSet
@@ -160,6 +160,19 @@ class AdmissionFormView(AdmissionScopedView):
 
     def get(self, request, pk):
         admission = self.get_admission(request, pk)
+
+        # `mode=filled` **writes**: `print_form` allocates a form number under a
+        # lock and inserts a `PrintedForm`. A plain `APIView` has no `action`, so
+        # `HasResourcePermission` priced this GET at `documents.view` — a
+        # read-only account could loop the URL and exhaust the institution's
+        # numbered series. Blank mode records nothing and stays a read.
+        if request.GET.get('mode') != 'blank' and not has_permission(
+            request.user, 'documents', 'upload',
+        ):
+            raise PermissionDenied(
+                'Printing a filled form issues a form number · '
+                'পূরণ করা ফরম ছাপলে ফরম নম্বর ইস্যু হয়।'
+            )
 
         template = None
         requested = request.GET.get('template')

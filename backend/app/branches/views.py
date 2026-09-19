@@ -15,6 +15,7 @@ rule for another institution's rows.
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 
@@ -78,10 +79,28 @@ class BranchViewSet(mixins.ListModelMixin,
     ordering_fields = ['name', 'code', 'created_at']
 
     def get_permissions(self):
-        if self.action in ('create', 'update', 'partial_update'):
-            required = 'branches.create' if self.action == 'create' else 'branches.update'
-            return [IsAuthenticated(), IsPlatformAdmin(), HasPermission(required)()]
+        if self.action == 'create':
+            # Creating an institution is the platform's act, not an
+            # institution's.
+            return [IsAuthenticated(), IsPlatformAdmin(), HasPermission('branches.create')()]
+        if self.action in ('update', 'partial_update'):
+            # **No `IsPlatformAdmin` here**, and `perform_update` draws the line
+            # instead. `branches.update` is in the Principal preset and the
+            # settings screen edits `fine_rule` and
+            # `restrict_teachers_to_assigned_classes` through this endpoint, so
+            # a blanket platform-admin check made an institution's own settings
+            # unreachable for the one person they exist for. Editing *another*
+            # institution stays impossible: `get_queryset()` returns only their
+            # own, so the id answers 404 (CLAUDE.md §5).
+            return [IsAuthenticated(), HasPermission('branches.update')()]
         return [IsAuthenticated(), HasPermission('branches.view')()]
+
+    #: What an institution may not change about itself. Its identity is the
+    #: platform's record of who its customer is (docs/08 D1) — a principal
+    #: renaming their own madrasah renames it in the operator's list and on
+    #: every receipt printed since. The settings below the identity are theirs.
+    PLATFORM_ONLY_FIELDS = ('name', 'name_bn', 'name_ar', 'code',
+                            'institution_type', 'is_active')
 
     def get_queryset(self):
         """Every institution for the platform admin; their own for anyone else.
@@ -123,6 +142,17 @@ class BranchViewSet(mixins.ListModelMixin,
         )
 
     def perform_update(self, serializer):
+        # An institution runs its own settings; the platform owns its identity.
+        if own_branch(self.request.user) is not None:
+            locked = sorted(
+                field for field in self.PLATFORM_ONLY_FIELDS
+                if field in serializer.validated_data
+            )
+            if locked:
+                raise PermissionDenied(
+                    'Only the platform operator can change an institution’s '
+                    'identity · প্রতিষ্ঠানের পরিচয় কেবল প্ল্যাটফর্ম অপারেটর বদলাতে পারেন।'
+                )
         serializer.save(updated_by=self.request.user)
 
     @action(detail=False, methods=['get'], url_path='mine')

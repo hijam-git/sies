@@ -28,6 +28,8 @@ from core.middleware import ALL_BRANCHES, get_branch
 from core.viewsets import BranchScopedViewSet, writable_branch
 from accounts.services import ActivityLogMixin
 
+from academics.viewsets import TeacherScopedMixin
+
 from .models import Admission, Document, Guardian, Student, StudentGuardian
 from .serializers import (AdmissionSerializer, AdmitSerializer,
                           DocumentSerializer, GuardianSerializer,
@@ -44,13 +46,21 @@ def _no_such_branch():
     raise ValidationError({'branch': 'No institution with that id.'})
 
 
-class StudentViewSet(ActivityLogMixin, BranchScopedViewSet):
+class StudentViewSet(ActivityLogMixin, TeacherScopedMixin, BranchScopedViewSet):
     """Student records — identity only. Class and section come from Enrolment.
 
     No `destroy`: `is_active` is the soft delete (CLAUDE.md §4.2), and a student
     is pointed at by fees, marks and attendance, so a hard delete would be
     refused by PROTECT anyway. Deactivating is a PATCH.
+
+    **Teacher-scoped** (docs/08 D6), reached through the enrolment. Without it,
+    `students.view` — which a teacher needs to see their own roster — read every
+    student in the institution: phone, NID, address and guardians, including the
+    classes the attendance screen bars them from. The register was scoped and
+    the record behind it was not.
     """
+
+    teacher_scope_field = 'enrolments__academic_class'
 
     queryset = Student.objects.select_related('stream', 'branch', 'user').all()
     serializer_class = StudentSerializer
@@ -62,6 +72,10 @@ class StudentViewSet(ActivityLogMixin, BranchScopedViewSet):
         # `students` has no `manage`. Declared rather than inferred so nobody has
         # to read POST_IS_AN_UPDATE to know what the endpoint costs.
         'enable_login': 'update',
+        # GET lists them, POST attaches one, and the pair used to cost
+        # `students.update` for both halves — so a teacher who may read a
+        # student could not read the guardian's phone number on the same record.
+        # Resolved per method in `get_permissions` below.
         'guardians': 'update',
     }
     activity_model = 'Student'
@@ -69,6 +83,12 @@ class StudentViewSet(ActivityLogMixin, BranchScopedViewSet):
     search_fields = ['name', 'name_bn', 'student_id', 'phone',
                      'birth_certificate_no', 'village', 'upazila']
     ordering_fields = ['name', 'student_id', 'admitted_on', 'created_at']
+
+    def get_permissions(self):
+        if self.action == 'guardians' and self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            self.permission_action_map = {**self.permission_action_map,
+                                          'guardians': 'view'}
+        return super().get_permissions()
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -144,13 +164,17 @@ class StudentViewSet(ActivityLogMixin, BranchScopedViewSet):
                         status=status.HTTP_201_CREATED)
 
 
-class GuardianViewSet(ActivityLogMixin, BranchScopedViewSet):
+class GuardianViewSet(ActivityLogMixin, TeacherScopedMixin, BranchScopedViewSet):
     """Parents and local guardians — contact records shared between siblings.
 
     Under the `students` resource, not one of its own: the catalogue (docs/02
     §2.1) has no `guardians` entry, and whoever may edit a student is exactly
     who may correct their father's phone number.
     """
+
+    # Through the student, for the same reason the student list is scoped: a
+    # guardian record is a parent's phone number and NID.
+    teacher_scope_field = 'student_links__student__enrolments__academic_class'
 
     queryset = Guardian.objects.select_related('branch').all()
     serializer_class = GuardianSerializer
@@ -281,7 +305,7 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
         return section
 
 
-class DocumentViewSet(ActivityLogMixin, BranchScopedViewSet):
+class DocumentViewSet(ActivityLogMixin, TeacherScopedMixin, BranchScopedViewSet):
     """Certificates, testimonials and scans — for students, teachers and employees.
 
     The files are **never** reachable by URL (docs/01 §8): `file` is write-only
@@ -289,6 +313,12 @@ class DocumentViewSet(ActivityLogMixin, BranchScopedViewSet):
     `/media/documents/...` path would be a permanent, unauthenticated grant to
     whoever happens to have seen it, and these are minors' birth certificates.
     """
+
+    # A document owned by a teacher or an employee carries no student and so
+    # no class; `teacher_scope_field` would exclude it. That is the safe side of
+    # the line — a scoped teacher reads student documents for their own classes
+    # and nobody's personnel file.
+    teacher_scope_field = 'student__enrolments__academic_class'
 
     queryset = Document.objects.select_related('branch', 'student').all()
     serializer_class = DocumentSerializer

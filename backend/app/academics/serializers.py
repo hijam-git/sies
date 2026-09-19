@@ -12,29 +12,22 @@ nothing about a plain FK stops them *writing* a pointer at somebody else's class
 
 from rest_framework import serializers
 
-from core.middleware import get_branch
+from core.serializers import request_branch_id
 
 from .models import (AcademicClass, ClassRoutine, Enrolment, Period, Section,
                      Subject, SubjectAssignment)
 
 
-def _request_branch_id(serializer):
-    """The institution this write belongs to, or None if it cannot be told.
-
-    None only happens for a platform admin who gave no `?branch=` on a create —
-    and `BranchScopedMixin.perform_create` answers that with a 400 before any of
-    this matters.
-    """
-    branch = get_branch(serializer.context['request'])
-    branch_id = getattr(branch, 'pk', None)
-    if branch_id is None and serializer.instance is not None:
-        branch_id = serializer.instance.branch_id
-    return branch_id
-
-
 def _reject_foreign(serializer, **rows):
-    """Raise if any named row belongs to a different institution."""
-    branch_id = _request_branch_id(serializer)
+    """Raise if any named row belongs to a different institution.
+
+    The branch id comes from `core.serializers`, which is the version that
+    understands a platform admin's `?branch=5` — it arrives as a **string**, and
+    the local `getattr(branch, 'pk', None)` this module used to carry read None
+    for it, decided it could not tell, and skipped the check entirely for
+    exactly the account that can reach every institution.
+    """
+    branch_id = request_branch_id(serializer)
     if branch_id is None:
         return
 

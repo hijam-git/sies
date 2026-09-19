@@ -629,8 +629,13 @@ The brief's fee row, minus the payment fields that moved to `Payment`.
 | `waived_by`, `waive_reason` | |
 | `generated_by` | `system` / `manual` |
 
-`unique_together (branch, student, category, period, session)` — **this is the
-constraint that makes the monthly job safe to run twice** (`01` §4).
+`unique_together (branch, student, category, period, session)`, **partial on
+`is_active`** — this is the constraint that makes the monthly job safe to run
+twice (`01` §4). Partial because a cancelled invoice is a soft delete: while it
+counted here, a month cancelled by mistake could never be raised again, and
+generation skipped that (student, category, period) for good. One *live*
+invoice per period per head; the cancelled rows stay as the record of the
+cancellation.
 
 Indexes: `(branch, status, due_date)` for the dues report, `(student, session)`
 for the student's fee history.
@@ -857,7 +862,7 @@ ActivityLog (global, append-only) — V1, powers the live feed (08 D8)
 | Constraint | Prevents |
 |------------|----------|
 | `User.phone` unique, 11 digits, normalised | Duplicate humans, login ambiguity |
-| `Fee` unique on `(branch, student, category, period, session)` | The monthly job double-charging |
+| `Fee` unique on `(branch, student, category, period, session)` where `is_active` | The monthly job double-charging |
 | `DailyAttendance` — THREE partial unique constraints, one per person type | Two conflicting attendance records for one day. `unique_together` over the nullable FKs does NOT do this: Postgres treats NULLs as distinct (§6) |
 | `Mark` unique on `(exam, student, subject)` | Two marks for one paper |
 | `Enrolment` unique on `(branch, session, class, section, roll)` | Two students on one roll |

@@ -9,6 +9,8 @@ in the collection's transaction.
 
 from rest_framework import serializers
 
+from core.serializers import BranchSafeSerializer
+
 from .models import (Expense, ExpenseCategory, Income, IncomeCategory,
                      LedgerMethod)
 
@@ -19,7 +21,7 @@ class LedgerCategorySerializerMixin:
 
 
 class IncomeCategorySerializer(LedgerCategorySerializerMixin,
-                               serializers.ModelSerializer):
+                               BranchSafeSerializer):
     fee_category_code = serializers.CharField(
         source='fee_category.code', read_only=True, default='',
     )
@@ -33,7 +35,7 @@ class IncomeCategorySerializer(LedgerCategorySerializerMixin,
 
 
 class ExpenseCategorySerializer(LedgerCategorySerializerMixin,
-                                serializers.ModelSerializer):
+                                BranchSafeSerializer):
     class Meta:
         model = ExpenseCategory
         fields = ['id', 'code', 'name', 'name_bn', 'note', 'note_bn',
@@ -42,7 +44,7 @@ class ExpenseCategorySerializer(LedgerCategorySerializerMixin,
         read_only_fields = ['id', 'is_system', 'created_at', 'updated_at']
 
 
-class LedgerEntrySerializer(serializers.ModelSerializer):
+class LedgerEntrySerializer(BranchSafeSerializer):
     """The fields Income and Expense share, and the ones neither may accept."""
 
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -62,10 +64,15 @@ class LedgerEntrySerializer(serializers.ModelSerializer):
             'is_reversed', 'reversed_at', 'reversed_by', 'reverse_reason',
             'is_active', 'created_at', 'updated_at',
         ]
+        # `is_approved` is read-only with the rest of the approval trio. It
+        # was writable while `approved_by` and `approved_at` were not, so any
+        # holder of `income.create` could post a voucher already approved, by
+        # nobody, at no time — an approval step that recorded no approver is
+        # worse than none, because the ledger claims one happened.
         read_only_fields = [
-            'id', 'voucher_no', 'source', 'recorded_by', 'approved_by',
-            'approved_at', 'is_reversed', 'reversed_at', 'reversed_by',
-            'reverse_reason', 'created_at', 'updated_at',
+            'id', 'voucher_no', 'source', 'recorded_by', 'is_approved',
+            'approved_by', 'approved_at', 'is_reversed', 'reversed_at',
+            'reversed_by', 'reverse_reason', 'created_at', 'updated_at',
         ]
 
 

@@ -12,7 +12,7 @@ is a client-chosen collision.
 from rest_framework import serializers
 
 from branches.models import Stream
-from core.middleware import get_branch
+from core.serializers import BranchSafeSerializer, request_branch_id
 
 from .models import Employee, Teacher, TeacherQualification
 
@@ -46,10 +46,7 @@ class PersonProfileSerializerMixin:
         if value is None:
             return value
 
-        branch = get_branch(self.context['request'])
-        branch_id = getattr(branch, 'pk', None)
-        if branch_id is None and self.instance is not None:
-            branch_id = self.instance.branch_id
+        branch_id = request_branch_id(self)
         if branch_id is None:
             return value
 
@@ -67,6 +64,7 @@ class PersonProfileSerializerMixin:
         nullable and the interesting failure is a typo on a form — which deserves
         a field error, not an integrity error the form cannot attach to an input.
         """
+        attrs = super().validate(attrs)
         joining = attrs.get('joining_date', getattr(self.instance, 'joining_date', None))
         leaving = attrs.get('leaving_date', getattr(self.instance, 'leaving_date', None))
         if joining and leaving and leaving < joining:
@@ -77,7 +75,7 @@ class PersonProfileSerializerMixin:
         return attrs
 
 
-class TeacherQualificationSerializer(serializers.ModelSerializer):
+class TeacherQualificationSerializer(BranchSafeSerializer):
     class Meta:
         model = TeacherQualification
         fields = ['id', 'teacher', 'degree', 'institution', 'year', 'result',
@@ -85,8 +83,7 @@ class TeacherQualificationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_teacher(self, value):
-        branch = get_branch(self.context['request'])
-        branch_id = getattr(branch, 'pk', None)
+        branch_id = request_branch_id(self)
         if branch_id is not None and value.branch_id != branch_id:
             # A 400 rather than a 404: the caller named a teacher, and the honest
             # answer is that this teacher is not theirs to write against. The row
@@ -98,7 +95,7 @@ class TeacherQualificationSerializer(serializers.ModelSerializer):
         return value
 
 
-class TeacherSerializer(PersonProfileSerializerMixin, serializers.ModelSerializer):
+class TeacherSerializer(PersonProfileSerializerMixin, BranchSafeSerializer):
     """A teacher and everything the staff screens render for one."""
 
     # Writable as a list of ids, validated against the caller's own branch below.
@@ -143,7 +140,7 @@ class TeacherSerializer(PersonProfileSerializerMixin, serializers.ModelSerialize
         return value
 
 
-class EmployeeSerializer(PersonProfileSerializerMixin, serializers.ModelSerializer):
+class EmployeeSerializer(PersonProfileSerializerMixin, BranchSafeSerializer):
     employment_status_display = serializers.CharField(
         source='get_employment_status_display', read_only=True,
     )

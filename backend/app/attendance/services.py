@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from academics.models import Enrolment, EnrolmentStatus, Period
@@ -280,10 +281,19 @@ def month_register(branch, academic_class, section=None, month=None, *,
         branch=branch, academic_class=academic_class, section=section,
     ))
 
+    # Keyed on the ENROLMENTS, not the students behind them. A student who
+    # moved class mid-month has two enrolments, and selecting by student alone
+    # pulled the other class's cells into this class's grid — where they were
+    # displayed as this class's attendance and counted in its percentages.
     rows = (DailyAttendance.objects
             .for_branch(branch)
-            .filter(person_type=PersonType.STUDENT,
-                    student__in=[e.student_id for e in enrolments],
+            .filter(Q(enrolment__in=[e.pk for e in enrolments])
+                    # `enrolment` is SET_NULL and was added after the first
+                    # rows existed, so a cell with none is claimed by the
+                    # student — the old behaviour, kept for exactly those rows.
+                    | Q(enrolment__isnull=True,
+                        student__in=[e.student_id for e in enrolments]),
+                    person_type=PersonType.STUDENT,
                     date__gte=days[0], date__lte=days[-1])
             .select_related('taken_by'))
 

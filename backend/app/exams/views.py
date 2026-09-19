@@ -25,9 +25,11 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from academics.models import AcademicClass, Subject
+from academics.models import AcademicClass, Enrolment, Subject
 from accounts.permissions import HasResourcePermission
 from accounts.services import ActivityLogMixin
+from academics.services import (teacher_class_scope, teacher_for_user,
+                                teacher_scope_applies)
 from academics.viewsets import TeacherScopedMixin
 from core.middleware import get_branch
 from core.viewsets import BranchScopedViewSet, BranchScopedReadOnlyViewSet
@@ -40,7 +42,41 @@ from .serializers import (ExamClassSerializer, ExamScheduleSerializer,
                           MarksGridSerializer)
 from .services import (marks_are_visible_to, publish_exam, save_marks,
                        student_report, student_result, tabulation,
-                       visible_marks_for)
+                       unpublish_exam, visible_marks_for)
+
+
+def own_student_only(request, student):
+    """A student's own account may only ask about itself.
+
+    `('student', 'guardian')` and not `'student'` alone: `marks_are_visible_to`
+    has always treated the two as one class, and the gate here tested the
+    narrower one — so a guardian-typed account holding `exams.view` could read
+    any child's marksheet by id. Guardian login is V2 (docs/08 D4), which is
+    precisely why the account type must not be the one that falls through.
+
+    A guardian has no `student_profile`, so they resolve to no student and are
+    refused until V1 grows the ward link.
+    """
+    if getattr(request.user, 'user_type', None) not in ('student', 'guardian'):
+        return
+    own = getattr(request.user, 'student_profile', None)
+    if own is None or own.pk != student.pk:
+        raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+
+
+def teacher_class_ids(request):
+    """The classes this caller may see, or None when they are not scoped.
+
+    The result endpoints are read-only `@action`s, so `TeacherScopedMixin` —
+    which narrows a *queryset* — never touched them: a Class 5 teacher with
+    `exams.view` could pull Class 9's whole merit sheet by changing one query
+    parameter. D6 is a rule about classes, not about querysets.
+    """
+    branch = get_branch(request)
+    if not teacher_scope_applies(request.user, branch):
+        return None
+    teacher = teacher_for_user(request.user)
+    return teacher_class_scope(teacher) if teacher is not None else set()
 
 
 class ExamsViewSet(ActivityLogMixin, BranchScopedViewSet):
@@ -68,6 +104,7 @@ class ExamViewSet(ExamsViewSet):
     # marks must not require the permission to create an exam.
     permission_action_map = {
         'publish': 'publish',
+        'unpublish': 'publish',
         'marks': 'enter',
         'tabulation': 'view',
         'result': 'view',
@@ -95,6 +132,18 @@ class ExamViewSet(ExamsViewSet):
         """
         exam = self.get_object()
         publish_exam(exam, actor=request.user, request=request)
+        return Response(ExamSerializer(exam, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'])
+    def unpublish(self, request, pk=None):
+        """`POST /api/exams/<id>/unpublish/` — reopen a published result.
+
+        The other half of `publish`. Marks entry refuses a published exam, so
+        without this one wrong mark was permanent.
+        """
+        exam = self.get_object()
+        with transaction.atomic():
+            unpublish_exam(exam, actor=request.user, request=request)
         return Response(ExamSerializer(exam, context={'request': request}).data)
 
     @action(detail=True, methods=['post'])
@@ -150,10 +199,8 @@ class ExamViewSet(ExamsViewSet):
             # an unpublished result must not reveal.
             raise NotFound('This result is not published yet · ফল এখনো প্রকাশিত হয়নি।')
 
-        if getattr(request.user, 'user_type', None) == 'student':
-            own = getattr(request.user, 'student_profile', None)
-            if own is None or own.pk != student.pk:
-                raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+        own_student_only(request, student)
+        self._assert_teaches(request, student)
 
         return Response(student_result(exam, student))
 
@@ -178,10 +225,8 @@ class ExamViewSet(ExamsViewSet):
         if student is None:
             raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
 
-        if getattr(request.user, 'user_type', None) == 'student':
-            own = getattr(request.user, 'student_profile', None)
-            if own is None or own.pk != student.pk:
-                raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+        own_student_only(request, student)
+        self._assert_teaches(request, student)
 
         exams = [
             exam for exam in self.get_queryset().filter(marks__student=student).distinct()
@@ -189,10 +234,27 @@ class ExamViewSet(ExamsViewSet):
         ]
         return Response(student_report(student, exams))
 
+    def _assert_teaches(self, request, student):
+        """A scoped teacher may only read a student of one of their own classes."""
+        scope = teacher_class_ids(request)
+        if scope is None:
+            return
+        classes = set(
+            Enrolment.objects.filter(student=student)
+            .values_list('academic_class_id', flat=True)
+        )
+        if not (classes & set(scope)):
+            raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+
     def _class_param(self, exam, request):
         academic_class = AcademicClass.objects.filter(
             pk=request.GET.get('academic_class'), branch_id=exam.branch_id,
         ).first()
+        scope = teacher_class_ids(request)
+        if academic_class is not None and scope is not None and academic_class.pk not in scope:
+            # Out of scope reads exactly like a class that does not exist, for
+            # the reason 404-not-403 exists at all (CLAUDE.md §5).
+            raise NotFound('No such class in this institution · এই প্রতিষ্ঠানে এমন শ্রেণি নেই।')
         if academic_class is None:
             raise ValidationError({
                 'academic_class': 'Name the class · কোন শ্রেণি তা উল্লেখ করুন।',

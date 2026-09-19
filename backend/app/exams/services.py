@@ -22,9 +22,12 @@ binary floating point, and a column that does not add up to its own total is the
 one thing a guardian checks by hand.
 """
 
+import json
 from decimal import Decimal
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -269,6 +272,49 @@ def publish_exam(exam, *, actor=None, request=None):
     return exam
 
 
+def unpublish_exam(exam, *, actor=None, request=None):
+    """Take a published result back down. **Principal-only**, like publishing.
+
+    This exists because `save_marks` refuses to touch a published exam and tells
+    the caller to unpublish first — and there was nothing to call. One digit
+    mistyped at publish time was permanent, which is not a rule anybody chose;
+    it was a missing verb.
+
+    The frozen `Result` rows go with it. They are the snapshot of *a* published
+    sheet, and keeping them behind an unpublished exam would mean the next
+    publish silently compared against a sheet nobody could see. Marks themselves
+    are untouched: this reopens the result, it does not erase the exam.
+
+    Idempotent, and logged as the release-level act it is.
+    """
+    if actor is not None and not has_permission(actor, 'exams', 'publish'):
+        raise PermissionDenied(
+            'Only a principal may unpublish results · '
+            'ফল প্রত্যাহার কেবল প্রধান শিক্ষক করতে পারেন।'
+        )
+
+    if exam.status != ExamStatus.PUBLISHED:
+        return exam
+
+    exam.status = ExamStatus.MARKS_ENTRY
+    exam.published_by = None
+    exam.published_at = None
+    exam.updated_by = actor
+    exam.save(update_fields=['status', 'published_by', 'published_at',
+                             'updated_by', 'updated_at'])
+    Result.objects.filter(exam=exam).delete()
+
+    log_activity(
+        action=ActivityAction.UPDATE, user=actor, request=request,
+        branch=exam.branch, obj=exam, model='Exam',
+        summary=f'Unpublished results for {exam.name}',
+        summary_bn=f'{exam.name} পরীক্ষার ফল প্রত্যাহার করা হয়েছে',
+        before={'status': ExamStatus.PUBLISHED},
+        after={'status': exam.status}, atomic=True,
+    )
+    return exam
+
+
 def marks_are_visible_to(exam, user):
     """Whether *user* may see this exam's marks at all.
 
@@ -447,17 +493,24 @@ def _compute_rows(exam, academic_class):
     printed for forty students at once.
     """
     scale = scale_for(exam)
-    enrolments = (
-        Enrolment.objects
-        .filter(branch_id=exam.branch_id, session_id=exam.session_id,
-                academic_class=academic_class, is_active=True)
-        .select_related('student', 'section')
-        .order_by('roll')
-    )
     marks = (
         Mark.objects
         .filter(exam=exam, enrolment__academic_class=academic_class, is_active=True)
         .select_related('subject')
+    )
+    # Anyone who sat a paper stays on the sheet even once their enrolment is
+    # closed. A student who took a transfer certificate before publication had
+    # no frozen `Result` row at all, so their marksheet silently fell back to a
+    # live recompute against whatever the scale says today — the one property
+    # freezing exists to prevent.
+    sat = set(marks.values_list('enrolment_id', flat=True))
+    enrolments = (
+        Enrolment.objects
+        .filter(Q(is_active=True) | Q(pk__in=sat),
+                branch_id=exam.branch_id, session_id=exam.session_id,
+                academic_class=academic_class)
+        .select_related('student', 'section')
+        .order_by('roll')
     )
     fulls = _full_marks_map(exam, academic_class)
 
@@ -517,6 +570,13 @@ def _compute_rows(exam, academic_class):
 
 
 def _sheet(exam, academic_class, rows, method, scale_name, scale_name_bn):
+    # Through the same encoder the frozen rows were stored with, so the two
+    # paths answer in one shape: subject ids as string keys, money and marks as
+    # decimal **strings**. Computed rows used to come back with int keys and
+    # Decimals that DRF rendered as floats — the same endpoint with two
+    # contracts, and the float half breaking the project's own money rule.
+    rows = json.loads(json.dumps(rows, cls=DjangoJSONEncoder))
+
     sections = {}
     for row in rows:
         if row.get('section') and row['section'] not in sections:

@@ -59,9 +59,14 @@ class TeacherScopedMixin:
         classes.
         """
         requested = self.request.GET.get('session', '').strip()
-        if requested:
+        if requested.isdigit():
             from branches.models import Session
-            return Session.objects.filter(pk=requested).first()
+            # Branch-scoped as well as numeric: `?session=` naming another
+            # institution's session must not widen or narrow this scope, and a
+            # non-numeric one used to raise ValueError out of the queryset — a
+            # 500 on every teacher-scoped endpoint from one bad bookmark.
+            return (Session.objects.for_branch(get_branch(self.request))
+                    .filter(pk=int(requested)).first())
         return None
 
     def get_queryset(self):
@@ -85,4 +90,8 @@ class TeacherScopedMixin:
         # with no assignments yet sees an empty class list and asks the office —
         # the failure that files a support ticket, rather than the one nobody
         # ever mentions.
-        return queryset.filter(**{f'{self.teacher_scope_field}__in': class_ids})
+        queryset = queryset.filter(**{f'{self.teacher_scope_field}__in': class_ids})
+        # `distinct()` because the scope path can be a reverse join — a student
+        # reaches their class through `enrolments`, and one enrolled twice in a
+        # teacher's classes would otherwise be listed twice.
+        return queryset.distinct() if '__' in self.teacher_scope_field else queryset

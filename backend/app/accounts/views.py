@@ -18,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.middleware import ALL_BRANCHES, get_branch
 from core.viewsets import BranchScopedMixin
 
-from .models import ActivityLog, Role, User
+from .models import ActivityAction, ActivityLog, Role, User
 from .permissions import HasResourcePermission
 from .serializers import (ActivityLogSerializer, ChangePasswordSerializer,
                           LoginSerializer, RoleSerializer,
@@ -372,12 +372,15 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         if branch and get_branch(request) == ALL_BRANCHES:
             queryset = queryset.filter(branch_id=branch)
 
-        user_id = request.query_params.get('user')
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
+        # Both are ignored when they are not a value the column can hold,
+        # rather than answered with a 500: this is a polling widget on the
+        # dashboard, and `?user=abc` from a stale link must not blank it.
+        user_id = request.query_params.get('user', '')
+        if user_id.isdigit():
+            queryset = queryset.filter(user_id=int(user_id))
 
         action_name = request.query_params.get('action')
-        if action_name:
+        if action_name in ActivityAction.values:
             queryset = queryset.filter(action=action_name)
 
         return queryset
