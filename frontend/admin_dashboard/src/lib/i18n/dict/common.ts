@@ -86,5 +86,8 @@ const common: Record<string, string> = {
   'Change Image': 'ছবি বদলান',
   'Please select a valid image file': 'সঠিক ছবির ফাইল বাছুন',
   'File size must be less than': 'ফাইলের আকার এর চেয়ে কম হতে হবে',
+  Send: 'পাঠান',
+  'Sending…': 'পাঠানো হচ্ছে…',
+  When: 'কখন',
 };
 export default common;

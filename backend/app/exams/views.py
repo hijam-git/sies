@@ -27,7 +27,8 @@ from rest_framework.response import Response
 
 from academics.models import AcademicClass, Enrolment, Subject
 from accounts.permissions import HasResourcePermission
-from accounts.services import ActivityLogMixin
+from accounts.models import ActivityAction
+from accounts.services import ActivityLogMixin, log_activity
 from academics.services import (teacher_class_scope, teacher_for_user,
                                 teacher_scope_applies)
 from academics.viewsets import TeacherScopedMixin
@@ -37,6 +38,8 @@ from students.models import Student
 
 from .grading import DIVISION, GPA, reset_to_preset
 from .models import Exam, ExamClass, ExamSchedule, GradeScale, Mark
+from notifications.serializers import SendResultSmsSerializer
+
 from .serializers import (ExamClassSerializer, ExamScheduleSerializer,
                           ExamSerializer, GradeScaleSerializer, MarkSerializer,
                           MarksGridSerializer)
@@ -105,6 +108,9 @@ class ExamViewSet(ExamsViewSet):
     permission_action_map = {
         'publish': 'publish',
         'unpublish': 'publish',
+        # Sending the results IS releasing them (see the action).
+        'send_results_sms': 'publish',
+        'results_sms_preview': 'view',
         'marks': 'enter',
         'tabulation': 'view',
         'result': 'view',
@@ -133,6 +139,56 @@ class ExamViewSet(ExamsViewSet):
         exam = self.get_object()
         publish_exam(exam, actor=request.user, request=request)
         return Response(ExamSerializer(exam, context={'request': request}).data)
+
+    @action(detail=True, methods=['get'], url_path='results-sms')
+    def results_sms_preview(self, request, pk=None):
+        """`GET /api/exams/<id>/results-sms/?academic_class=<id>` — what a send would do.
+
+        The principal is about to spend the institution's money on four hundred
+        messages, so the screen shows the exact body of the first one, what it
+        costs in parts, how many guardians have a number on file, and who does
+        not. Nothing is sent by this call.
+        """
+        from notifications.services import preview_result_sms
+
+        exam = self.get_object()
+        academic_class = self._optional_class(exam, request)
+        return Response(preview_result_sms(exam, academic_class=academic_class))
+
+    @action(detail=True, methods=['post'], url_path='send-results-sms')
+    def send_results_sms(self, request, pk=None):
+        """`POST /api/exams/<id>/send-results-sms/` — queue the results to guardians.
+
+        `exams.publish`, not `marks.enter` and not a resource of its own:
+        releasing a result to a screen and releasing it to a handset are one
+        decision, and it is the principal's. Idempotent — a second press queues
+        only the guardians the first one missed (`SmsMessage`'s unique
+        constraint), which is what makes a half-finished fan-out safe to repeat.
+        """
+        from notifications.services import send_result_sms
+
+        exam = self.get_object()
+        academic_class = self._optional_class(exam, request)
+        body = SendResultSmsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        try:
+            with transaction.atomic():
+                summary = send_result_sms(exam, academic_class=academic_class,
+                                          actor=request.user)
+        except ValueError as exc:
+            # The exam is not published. A 400 and not a 500: the caller named a
+            # real exam and asked for something that is not allowed yet.
+            raise ValidationError({'exam': str(exc)})
+
+        log_activity(
+            action=ActivityAction.UPDATE, user=request.user, request=request,
+            branch=exam.branch, obj=exam, model='Exam',
+            summary=f'Sent {exam.name} results by SMS: {summary["queued"]} queued',
+            summary_bn=f'{exam.name} পরীক্ষার ফল এসএমএসে পাঠানো হয়েছে',
+            after=summary, atomic=False,
+        )
+        return Response(summary)
 
     @action(detail=True, methods=['post'])
     def unpublish(self, request, pk=None):
@@ -245,6 +301,27 @@ class ExamViewSet(ExamsViewSet):
         )
         if not (classes & set(scope)):
             raise NotFound('No such student in this institution · এই প্রতিষ্ঠানে এমন শিক্ষার্থী নেই।')
+
+    def _optional_class(self, exam, request):
+        """`?academic_class=` when given, else None for "every class".
+
+        Separate from `_class_param` below, which demands one: the tabulation is
+        a sheet of one class and has no meaning without it, while a send covers
+        the whole exam unless the principal narrows it.
+        """
+        raw = str(request.GET.get('academic_class') or
+                  request.data.get('academic_class') or '').strip()
+        if not raw or not raw.isdigit():
+            return None
+        academic_class = AcademicClass.objects.filter(
+            pk=int(raw), branch_id=exam.branch_id,
+        ).first()
+        if academic_class is None:
+            raise NotFound('No such class in this institution · এই প্রতিষ্ঠানে এমন শ্রেণি নেই।')
+        scope = teacher_class_ids(request)
+        if scope is not None and academic_class.pk not in scope:
+            raise NotFound('No such class in this institution · এই প্রতিষ্ঠানে এমন শ্রেণি নেই।')
+        return academic_class
 
     def _class_param(self, exam, request):
         academic_class = AcademicClass.objects.filter(

@@ -132,6 +132,27 @@ const exams: Record<string, string> = {
   'Create grading scale': 'গ্রেডিং পদ্ধতি তৈরি করুন',
   'No grading scale yet.': 'এখনো গ্রেডিং পদ্ধতি নেই।',
   'Choose an institution first.': 'আগে একটি প্রতিষ্ঠান বেছে নিন।',
+  // ── Results by SMS — `docs/02` §4.9 ───────────────────────────────────
+  'Send results by SMS': 'ফল এসএমএসে পাঠান',
+  'What the first guardian receives': 'প্রথম অভিভাবক যা পাবেন',
+  from: 'প্রেরক',
+  Guardians: 'অভিভাবক',
+  'Billable SMS': 'খরচযোগ্য এসএমএস',
+  'Some messages are longer than one SMS.': 'কিছু বার্তা এক এসএমএসের চেয়ে বড়।',
+  'No number': 'নম্বর নেই',
+  'No guardian number on file': 'অভিভাবকের নম্বর নেই',
+  'Add a guardian phone on the student record, then send again — nobody is sent twice.':
+    'শিক্ষার্থীর তথ্যে অভিভাবকের নম্বর যোগ করে আবার পাঠান — কেউ দুবার পাবেন না।',
+  'Nothing to send.': 'পাঠানোর কিছু নেই।',
+  'messages queued': 'বার্তা সারিতে দেওয়া হয়েছে',
+  'already sent earlier': 'আগেই পাঠানো হয়েছে',
+  'without a number': 'নম্বর ছাড়া',
+  'guardians already had this result — they will not be sent it twice.':
+    'জন অভিভাবক এই ফল আগেই পেয়েছেন — তাঁদের আবার পাঠানো হবে না।',
+  'SMS is switched off for this institution. Turn it on under Settings.':
+    'এই প্রতিষ্ঠানে এসএমএস বন্ধ আছে। সেটিংস থেকে চালু করুন।',
+  'Could not work out what this send would cost.': 'এই পাঠানোর খরচ হিসাব করা যায়নি।',
+  'The results could not be sent.': 'ফল পাঠানো যায়নি।',
 };
 
 export default exams;

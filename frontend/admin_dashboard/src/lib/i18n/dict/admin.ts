@@ -223,5 +223,29 @@ const admin: Record<string, string> = {
   'Academic years running now': 'এখন চলছে যে শিক্ষাবর্ষগুলো',
   'Student, attendance, fee and exam figures arrive with their modules.':
     'শিক্ষার্থী, হাজিরা, ফি ও পরীক্ষার সংখ্যাগুলো নিজ নিজ অংশের সঙ্গে আসবে।',
+  // ── Settings → SMS ────────────────────────────────────────────────────
+  SMS: 'এসএমএস',
+  Sending: 'পাঠানো',
+  'Send SMS to guardians': 'অভিভাবকদের এসএমএস পাঠানো হবে',
+  'Off means nothing leaves this institution, whatever a screen offers.':
+    'বন্ধ থাকলে কোনো পর্দা যা-ই দেখাক, এই প্রতিষ্ঠান থেকে কিছু যাবে না।',
+  'Sender name': 'প্রেরকের নাম',
+  'What the guardian sees the message is from. Registered with the SMS operator; left blank, the platform’s own name is used.':
+    'অভিভাবক যে নামে বার্তাটি পাবেন। এসএমএস অপারেটরে নিবন্ধিত; খালি রাখলে প্ল্যাটফর্মের নাম যাবে।',
+  'What a result message says': 'ফলের বার্তায় যা থাকবে',
+  'SMS per student': 'এসএমএস প্রতি শিক্ষার্থী',
+  'Bangla is sent as Unicode: 70 characters to one SMS.':
+    'বাংলা ইউনিকোডে যায়: এক এসএমএসে ৭০ অক্ষর।',
+  'English only: 160 characters to one SMS.': 'শুধু ইংরেজি: এক এসএমএসে ১৬০ অক্ষর।',
+  'Use the default wording': 'ডিফল্ট বার্তা নিন',
+  'Save message': 'বার্তা সংরক্ষণ',
+  'Recently sent': 'সম্প্রতি পাঠানো',
+  'Nothing has been sent yet.': 'এখনো কিছু পাঠানো হয়নি।',
+  'Choose an institution in the header to set up its SMS.':
+    'এসএমএস সেট করতে উপরের তালিকা থেকে একটি প্রতিষ্ঠান বাছুন।',
+  'Could not load the SMS settings.': 'এসএমএস সেটিংস আনা যায়নি।',
+  'The message could not be saved.': 'বার্তাটি সংরক্ষণ করা যায়নি।',
+  'That could not be saved.': 'এটি সংরক্ষণ করা যায়নি।',
+  Provider: 'সরবরাহকারী',
 };
 export default admin;

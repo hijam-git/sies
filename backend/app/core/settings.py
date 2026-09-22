@@ -103,6 +103,11 @@ _SIES_APPS = [
     'fees',         # Phase 3 — FeeCategory, Fee, Payment
     'finance',      # Phase 3 — Income, Expense and their categories
     'exams',        # Phase 5 — Exam, ExamSchedule, Mark
+    # SMS to guardians. docs/05 §5.4 had the whole outbox as V2; the result
+    # message is V1 now because a result nobody is told about is a result on
+    # a noticeboard. The other events §19 lists — fee due, absence, notices —
+    # are still V2, and the table is shaped for them.
+    'notifications',  # Phase 6 — NotificationTemplate, SmsMessage
 ]
 
 INSTALLED_APPS = [
@@ -473,6 +478,26 @@ LOGGING = {
         },
     },
 }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SMS — docs/02 §4.9. The gateway is the platform's; the sender is the branch's.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# **`console` is the default on purpose.** It writes every message to the log
+# and sends nothing, so a fresh install, CI, and a `seed_demo` database full of
+# invented numbers cannot text a stranger or spend a taka. Production sets
+# SMS_PROVIDER=bulksmsbd and supplies the key below; nothing else changes.
+SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'console')
+
+# One gateway account for the platform. The name on the handset is per
+# institution — `Branch.sms_sender_id` — because a madrasah and a college
+# sharing this deployment must not appear to each other's guardians as the same
+# sender. This is the fallback for a branch that has not registered one.
+SMS_SENDER_ID = os.getenv('SMS_SENDER_ID', '')
+
+BULKSMSBD_API_KEY = os.getenv('BULKSMSBD_API_KEY', '')
+BULKSMSBD_BASE_URL = os.getenv('BULKSMSBD_BASE_URL', 'http://bulksmsbd.net/api')
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -46,6 +46,70 @@ export type InstitutionType = 'madrasah' | 'school' | 'college' | 'combined';
  * SIES is the platform they run on (`docs/08` D1). The word "branch" is kept
  * because it is the owner's word and renaming it later is churn.
  */
+/** What `GET /api/exams/<id>/results-sms/` answers: the cost of a send, before
+ *  it happens. The principal is about to spend the institution's money on four
+ *  hundred messages and gets to read one of them first. */
+export interface ResultSmsPreview {
+  exam: number;
+  academic_class: number | null;
+  /** The exact body the first guardian would receive. */
+  sample: string;
+  recipients: number;
+  already_sent: number;
+  missing_phone: { student: number; name: string; roll: number | null }[];
+  /** Billable SMS, not messages: a Bengali body over 70 characters is two.  */
+  parts_total: number;
+  sms_enabled: boolean;
+  sender_id: string;
+}
+
+export interface ResultSmsSummary {
+  queued: number;
+  missing_phone: number;
+  already_sent: number;
+}
+
+export type SmsStatus = 'queued' | 'sent' | 'failed' | 'skipped';
+
+export interface SmsMessage {
+  id: number;
+  event: string;
+  event_display: string;
+  reference: string;
+  student: number | null;
+  student_name: string;
+  recipient_label: string;
+  to_phone: string;
+  body: string;
+  parts: number;
+  status: SmsStatus;
+  status_display: string;
+  skip_reason: string;
+  provider: string;
+  provider_code: string;
+  provider_message: string;
+  sent_at: string | null;
+  attempts: number;
+  created_at: string;
+}
+
+export interface MessageTemplate {
+  id: number;
+  event: string;
+  channel: 'sms' | 'email';
+  language: 'bn' | 'en';
+  body: string;
+  is_active: boolean;
+  cost: { characters: number; encoding: 'gsm7' | 'unicode'; per_part: number; parts: number };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplatePlaceholders {
+  placeholders: Record<string, { name: string; label: string }[]>;
+  defaults: { event: string; language: string; body: string }[];
+}
+
 export interface Branch {
   id: number;
   name: string;
@@ -2099,6 +2163,29 @@ class ApiClient {
    *  is no route back: `status` is read-only everywhere else. */
   publishExam(examId: number): Promise<Exam> {
     return this.request<Exam>(`/exams/${examId}/publish/`, { method: 'POST' });
+  }
+
+  // ── Results by SMS — `docs/02` §4.9 ──────────────────────────────────────
+  //
+  // Two calls and not one: the preview COSTS the send (how many guardians, how
+  // many billable parts, which students have no number on file) and sends
+  // nothing, so the button that spends money is pressed against a number the
+  // principal has read.
+
+  previewResultSms(examId: number, academicClass?: number | null): Promise<ResultSmsPreview> {
+    const scope = academicClass ? `?academic_class=${academicClass}` : '';
+    return this.request<ResultSmsPreview>(`/exams/${examId}/results-sms/${scope}`);
+  }
+
+  sendResultSms(examId: number, academicClass?: number | null): Promise<ResultSmsSummary> {
+    return this.request<ResultSmsSummary>(`/exams/${examId}/send-results-sms/`, {
+      method: 'POST',
+      body: JSON.stringify(academicClass ? { academic_class: academicClass } : {}),
+    });
+  }
+
+  templatePlaceholders(): Promise<TemplatePlaceholders> {
+    return this.request<TemplatePlaceholders>('/message-templates/placeholders/');
   }
 
   // ── The printable form — `docs/07` §8 ───────────────────────────────────

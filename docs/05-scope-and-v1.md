@@ -174,7 +174,7 @@ data and no rework of what V1 wrote:
 
 | Deferred | V1 does instead |
 |----------|-----------------|
-| Notifications / SMS outbox / templates | Nothing. Fee dues and absences are read on screen |
+| Notifications — fee-due, absence and notice SMS | Dues and absences are read on screen. **The result SMS is V1** (below); the outbox and template tables it needed are built and shaped for the rest |
 | Payroll (`PayrollRun`, `Payslip`) | Salary is an ordinary `Expense` row under "Teacher Salary" |
 | ~~`AuditLog`~~ | **Promoted into V1 as `ActivityLog`** (`08` D8) — it is the data behind the platform admin's live feed |
 | Rollup tables (`AttendanceSummary` etc.) | Reports query source rows directly — correct at V1 data volume, just slower |
@@ -236,9 +236,18 @@ That is the brief, delivered.
 
 ### 6.2 What V1 cannot do
 
-No SMS to guardians. No payslips. No guardian login. No audit trail beyond
-`created_by`. No async exports. No standing discounts. These are the price of
-shipping, they are all in group D, and none of them cost anything to add later.
+No payslips. No guardian login. No audit trail beyond `created_by`. No async
+exports. No standing discounts. These are the price of shipping, they are all
+in group D, and none of them cost anything to add later.
+
+**SMS was on this list and is not any more, for one event.** A published result
+that nobody is told about is a result on a noticeboard: the guardian who is
+meant to read it lives an hour away and has a phone, not a mailbox. So
+`result_published` sends, from a screen the principal presses — and the outbox,
+the templates, the gateway adapter and the per-institution sender id that event
+needed are the same ones fee-due and absence SMS will use when their turn
+comes. The rest of §19 is still V2; what changed is that its foundation now
+exists and is carrying one real message.
 
 ---
 

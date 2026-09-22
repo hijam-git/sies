@@ -70,7 +70,9 @@ sies/
 │       ├── attendance/  DailyAttendance, ClassAttendance
 │       ├── fees/        FeeCategory, Fee, Payment
 │       ├── finance/     Income, Expense, categories
-│       └── exams/       Exam, ExamSchedule, Mark
+│       ├── exams/       Exam, ExamSchedule, Mark
+│       └── notifications/ NotificationTemplate, SmsMessage, gateways
+│                          (result SMS only — `05` §6.2)
 └── frontend/
     └── admin_dashboard/         React 19 + Vite + Tailwind (copied from Awliaa)
 ```
@@ -80,7 +82,7 @@ sies/
 report code reads from all and is imported by none. A circular import between
 apps is a design error, not something to work around.
 
-`notifications/` and `reports/` are **not created in V1**. Report screens live
+`reports/` is **not created in V1**. Report screens live
 in each module.
 
 ---

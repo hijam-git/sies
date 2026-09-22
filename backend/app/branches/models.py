@@ -179,6 +179,10 @@ class Branch(models.Model):
         _('weekly off days · সাপ্তাহিক ছুটি'), default=default_weekly_off_days, blank=True,
     )
 
+    # The institution's own switch. The platform's switch is the gateway —
+    # `SMS_PROVIDER=console` sends nothing at all — and this one is for a
+    # branch that has SMS available and does not want it used.
+    sms_enabled = models.BooleanField(_('send SMS · এসএমএস পাঠানো হবে'), default=True)
     sms_sender_id = models.CharField(_('SMS sender id · এসএমএস প্রেরক'), max_length=20, blank=True)
     default_language = models.CharField(
         _('default language · ডিফল্ট ভাষা'),

@@ -11,6 +11,7 @@ import StreamsSessionsTab from '../components/settings/StreamsSessionsTab';
 import FormTemplatesTab from '../components/forms/FormTemplatesTab';
 import QuestionsTab from '../components/forms/QuestionsTab';
 import GradingTab from '../components/settings/GradingTab';
+import SmsTab from '../components/settings/SmsTab';
 import BranchForm from '../components/settings/BranchForm';
 import { draftFrom, draftToPayload, emptyDraft } from '../components/settings/branchDraft';
 import type { BranchDraft } from '../components/settings/branchDraft';
@@ -18,7 +19,7 @@ import type { BranchDraft } from '../components/settings/branchDraft';
 /**
  * Settings — the institution's own configuration, five tabs, all built.
  *
- * The sidebar lists the same five as sub-items; the tab strip is the other
+ * The sidebar lists the same six as sub-items; the tab strip is the other
  * door to them (`pages/navigation.ts`).
  *
  * **Fee heads are not here.** They were a placeholder on this page while fees
@@ -28,12 +29,13 @@ import type { BranchDraft } from '../components/settings/branchDraft';
  * feature it stood in for (`CLAUDE.md` §2a).
  */
 
-type Tab = 'institution' | 'streams' | 'grading' | 'form-templates' | 'questions';
+type Tab = 'institution' | 'streams' | 'grading' | 'sms' | 'form-templates' | 'questions';
 
 const TABS: Tab[] = [
   'institution',
   'streams',
   'grading',
+  'sms',
   'form-templates',
   'questions',
 ];
@@ -174,6 +176,10 @@ export default function SettingsPage() {
     { key: 'institution', label: t('Institution') },
     { key: 'streams', label: t('Streams & Sessions') },
     { key: 'grading', label: t('Grading') },
+    // The switch, the name on the handset, the wording and the outbox in one
+    // place: they are one question — what do our guardians receive, and did
+    // they? (`docs/02` §4.9)
+    { key: 'sms', label: t('SMS') },
     { key: 'form-templates', label: t('Form templates') },
     // The question bank sits beside the templates rather than inside one: a
     // question with no template is reusable across every form this institution
@@ -193,6 +199,7 @@ export default function SettingsPage() {
         </div>
       )}
       {tab === 'grading' && <GradingTab branchId={branchId} />}
+      {tab === 'sms' && <SmsTab branchId={branchId} />}
       {tab === 'form-templates' && <FormTemplatesTab />}
       {tab === 'questions' && <QuestionsTab />}
     </div>

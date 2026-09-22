@@ -14,6 +14,7 @@ import type {
 import { useAuth, usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText } from '../../lib/apiErrors';
+import SendResultSmsModal from './SendResultSmsModal';
 import BaseModal from '../common/BaseModal';
 import { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls } from '../common/styles';
@@ -258,6 +259,10 @@ function ClassResults({
   const [sort, setSort] = useState<SortKey>('roll');
   const [confirming, setConfirming] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  /** The results-by-SMS flow. Opens on a preview that costs the send; the
+   *  button below only appears once the results are published, because a
+   *  handset cannot be unpublished. */
+  const [smsOpen, setSmsOpen] = useState(false);
 
   // Session → exam → class → section. Each is the URL's choice when it is still
   // valid, and otherwise the obvious default (`CLAUDE.md` §7b): the current
@@ -532,6 +537,17 @@ function ClassResults({
                 {t('Publish results')}
               </button>
             )}
+            {/* Only once they are published: SMS is the one release that cannot
+                be taken back, so it follows the one that can. */}
+            {mayPublish && isPublished && (
+              <button
+                type="button"
+                onClick={() => setSmsOpen(true)}
+                className={`${btnSecondary} ml-auto`}
+              >
+                {t('Send results by SMS')}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -543,6 +559,16 @@ function ClassResults({
           {chosenSection ? ` · ${sectionLabel(chosenSection)}` : ''}
         </h2>
       </div>
+
+      {smsOpen && exam && (
+        <SendResultSmsModal
+          examId={exam.id}
+          examLabel={examLabel(exam)}
+          academicClass={chosenClass?.id ?? null}
+          className={chosenClass ? classLabel(chosenClass) : ''}
+          onClose={() => setSmsOpen(false)}
+        />
+      )}
 
       {error && <FormError message={error} />}
 

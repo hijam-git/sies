@@ -636,7 +636,7 @@ None of these blocks a start; each is recorded so it can be corrected cheaply.
 | 4 | Hostel, food and transport are fee categories driven by flags on `Enrolment`, not modules |
 | 5 | One VPS, one domain, Traefik TLS, Postgres in a container |
 | 6 | An institution's classes are entered by its own admin, not seeded from a national list |
-| 7 | SMS is V2; V1 shows dues and absences on screen only |
+| 7 | ~~SMS is V2~~ — **result SMS is V1** (`05` §6.2, 2026-09-22). Fee dues and absences are still read on screen; the outbox and templates that carry them are built |
 
 ---
 

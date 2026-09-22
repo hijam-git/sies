@@ -32,6 +32,7 @@ _MODULE_URLS = [
     path('api/', include('fees.urls')),  # Phase 5 — categories, fees, payments
     path('api/', include('finance.urls')),  # Phase 5 — income, expense
     path('api/', include('exams.urls')),  # Phase 6 — exams, schedules, marks
+    path('api/', include('notifications.urls')),  # Phase 6 — SMS outbox, templates
     #
     # /api/me/ is a separate endpoint family, not a weakened staff permission
     # (docs/08 D4). It lives in accounts.urls and filters to request.user.

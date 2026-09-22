@@ -58,7 +58,8 @@ The tenant boundary. Everything else hangs off it.
 | `attendance_window_minutes` | Int, default **120** | How long after a period ends attendance may still be taken (`08` D7). `0` = unlimited |
 | `restrict_teachers_to_assigned_classes` | Bool, default **True** | A teacher reaches only the classes they are assigned to (`08` D6). Turn off for a small institution where everyone covers everything |
 | `weekly_off_days` | JSON list | `["fri"]`. **V1**, not V2: the month attendance grid (`02` §4.4) shows four or five of them on screen at once, so it cannot wait for the holiday calendar |
-| `sms_sender_id` | Char(20), blank | |
+| `sms_enabled` | Bool, default True | The institution's own switch. The platform's is the gateway: `SMS_PROVIDER=console` sends nothing |
+| `sms_sender_id` | Char(20), blank | The name on the guardian's handset, registered with the operator. Per institution, because a madrasah and a college on one gateway account must not appear as each other |
 | `default_language` | Char(2) | `bn` / `en` |
 | `is_active` | Bool | |
 
@@ -761,17 +762,34 @@ edited.
 
 ---
 
-## 10. Notifications app — **V2, entire app**
+## 10. Notifications app — **the two tables below are V1**
 
-### `MessageTemplate` **[BS]**
+Built for `result_published` and shaped for the rest of the events (`05` §6.2).
+`Notice` further down is still V2.
+
+### `NotificationTemplate` **[BS]**
 
 | `branch`, `event` (`fee_due`/`fee_received`/`absent`/`result_published`/`notice`/`admission`), `channel` (`sms`/`email`), `language`, `body`, `is_active` |
 
-### `Notification` (outbox) **[BS]**
+Unique on `(branch, event, channel, language)`. A branch that has written none
+falls back to the built-in wording, so SMS works the day it is switched on.
 
-| `branch`, `channel`, `recipient_phone`/`recipient_email`, `user` → User null, `student` → Student null, `template` → MessageTemplate null, `body`, `status` (`queued`/`sent`/`failed`), `provider`, `provider_message_id`, `provider_response` (JSON), `cost`, `sent_at`, `error`, `triggered_by` |
+### `SmsMessage` (outbox) **[BS]**
 
-Every send is a row with its provider response (`02` §4.9).
+| `branch`, `event`, `reference` (`exam:12` — what it is ABOUT), `student` → Student null SET_NULL, `recipient_label`, `to_phone`, `body`, `parts`, `status` (`queued`/`sent`/`failed`/`skipped`), `skip_reason` (`no_phone`/`already_sent`/`sms_off`), `provider`, `provider_code`, `provider_message`, `sent_at`, `attempts` |
+
+Every send is a row with its provider's answer (`02` §4.9), **including the
+sends that did not happen** — a student with no guardian number is a `skipped`
+row, because that list is the office's work for the afternoon and an absence of
+rows is not.
+
+Unique on `(branch, event, reference, to_phone)` **where status is queued or
+sent** — this is what makes "send the results" safe to press twice. Partial,
+because a failed send must be retryable and a skipped one must not block the
+send that follows the office putting the missing number on file.
+
+`parts` is billing arithmetic, stored at queue time: a Bengali body is Unicode,
+so 70 characters is one SMS and 71 is two.
 
 ### `Notice` **[BS]**
 
