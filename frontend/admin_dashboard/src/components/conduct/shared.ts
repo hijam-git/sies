@@ -2,8 +2,10 @@ import type {
   ConductItem,
   ConductStudent,
   ConductValue,
+  FormQuestion,
   QuestionOption,
   QuestionType,
+  ReportTemplate,
 } from '../../lib/api';
 
 /**
@@ -137,3 +139,28 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   date: 'Date',
   yes_no: 'Yes / no',
 };
+
+/**
+ * Is this template still on its section's whole list, or does it hold its own?
+ *
+ * The API serves `items` either way and does not say which rule produced them,
+ * so the screen reads it back: an `items` identical to the section's own bank,
+ * in the section's own order, is the default. A template on which somebody
+ * chose exactly the whole section by hand therefore reads as the default —
+ * true enough to be harmless, because the sheet it produces is the same one.
+ *
+ * It matters because the two behave differently tomorrow: a question added to
+ * the section joins a default sheet on its own, and never joins a chosen list.
+ */
+export function asksWholeSection(
+  template: Pick<ReportTemplate, 'section' | 'items'>,
+  bank: Array<Pick<FormQuestion, 'id' | 'section' | 'is_active' | 'order'>>,
+): boolean {
+  const sectionIds = bank
+    .filter((q) => q.section === template.section && q.is_active)
+    .sort((a, b) => a.order - b.order || a.id - b.id)
+    .map((q) => q.id);
+  const asked = template.items.map((item) => item.id);
+  return asked.length === sectionIds.length
+    && asked.every((id, index) => id === sectionIds[index]);
+}

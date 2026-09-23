@@ -56,11 +56,43 @@ const conduct: Record<string, string> = {
   'Every বিভাগ': 'সব বিভাগ',
   'Leave empty for every one of them.': 'সবগুলোর জন্য হলে খালি রাখুন।',
   'Questions on this sheet': 'এই খাতার প্রশ্ন',
+
+  // ── Which questions one report asks ────────────────────────────────────
+  // Two states, and the Bangla keeps them apart as plainly as the English:
+  // একটি অংশের সবগুলো প্রশ্ন vs নিজের বেছে নেওয়া প্রশ্ন.
+  'Asks every question in section': 'জিজ্ঞাসা করে এই অংশের সব প্রশ্ন —',
+  'Asks its own chosen questions': 'জিজ্ঞাসা করে নিজের বেছে নেওয়া প্রশ্ন',
+  'A question added to that section later joins this sheet on its own.':
+    'ওই অংশে পরে নতুন প্রশ্ন যোগ করলে সেটি এই খাতায় আপনিই চলে আসবে।',
+  'A question added to that section later does not join this sheet.':
+    'ওই অংশে পরে নতুন প্রশ্ন যোগ করলে সেটি এই খাতায় আসবে না।',
+  'Choose questions': 'প্রশ্ন বেছে নিন',
+  'Change the questions': 'প্রশ্নগুলো বদলান',
+  'Add a question…': 'একটি প্রশ্ন যোগ করুন…',
+  'Every question is already on it.': 'সব প্রশ্নই এখানে আছে।',
+  'Save the questions': 'প্রশ্নগুলো সেভ করুন',
+  'Back to the whole section': 'আবার পুরো অংশে ফিরুন',
+  'Could not save the questions.': 'প্রশ্নগুলো সেভ করা যায়নি।',
+  'Save the report to choose which questions it asks.':
+    'কোন প্রশ্নগুলো জিজ্ঞাসা হবে বাছতে রিপোর্টটি আগে সেভ করুন।',
+
+  // ── Who is responsible ─────────────────────────────────────────────────
+  // দায়িত্ব, not a lock: the wording says who is *meant* to fill it, and the
+  // hint says outright that it stops nobody else.
+  'Responsible': 'দায়িত্বে',
+  'Responsible teachers': 'দায়িত্বপ্রাপ্ত শিক্ষক',
+  'Who is meant to fill each report. It does not stop another teacher of that class filling it.':
+    'কোন রিপোর্ট কার পূরণ করার কথা। ওই শ্রেণির অন্য শিক্ষক পূরণ করতে চাইলে বাধা নেই।',
+  'Give the responsibility': 'দায়িত্ব দিন',
+  'Nobody has been given a report yet.': 'এখনো কাউকে কোনো রিপোর্টের দায়িত্ব দেওয়া হয়নি।',
+  'Leave it on the whole class unless one শাখা has its own teacher.':
+    'কোনো শাখার আলাদা শিক্ষক না থাকলে পুরো শ্রেণিতেই রেখে দিন।',
+  'Take this teacher off the report?': 'এই শিক্ষককে রিপোর্টের দায়িত্ব থেকে সরাবেন?',
+  'Could not load who is responsible.': 'দায়িত্ব কার, তা লোড করা যায়নি।',
+  'Could not save who is responsible.': 'দায়িত্ব সেভ করা যায়নি।',
   'Questions live in one bank, shared with the admission form. Add, reorder or retire them on Settings → Questions.':
     'প্রশ্নগুলো এক ভান্ডারেই থাকে — ভর্তি ফরমও সেখান থেকেই নেয়। যোগ করা, ক্রম বদলানো বা বাদ দেওয়া যায় সেটিংস → প্রশ্নাবলী থেকে।',
   'This section holds no questions yet.': 'এই অংশে এখনো কোনো প্রশ্ন নেই।',
-  'Save the report to see which questions its section holds.':
-    'কোন প্রশ্নগুলো আসবে দেখতে রিপোর্টটি আগে সেভ করুন।',
   'Open Settings → Questions': 'সেটিংস → প্রশ্নাবলী খুলুন',
 
   // ── On the student's record ────────────────────────────────────────────

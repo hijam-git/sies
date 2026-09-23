@@ -1,26 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { apiClient } from '../../lib/api';
-import type { AcademicClass, ReportFrequency, ReportTemplate, Stream } from '../../lib/api';
+import type {
+  AcademicClass,
+  FormQuestion,
+  ReportFrequency,
+  ReportTemplate,
+  Stream,
+} from '../../lib/api';
 import { usePermissions } from '../../lib/auth-context';
 import { useT } from '../../lib/i18n';
 import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
+import useRequestId from '../../lib/useRequestId';
 import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import ResponsiveTable from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import { btnPrimary, btnRowAction, btnSecondary, inputCls, selectCls } from '../common/styles';
-import { QUESTION_TYPE_LABELS, itemLabel } from './shared';
+import ReportAssignmentsSection from './ReportAssignmentsSection';
+import { asksWholeSection } from './shared';
+import TemplateQuestionsEditor from './TemplateQuestionsEditor';
 
 /**
- * What the institution observes — `docs/02` §4.10's template, and nothing else.
+ * What the institution observes — `docs/02` §4.10's template.
  *
- * **There is deliberately no question editor here.** The questions are
+ * **There is still no question editor here.** The questions are
  * `forms.Question`, the same bank the admission form draws on, and Settings →
- * Questions is already their editor with drag-ordering. A template names a
- * *section* of that bank; two screens that both create a question would be two
- * banks pretending to be one. So this screen shows what the chosen section
- * currently holds, read-only, and links to the screen that writes it.
+ * Questions is their only editor. What this screen decides is which of them
+ * one report asks: the whole of a `section`, or a list chosen for this report
+ * alone — because two templates drawing on `conduct` otherwise ask an
+ * identical list, which is not what a daily নামাজ sheet and a monthly review
+ * want. `TemplateQuestionsEditor` holds that.
+ *
+ * Below the templates, who is *responsible* for filling each one. That is
+ * direction, not a lock — see `ReportAssignmentsSection`.
  *
  * The gate is `settings.update`, not `conduct`: a teacher fills the sheet, and
  * deciding what is on it is the office's act.
@@ -64,11 +76,16 @@ export default function ConductSetupTab({
   classes: AcademicClass[];
   streams: Stream[];
 }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const { can } = usePermissions();
   const mayEdit = can('settings', 'update');
+  const req = useRequestId();
 
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
+  // The whole bank, not one section: a chosen question may come from any of
+  // them, and the editor also needs the section's own list to tell a default
+  // apart from a list somebody picked.
+  const [bank, setBank] = useState<FormQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,16 +96,24 @@ export default function ConductSetupTab({
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
+    const mine = req.begin();
     setLoading(true);
     try {
-      setTemplates(await apiClient.listAll<ReportTemplate>('/report-templates/', '?ordering=name'));
+      const [rows, questions] = await Promise.all([
+        apiClient.listAll<ReportTemplate>('/report-templates/', '?ordering=name'),
+        apiClient.listAll<FormQuestion>('/questions/', '?ordering=order'),
+      ]);
+      if (!req.isCurrent(mine)) return;
+      setTemplates(rows);
+      setBank(questions);
       setError(null);
     } catch (err) {
+      if (!req.isCurrent(mine)) return;
       setError(apiErrorText(err, t, t('Could not load the reports.')));
     } finally {
-      setLoading(false);
+      if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [t]);
+  }, [req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 100);
@@ -159,6 +184,8 @@ export default function ConductSetupTab({
     return row ? row.name_bn || row.name : String(id);
   };
 
+  const onItsSection = (row: ReportTemplate) => asksWholeSection(row, bank);
+
   const columns: Column<ReportTemplate>[] = [
     {
       key: 'name',
@@ -181,7 +208,11 @@ export default function ConductSetupTab({
     {
       key: 'section',
       label: t('Questions'),
-      render: (row) => `${row.section} · ${row.item_count}`,
+      // "asks all 4 of section conduct" and "asks 2 chosen questions" are two
+      // different things to whoever edits this next, so the list says which.
+      render: (row) => (onItsSection(row)
+        ? `${t('Asks every question in section')} “${row.section}” · ${row.item_count}`
+        : `${t('Asks its own chosen questions')} · ${row.item_count}`),
     },
     {
       key: 'active',
@@ -200,10 +231,6 @@ export default function ConductSetupTab({
       ),
     },
   ];
-
-  /** The questions the chosen section currently holds. Read-only on purpose —
-   *  see the note at the top of this file. */
-  const sectionQuestions = editing?.items ?? [];
 
   return (
     <div className="space-y-3">
@@ -360,46 +387,27 @@ export default function ConductSetupTab({
             </label>
 
             {/* ── What is on the sheet, and where it is written ─────────── */}
-            <section className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <h3 className="text-sm font-semibold text-gray-900">
-                {`${t('Questions on this sheet')} · ${sectionQuestions.length}`}
-              </h3>
-              <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                {t('Questions live in one bank, shared with the admission form. Add, reorder or retire them on Settings → Questions.')}
+            {editing ? (
+              <TemplateQuestionsEditor
+                template={editing}
+                bank={bank}
+                mayEdit={mayEdit}
+                onSaved={(saved) => {
+                  setEditing(saved);
+                  setTemplates((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
+                }}
+              />
+            ) : (
+              <p className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm text-gray-500">
+                {t('Save the report to choose which questions it asks.')}
               </p>
-              {editing ? (
-                <ol className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-100 bg-white">
-                  {sectionQuestions.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                      <span className="min-w-0 truncate text-sm text-gray-900">
-                        {itemLabel(item, lang)}
-                      </span>
-                      <span className="shrink-0 text-xs text-gray-500">
-                        {t(QUESTION_TYPE_LABELS[item.type] ?? item.type)}
-                      </span>
-                    </li>
-                  ))}
-                  {sectionQuestions.length === 0 && (
-                    <li className="px-3 py-3 text-center text-sm text-gray-500">
-                      {t('This section holds no questions yet.')}
-                    </li>
-                  )}
-                </ol>
-              ) : (
-                <p className="mt-2 text-sm text-gray-500">
-                  {t('Save the report to see which questions its section holds.')}
-                </p>
-              )}
-              <Link
-                to="/settings?tab=questions"
-                className={`${btnSecondary} mt-2 inline-flex`}
-              >
-                {t('Open Settings → Questions')}
-              </Link>
-            </section>
+            )}
           </div>
         </BaseModal>
       )}
+
+      {/* Who is meant to fill these — direction, never a lock. */}
+      <ReportAssignmentsSection templates={templates} classes={classes} mayEdit={mayEdit} />
     </div>
   );
 }

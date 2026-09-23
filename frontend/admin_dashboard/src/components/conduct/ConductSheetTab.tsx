@@ -601,6 +601,14 @@ export default function ConductSheetTab({
           <span className="block text-xs text-gray-500">
             {sheet ? `${t('Period')}: ${sheet.period}` : date}
           </span>
+          {/* Quiet, and deliberately not a badge: this says who is *meant* to
+              fill the sheet, and any teacher of the class still may. A lock is
+              how a report goes unfilled on the day one person is ill. */}
+          {sheet && sheet.responsible.length > 0 && (
+            <span className="block truncate text-xs text-gray-400">
+              {`${t('Responsible')}: ${sheet.responsible.map((row) => row.name).join(', ')}`}
+            </span>
+          )}
         </div>
         <button
           type="button"

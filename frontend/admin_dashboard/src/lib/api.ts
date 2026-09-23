@@ -1218,8 +1218,10 @@ export interface FormQuestion {
 // the same place.
 //
 // **There is no conduct question model.** The items are `forms.Question`, the
-// same bank the admission form draws on, selected by `section`; a template
-// serves them read-only and Settings → Questions is their only editor.
+// same bank the admission form draws on, and Settings → Questions stays their
+// only editor. A template either names a whole `section` of that bank or holds
+// its own chosen list — which is what lets two templates drawing on `conduct`
+// ask different questions without a second copy of নামাজ drifting out of step.
 
 export type ReportFrequency = 'daily' | 'weekly' | 'monthly' | 'term';
 
@@ -1248,6 +1250,9 @@ export interface ReportTemplate {
   stream: number | null;
   academic_class: number | null;
   is_active: boolean;
+  /** The questions this sheet actually asks, in order — the ones chosen for it
+   *  or, when none were chosen, the whole of `section`. The API serves the
+   *  answer rather than the rule, so the screen never reimplements it. */
   items: ConductItem[];
   item_count: number;
   created_at: string;
@@ -1284,8 +1289,42 @@ export interface ConductSheet {
   section: number | null;
   /** The question-bank section the template draws its questions from. */
   question_section: string;
+  /** Who is *meant* to fill this sheet. Responsibility, not exclusivity — any
+   *  teacher of the class may still fill it, so the screen says this quietly
+   *  and never as a lock. A whole-class assignment shows on every শাখা's
+   *  sheet, which is why it is a list and not one name. */
+  responsible: ConductResponsible[];
   items: ConductItem[];
   students: ConductStudent[];
+}
+
+/** One name on that line. `section` is null for a whole-class assignment. */
+export interface ConductResponsible {
+  teacher: number;
+  name: string;
+  section: number | null;
+}
+
+/**
+ * Who is responsible for one template on one class — `/report-assignments/`.
+ *
+ * Reading costs `conduct.view`, because "who is meant to be filling this" is a
+ * question a teacher and a principal both ask; handing responsibility out is
+ * `settings.update`, the office's act.
+ */
+export interface ReportAssignment {
+  id: number;
+  template: number;
+  template_name: string;
+  academic_class: number;
+  class_name: string;
+  /** Null means the whole class rather than one শাখা. */
+  section: number | null;
+  section_name: string;
+  teacher: number;
+  teacher_name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ConductRowInput {
