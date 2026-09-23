@@ -158,6 +158,9 @@ SIES_PERMISSION_RESOLVER = 'accounts.permissions.permission_resolver'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Straight after SecurityMiddleware, as whitenoise requires: a /static hit
+    # is answered here and never reaches sessions, auth or branch scoping.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -318,8 +321,15 @@ STORAGES = {
         if all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET])
         else {'BACKEND': 'django.core.files.storage.FileSystemStorage'}
     ),
-    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    # Compressed, not Manifest: the manifest variant raises on any {% static %}
+    # name missing from the manifest whenever DEBUG is off — which includes the
+    # test runner — so a test rendering the admin would need collectstatic first.
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
 }
+
+# True when uploads live on this server's disk rather than in R2. core/urls.py
+# reads it to decide whether Django has to serve /media itself.
+MEDIA_ON_DISK = STORAGES['default']['BACKEND'].endswith('FileSystemStorage')
 
 # A scanned admission document or a photo from a phone camera routinely exceeds
 # Django's 2.5 MB default, at which point the upload spools to a temp file. This
@@ -554,7 +564,9 @@ SMS_PROVIDER = os.getenv('SMS_PROVIDER', 'console')
 SMS_SENDER_ID = os.getenv('SMS_SENDER_ID', '')
 
 BULKSMSBD_API_KEY = os.getenv('BULKSMSBD_API_KEY', '')
-BULKSMSBD_BASE_URL = os.getenv('BULKSMSBD_BASE_URL', 'http://bulksmsbd.net/api')
+# HTTPS: the API key is a query parameter on every request, so over plain HTTP
+# it crosses every network between here and the gateway in the clear.
+BULKSMSBD_BASE_URL = os.getenv('BULKSMSBD_BASE_URL', 'https://bulksmsbd.net/api')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -579,3 +591,10 @@ if TESTING:
     # Password hashing is the largest single cost in a suite that creates users,
     # and no test cares which algorithm proved the password.
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
+    # Uploads go to the disk under test even when the environment carries R2
+    # credentials, as .env.development may: otherwise every test that saves a
+    # photo writes a real object to the bucket, over the network, and leaves it
+    # there. test_storage exercises R2Storage directly with a stubbed client.
+    STORAGES = {**STORAGES, 'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'}}
+    MEDIA_ON_DISK = True

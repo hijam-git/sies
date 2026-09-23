@@ -225,19 +225,9 @@ services:
     container_name: sies-backend
     restart: unless-stopped
     logging: *default-logging
-    # --access-logfile - sends gunicorn's access log to stdout, where the
-    # json-file driver rotates it. Without it, a 502 has no request line to
-    # correlate against Traefik's access log.
-    command: >
-      gunicorn core.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers ${GUNICORN_WORKERS:-3}
-      --timeout ${GUNICORN_TIMEOUT:-60}
-      --graceful-timeout 30
-      --max-requests 1000
-      --max-requests-jitter 100
-      --access-logfile -
-      --error-logfile -
+    # No `command:` — the image's docker-entrypoint.sh waits for Postgres and
+    # starts gunicorn (gthread; GUNICORN_WORKERS/THREADS/TIMEOUT from the env
+    # file). A command here would replace that script and silently skip both.
     env_file:
       - .env.production
     environment:
@@ -264,6 +254,17 @@ services:
       - "traefik.http.routers.sies-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-api.priority=100"
       - "traefik.http.routers.sies-api.middlewares=secure-headers@file,compression@file,retry@file"
+      - "traefik.http.routers.sies-api.service=sies-backend"
+      # /media again, above sies-api, only to add private-no-store: these are
+      # students' photos and voucher scans, and a shared office browser must
+      # not keep them for the next person. Only reached when R2 is not set —
+      # with R2 the links point at the bucket, not here.
+      - "traefik.http.routers.sies-media.rule=Host(`${DOMAIN}`) && PathPrefix(`/media`)"
+      - "traefik.http.routers.sies-media.entrypoints=websecure"
+      - "traefik.http.routers.sies-media.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sies-media.priority=110"
+      - "traefik.http.routers.sies-media.service=sies-backend"
+      - "traefik.http.routers.sies-media.middlewares=secure-headers@file,private-no-store@file,retry@file"
       - "traefik.http.services.sies-backend.loadbalancer.server.port=8000"
       # Traefik keeps a server out of the pool until this check has passed once.
       # pull_and_deploy.sh waits for exactly that transition before touching the
@@ -397,7 +398,9 @@ services:
     # `serve -s dist` — the only Node process in production (CLAUDE.md §1).
     # -s is single-page mode: any unknown path returns index.html, which is what
     # makes a refresh on /myadmin/students/417 work instead of 404ing.
-    command: ["serve", "-s", "dist", "-l", "3001"]
+    #
+    # No `command:` — the image's entrypoint writes dist/config.js from API_URL
+    # below and then execs serve. A command here would skip the write.
     environment:
       NODE_ENV: production
       # The SPA reads its API URL from window.ENV at runtime (docs/01 §7), so
@@ -410,13 +413,37 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=sies-network"
-      # Catch-all: everything the backend did not claim, including /myadmin.
-      # Priority 1 — it must stay below the backend's 100.
-      - "traefik.http.routers.sies-admin.rule=Host(`${DOMAIN}`)"
+      # /myadmin, with the prefix STRIPPED before it reaches serve.
+      #
+      # Vite builds with base '/myadmin/', so the page asks for
+      # /myadmin/assets/index-<hash>.js — but dist/ has assets/ at its root.
+      # Passed through unstripped, serve cannot find the file, its single-page
+      # fallback answers with index.html, and the browser refuses HTML as a
+      # script: a blank dashboard. Dev never shows this because Vite's dev
+      # server understands `base` itself. Same shape as awliaa's admin router.
+      - "traefik.http.routers.sies-admin.rule=Host(`${DOMAIN}`) && PathPrefix(`/myadmin`)"
       - "traefik.http.routers.sies-admin.entrypoints=websecure"
       - "traefik.http.routers.sies-admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.sies-admin.priority=1"
-      - "traefik.http.routers.sies-admin.middlewares=secure-headers@file,compression@file,retry@file"
+      - "traefik.http.routers.sies-admin.priority=50"
+      - "traefik.http.routers.sies-admin.service=sies-admin"
+      - "traefik.http.routers.sies-admin.middlewares=sies-admin-slash,sies-admin-strip,secure-headers@file,compression@file,retry@file"
+      # /myadmin → /myadmin/. Stripped bare, it would reach serve as an empty
+      # path, and relative asset URLs resolve against the wrong directory.
+      - "traefik.http.middlewares.sies-admin-slash.redirectregex.regex=^(https?://[^/]+/myadmin)$$"
+      - "traefik.http.middlewares.sies-admin-slash.redirectregex.replacement=$${1}/"
+      - "traefik.http.middlewares.sies-admin-slash.redirectregex.permanent=true"
+      - "traefik.http.middlewares.sies-admin-strip.stripprefix.prefixes=/myadmin"
+      # The bare domain has nothing of its own — send it to the dashboard.
+      # Priority 1: anything more specific (the backend's 100, /myadmin's 50)
+      # wins. Any other unclaimed path is Traefik's plain 404.
+      - "traefik.http.routers.sies-root.rule=Host(`${DOMAIN}`) && Path(`/`)"
+      - "traefik.http.routers.sies-root.entrypoints=websecure"
+      - "traefik.http.routers.sies-root.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sies-root.priority=1"
+      - "traefik.http.routers.sies-root.service=sies-admin"
+      - "traefik.http.routers.sies-root.middlewares=sies-root-redirect"
+      - "traefik.http.middlewares.sies-root-redirect.redirectregex.regex=^(https?://[^/]+)/$$"
+      - "traefik.http.middlewares.sies-root-redirect.redirectregex.replacement=$${1}/myadmin/"
       - "traefik.http.services.sies-admin.loadbalancer.server.port=3001"
       - "traefik.http.services.sies-admin.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.sies-admin.loadbalancer.healthcheck.interval=3s"

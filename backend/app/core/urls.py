@@ -8,9 +8,10 @@ path outside those four prefixes, or it becomes unreachable behind the proxy.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from core.health import health
+from core.media import serve_media
 
 # Each app's router is included by the phase that writes it (docs/05 §8). The
 # list is kept here, commented, rather than discovered: an include() naming a
@@ -46,8 +47,11 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    # Development only. In production Traefik routes /media and /static to a
-    # server that can do it properly — Django's static serving is single-threaded
-    # and reads the file into memory.
+    # Development. In production /static is whitenoise's (settings MIDDLEWARE)
+    # and /media is either R2's presigned links or the route below.
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+elif settings.MEDIA_ON_DISK:
+    # Production with no R2. core/media.py says why this exists and why
+    # documents/ is refused there rather than in this pattern.
+    urlpatterns += [re_path(r'^media/(?P<path>.+)$', serve_media)]

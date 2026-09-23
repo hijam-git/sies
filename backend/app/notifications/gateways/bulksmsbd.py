@@ -108,7 +108,7 @@ class BulkSmsBdGateway(SmsGateway):
         self.api_key = getattr(settings, 'BULKSMSBD_API_KEY', '') or ''
         self.default_sender_id = getattr(settings, 'SMS_SENDER_ID', '') or ''
         self.base_url = (
-            getattr(settings, 'BULKSMSBD_BASE_URL', '') or 'http://bulksmsbd.net/api'
+            getattr(settings, 'BULKSMSBD_BASE_URL', '') or 'https://bulksmsbd.net/api'
         ).rstrip('/')
 
     @property

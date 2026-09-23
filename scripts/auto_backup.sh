@@ -247,8 +247,11 @@ if [ -n "$R2_BACKUP_BUCKET" ]; then
   log INFO "copying to R2 bucket ${R2_BACKUP_BUCKET}…"
   R2_OK=1
   for f in "$DUMP" ${MEDIA_TAR:+"$MEDIA_TAR"}; do
+    # -u root on both steps: `docker cp` lands the file owned by root with the
+    # 0600 set above, and the app runs as an unprivileged user that can neither
+    # read it nor delete it from the sticky /tmp.
     if docker cp "$f" "${BACKEND_CONTAINER}:/tmp/$(basename "$f")" 2>>"$LOG_FILE" \
-       && docker exec "$BACKEND_CONTAINER" python manage.py backup_to_r2 \
+       && docker exec -u root "$BACKEND_CONTAINER" python manage.py backup_to_r2 \
             --file "/tmp/$(basename "$f")" >>"$LOG_FILE" 2>&1; then
       :
     else
@@ -256,7 +259,7 @@ if [ -n "$R2_BACKUP_BUCKET" ]; then
       log ERROR "R2 upload FAILED for $(basename "$f") — see $LOG_FILE"
     fi
     # Never leave a database dump inside the application container.
-    docker exec "$BACKEND_CONTAINER" rm -f "/tmp/$(basename "$f")" 2>/dev/null || true
+    docker exec -u root "$BACKEND_CONTAINER" rm -f "/tmp/$(basename "$f")" 2>/dev/null || true
   done
   if [ "$R2_OK" = 1 ]; then
     OFFSITE=ok

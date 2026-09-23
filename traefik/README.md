@@ -12,8 +12,8 @@ travels the same path it will travel in production.
                      │  dev :5000  ·  prod :80/:443 │
                      └───────┬──────────────┬───────┘
                              │              │
-        /api /admin /static /media      everything else
-              priority 100                 priority 1
+        /api /admin /static /media      /myadmin
+              priority 100          priority 50 (prod: prefix stripped)
                              │              │
                    ┌─────────▼──────┐  ┌────▼──────────────────┐
                    │ sies-backend   │  │ sies-admin            │
@@ -23,36 +23,40 @@ travels the same path it will travel in production.
 
 ## The routing model
 
-There are exactly **two routers**, and the priority number is what makes them
-work together.
+The priority number is what makes the routers work together: Traefik resolves
+an overlap by priority, never by order in the file.
+
+### Production (`docker-compose.prod.yml`)
 
 | Priority | Path | Goes to | Why |
 |---:|---|---|---|
-| **100** | `/api`, `/admin`, `/static`, `/media` | `sies-backend` | Django owns the API, the Django admin, its collected static files, and uploaded media. |
-| **1** | `/` — everything else | `sies-admin` | The SPA's catch-all. |
+| **100** | `/api`, `/admin`, `/static`, `/media` | `sies-backend` | Django owns the API, the Django admin, static files (whitenoise) and uploaded media. |
+| **50** | `/myadmin`, prefix **stripped** | `sies-admin` | The built SPA. |
+| **1** | `/` exactly | redirect → `/myadmin/` | The bare domain has nothing of its own. |
 
-The SPA rule is a `PathPrefix` on `/`, which matches *every* request, including
-the four prefixes above. Traefik resolves that overlap by priority, never by
-order in the file, so **the backend router must keep the higher number**. Drop
-the `priority=100` label and the SPA quietly begins answering `/api/...` with
-`index.html` — which surfaces as a JSON parse error in the dashboard and looks
-for all the world like a backend bug.
+Anything else is Traefik's plain 404.
 
-Two things follow, both worth knowing before adding a route:
+**Why the strip.** Vite builds with base `/myadmin/`, so the page requests
+`/myadmin/assets/index-<hash>.js` and `/myadmin/config.js`, while `serve` has
+`assets/` and `config.js` at the root of `dist/`. Forwarded unchanged, those
+requests miss, `serve -s` answers every one of them with `index.html`, and the
+browser refuses HTML as a script: a blank dashboard. An earlier version of this
+file argued for no strip; it was written against the dev server, where the
+problem cannot appear, and it was wrong for the built image. React Router's
+`basename="/myadmin"` is unaffected — the browser's URL keeps the prefix; only
+the path `serve` sees loses it. The `sies-admin-slash` middleware turns a bare
+`/myadmin` into `/myadmin/` first, so the stripped path is never empty.
 
-- **A new backend path prefix must be added to the priority-100 rule.** Adding a
-  Django URL is not enough; Traefik will hand the path to the SPA.
-- **The SPA is served under `/myadmin`, but its router is not `/myadmin`.** The
-  React app sets `<BrowserRouter basename="/myadmin">`, so it emits and expects
-  `/myadmin/...` itself. Traefik forwards the path unchanged, and `serve -s dist`
-  falls back to `index.html` for unknown paths — that fallback is what lets a
-  deep link like `/myadmin/students/417` survive a refresh. There is deliberately
-  **no strip-prefix middleware**, unlike Awliaa: a prefix stripped at the proxy
-  has to be re-added by the SPA, and the two then drift apart on the day
-  somebody changes one of them.
+### Development (`docker-compose.dev.yml`)
 
-`/` itself reaches the SPA, which redirects to `/myadmin`. Nothing else is served
-from the root.
+The SPA router is a priority-1 catch-all, and nothing is stripped: the Vite
+dev server serves under `base` itself. **The backend router must keep the
+higher number** in both files — drop `priority=100` and the SPA quietly begins
+answering `/api/...` with `index.html`, which surfaces as a JSON parse error in
+the dashboard and looks for all the world like a backend bug.
+
+**A new backend path prefix must be added to the priority-100 rule** in both
+compose files. Adding a Django URL is not enough.
 
 ## Files in this directory
 

@@ -5,8 +5,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+# ci, not install: it builds exactly the lockfile and fails if package.json has
+# drifted from it, so the image holds the dependency set that was tested.
+RUN npm ci
 
 COPY . .
 RUN npm run build
@@ -43,9 +45,14 @@ RUN printf '%s\n' \
     '  API_URL: "${API_URL:-/api}"' \
     '};' \
     'EOF' \
-    'exec serve -s dist -l 5173' \
+    'exec serve -s dist -l 3001' \
     > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-EXPOSE 5173
+# The entrypoint rewrites dist/config.js at every start, so dist must belong to
+# the user that runs it. `node` (uid 1000) ships with the base image.
+RUN chown -R node:node /app/dist
+USER node
+
+EXPOSE 3001
 
 CMD ["/app/entrypoint.sh"]

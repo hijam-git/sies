@@ -36,6 +36,11 @@ redis==5.2.1
 # WSGI server for the production image.
 gunicorn==23.0.0
 
+# Serves /static from gunicorn in production. Django only serves it under
+# DEBUG, and there is no nginx in this stack — without this the Django admin
+# loads with no CSS. Same version awliaa runs.
+whitenoise==6.12.0
+
 # Reads .env.development / .env.production in local (non-Docker) runs; Compose
 # injects the same variables through env_file.
 python-dotenv==1.0.1

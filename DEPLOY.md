@@ -14,8 +14,8 @@ How this system is run: locally, on a new server, and every week after that.
                         │  THE ONLY    │   the only published port
                         │ EXPOSED PORT │
                         └───┬──────┬───┘
-              priority 100  │      │  priority 1
-        /api /admin /static /media │  everything else
+              priority 100  │      │  priority 50, prefix stripped
+        /api /admin /static /media │  /myadmin   (and / → /myadmin/)
                             │      │
                   ┌─────────▼──┐ ┌─▼──────────────────┐
                   │sies-backend│ │ sies-admin         │
@@ -162,7 +162,7 @@ sudo -u sies /opt/sies/scripts/pull_and_deploy.sh
 | 4 | pre-deploy `pg_dump -Fc` | aborts — no migration without a backup |
 | 5 | build images | aborts, old images still running |
 | 6 | **migrate on the new image, before any swap** | aborts, old release still serving |
-| 6b | `manage.py check_schema` | aborts, old release still serving |
+| 6b | `manage.py check_schema` — **not built yet; the script skips it** | — |
 | 7 | collectstatic | **rolls back** |
 | 8 | restart: workers → backend → SPA, each proven healthy | **rolls back** |
 | 9 | verify over HTTPS as a browser sees it | **rolls back** |
@@ -214,6 +214,11 @@ The rule applies to `RemoveField`, `DeleteModel`, `RenameField` and
 `RenameModel` alike. A rename is a drop and an add wearing one name.
 
 ### The two guards that enforce it
+
+> **Neither guard exists in SIES yet.** Both are described here as awliaa
+> runs them and as they are meant to be built; until they are, the rule is
+> enforced by review alone. `pull_and_deploy.sh` looks for `check_schema` and
+> skips step 6b when it is missing.
 
 **`core/tests/test_migration_safety.py`** — fails the test suite when a new
 migration contains `RemoveField`, `DeleteModel`, `RenameField` or `RenameModel`.
@@ -321,12 +326,22 @@ Full detail in `traefik/README.md`. The short version:
 | Priority | Path | Goes to |
 |---:|---|---|
 | 100 | `/api`, `/admin`, `/static`, `/media` | `sies-backend` |
-| 1 | everything else | `sies-admin` (SPA at `/myadmin`) |
+| 50 | `/myadmin`, **prefix stripped** | `sies-admin` |
+| 1 | `/` exactly | redirect to `/myadmin/` |
 
-The SPA's rule matches every path. Traefik resolves the overlap by **priority**,
-never by file order, so the backend router must keep the higher number. Drop it
-and the SPA starts answering `/api/...` with `index.html` — which surfaces as a
-JSON parse error in the dashboard and looks exactly like a backend bug.
+Anything else is Traefik's own 404.
+
+**The strip is load-bearing.** Vite builds with base `/myadmin/`, so the page
+asks for `/myadmin/assets/index-<hash>.js`, but `serve` has `assets/` at the
+root of `dist/`. Unstripped, the request misses, `serve -s` answers with
+`index.html`, and the browser refuses HTML as a script — a blank dashboard with
+a MIME-type error in the console. Development never shows it, because Vite's
+dev server understands `base` itself.
+
+`/static` is served by whitenoise inside gunicorn. `/media` is presigned R2
+links when R2 is configured; without R2, Django serves the media volume itself
+(`core/media.py`) — except `documents/`, which only ever leaves through the
+authenticated download.
 
 **Adding a backend path prefix means editing the priority-100 rule.** A new
 Django URL alone is not enough.
@@ -402,9 +417,11 @@ undo.
 | `502 Bad Gateway` | The backend is up but not answering. `scripts/health_check.sh --prod`. |
 | `503` with a 0 ms upstream | The routing pool is empty. Zero milliseconds is the signature — a slow backend takes time, an absent one takes none. |
 | `400 Bad Request` on everything | `ALLOWED_HOSTS` does not contain `DOMAIN`. |
-| Django admin has no CSS | `collectstatic` did not run, or `STATIC_ROOT` is wrong. |
-| Login succeeds then immediately logs out | Cookie flags. `SESSION_COOKIE_SECURE=1` over plain HTTP, or a `SECURE_PROXY_SSL_HEADER` mismatch. |
-| Redirect loop | `SECURE_SSL_REDIRECT=1` without `SECURE_PROXY_SSL_HEADER` — Django believes every request is insecure. |
+| Blank dashboard, MIME-type error in the console | `/myadmin` is reaching `serve` unstripped — the `sies-admin-strip` middleware is missing from the router. |
+| `config.js` 404 / `window.ENV` undefined | A `command:` on `sies-admin` replaced the entrypoint that writes it. |
+| Django admin has no CSS | `collectstatic` did not run into the `static` volume, or whitenoise is missing from `MIDDLEWARE`. |
+| Photos and logos 404 | No R2 and the `media` volume is not mounted on `sies-backend`, or R2 is set with a wrong key — check `docker logs sies-backend`. |
+| Login succeeds then immediately logs out | The site is being reached over plain HTTP: secure cookies are on whenever `DEBUG=0`. |
 | Nothing in the background runs | Beat and the worker are on different `CELERY_BROKER_URL` databases. Neither logs an error. |
 | Fees generated twice | Two beat containers. Exactly one may exist. |
 | `FATAL: sorry, too many clients` | `GUNICORN_WORKERS` × `DB_CONN_MAX_AGE` against Postgres' 100-connection limit. |

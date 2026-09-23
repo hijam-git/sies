@@ -12,39 +12,43 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# postgresql-client is here for pg_dump, which scripts/auto_backup.sh runs from
-# this container. Debian trixie ships client 17 while the server is
-# postgres:16-alpine — pg_dump 17 writes `SET transaction_timeout = 0` into the
-# dump header and Postgres 16 rejects it, so such a dump does NOT restore with a
-# plain `psql` pipe. awliaa hit exactly this and it stayed invisible until a
-# restore was needed, because the backups kept succeeding.
-# scripts/restore_backup.sh must strip that line. Remove this comment only when
-# the two versions are made to match.
+# netcat-openbsd: the entrypoint waits for Postgres with it. That is all.
 #
-# netcat-openbsd: the entrypoint waits for Postgres with it.
-# gettext: compilemessages runs at build time, below.
+# No gettext: there are no .po files — the bilingual strings live in the SPA's
+# lib/i18n and in `name`/`name_bn` columns, not in Django's catalogue.
+# No compiler, no libpq, no postgresql-client. Every requirement ships a wheel
+# (psycopg[binary] carries its own libpq), and every pg_dump in scripts/ runs
+# inside the sies-db container — which is also what keeps the dump's client
+# version equal to the server's. A client 17 here against server 16 writes
+# `SET transaction_timeout` into the dump, and that dump does not restore.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
-        postgresql-client \
         netcat-openbsd \
-        gettext \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# The app runs unprivileged. uid 1000 so a file it writes into a volume has the
+# same owner as the deploy user on a stock Ubuntu host.
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --no-create-home app
+
 COPY app/ /app/
 
-RUN mkdir -p /app/staticfiles /app/media
+# Created here, owned by app, BEFORE a volume is mounted over them: Docker seeds
+# an empty named volume from the image directory, ownership included, so the
+# media, static and beat volumes come up writable by the app user.
+RUN mkdir -p /app/staticfiles /app/media /beat
 
 # collectstatic needs settings to import, which needs a key. This one lives for
 # the length of the RUN and never lands in the image's environment.
 RUN DJANGO_SECRET_KEY=build-time-only-not-a-runtime-key DEBUG=0 ALLOWED_HOSTS=localhost \
-        python manage.py collectstatic --noinput
+        python manage.py collectstatic --noinput \
+    && chown -R app:app /app/staticfiles /app/media /beat
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+USER app
 
 EXPOSE 8000
 
