@@ -441,6 +441,11 @@ CELERY_TASK_ROUTES = {
     # certificates, CSV ledgers, bulk SMS fan-out.
     'core.tasks.export_*': {'queue': 'slow'},
     'exams.tasks.publish_results': {'queue': 'slow'},
+    # Results day queues one task per guardian — four hundred of them in one
+    # press. On `default` they would sit in front of whatever a person is
+    # actually waiting for; on `slow` they run beside it. The comment above
+    # always said bulk SMS belonged here; the route did not exist.
+    'notifications.deliver_sms': {'queue': 'slow'},
 }
 CELERY_TASK_DEFAULT_QUEUE = 'default'
 
