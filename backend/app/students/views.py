@@ -23,7 +23,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import HasResourcePermission
+from accounts.permissions import HasResourcePermission, has_permission
 from core.middleware import ALL_BRANCHES, get_branch
 from core.viewsets import BranchScopedViewSet, writable_branch
 from accounts.services import ActivityLogMixin
@@ -248,6 +248,18 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
         body.is_valid(raise_exception=True)
         data = body.validated_data
 
+        # A photograph and a stack of certificates may ride along (multipart).
+        # Storing a document costs `documents.upload`, which admitting does not
+        # include — but a clerk who may admit and may not file papers must still
+        # be able to admit. So the documents are dropped and counted, never a
+        # 403: refusing the admission would punish the child for the clerk's
+        # role. The photo is part of the student record itself and rides with
+        # the admission permission.
+        documents = data.get('documents') or []
+        skipped = 0
+        if documents and not has_permission(request.user, 'documents', 'upload'):
+            skipped, documents = len(documents), []
+
         student, enrolment = admit_student(
             application,
             academic_class=self._resolve_class(data.get('academic_class'), application),
@@ -256,6 +268,8 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
             admitted_on=data.get('admitted_on'),
             is_hostel=data.get('is_hostel', False),
             is_transport=data.get('is_transport', False),
+            photo=data.get('photo'),
+            documents=documents,
             actor=request.user,
             request=request,
         )
@@ -266,6 +280,11 @@ class AdmissionViewSet(ActivityLogMixin, BranchScopedViewSet):
                 'enrolment': getattr(enrolment, 'pk', None),
                 'admission_number': getattr(enrolment, 'admission_number', None),
                 'roll': getattr(enrolment, 'roll', None),
+                'documents_attached': len(documents),
+                # Nonzero means the files were sent and not kept. Said out loud
+                # so the screen can tell the clerk rather than leaving them to
+                # discover it next month.
+                'documents_skipped': skipped,
             },
             status=status.HTTP_201_CREATED,
         )

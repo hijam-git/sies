@@ -29,8 +29,9 @@ from accounts.services import CodedError, Duplicate, log_activity
 
 from core.models import NumberSequence
 from core.services import format_number, next_number
-from .models import (Admission, AdmissionStatus, Guardian, GuardianRelation,
-                     Student, StudentGuardian, StudentStatus)
+from .models import (Admission, AdmissionStatus, Document, DocumentOwner,
+                     DocumentType, Guardian, GuardianRelation, Student,
+                     StudentGuardian, StudentStatus)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Number series (CLAUDE.md §4.4)
@@ -208,6 +209,32 @@ def create_application(*, branch, session, actor=None, request=None, **fields):
     return application
 
 
+def attach_student_documents(student, documents, *, actor=None):
+    """Store `[{doc_type, title, file}, …]` against a student.
+
+    Separate from the admission so the student record's own upload screen and
+    the admit flow build the row the same way — `owner_type` and the owner FK
+    have to agree or the CheckConstraint rejects it, and that agreement should
+    live in one place.
+    """
+    created = []
+    for item in documents or []:
+        upload = item.get('file')
+        if not upload:
+            continue
+        created.append(Document.objects.create(
+            branch=student.branch,
+            owner_type=DocumentOwner.STUDENT,
+            student=student,
+            doc_type=item.get('doc_type') or DocumentType.OTHER,
+            title=(item.get('title') or '').strip() or str(DocumentType.OTHER.label),
+            file=upload,
+            uploaded_by=actor if getattr(actor, 'is_authenticated', False) else None,
+            created_by=actor if getattr(actor, 'is_authenticated', False) else None,
+        ))
+    return created
+
+
 # The statuses an application may be admitted from. `pending` is included on
 # purpose: a small madrasah admits over the counter with no interview step, and
 # forcing it through `accepted` first would be ceremony the clerk works around.
@@ -222,7 +249,8 @@ ADMITTABLE_STATUSES = {
 def admit_student(application, *, academic_class=None, section=None, roll=None,
                   stream=None, admitted_on=None, actor=None, request=None,
                   student_fields=None, guardian_fields=None,
-                  is_hostel=False, is_transport=False, fee_amounts=None):
+                  is_hostel=False, is_transport=False, fee_amounts=None,
+                  photo=None, documents=None):
     """Turn an accepted application into a Student with an Enrolment.
 
     Returns `(student, enrolment)`.
@@ -233,7 +261,8 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
       2. the `academics.Enrolment` — class, section, session — numbered by
          `academics`' own service, which owns the roll and admission-number series
       3. the Guardian, reusing a sibling's row when the phone already exists
-      4. the application marked `admitted` and pointed at the student
+      4. the application marked `admitted` and pointed at the student, and the
+         photograph and certificates handed in with it stored against both
       5. the admission and session fee invoices, where `fee_amounts` gives a
          price for them (`fees.services.raise_admission_fees`)
       6. the activity log entry
@@ -254,6 +283,14 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
             'This application has already been admitted · '
             'এই আবেদন থেকে ইতিমধ্যে ভর্তি সম্পন্ন হয়েছে।'
         )
+
+    # The photograph handed in at the counter, if one was. It is written onto
+    # the *application* first and copied to the student below, so one stored
+    # file serves both: the admission form reprints with the picture on it, and
+    # nothing has to guess which of two copies is current.
+    if photo is not None:
+        application.photo = photo
+        application.save(update_fields=['photo', 'updated_at'])
 
     academic_class = academic_class or application.academic_class
     stream = stream or application.stream
@@ -321,6 +358,15 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
     application.processed_at = timezone.now()
     application.save(update_fields=['student', 'status', 'processed_by',
                                     'processed_at', 'updated_at'])
+
+    # 4a ── the certificates that came with the form
+    #
+    # In THIS transaction and not a follow-up request, for the same reason the
+    # enrolment is: a failure halfway must leave no student at all, rather than
+    # a child on the roll whose birth certificate silently did not arrive. The
+    # stored files themselves are not transactional — a rollback leaves bytes in
+    # storage with no row pointing at them, which is litter and not a record.
+    attach_student_documents(student, documents, actor=actor)
 
     # ── Fee invoices ────────────────────────────────────────────────────────
     # docs/02 §4.1: the Admission Fee and the Session Fee are raised here, in

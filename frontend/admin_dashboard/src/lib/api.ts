@@ -475,6 +475,18 @@ export interface AdmitResult {
   enrolment: number | null;
   admission_number: string | null;
   roll: number | null;
+  /** Certificates stored with the admission. */
+  documents_attached?: number;
+  /** Sent and not kept, because the caller may admit but may not file papers.
+   *  Reported rather than swallowed so the screen can say so at the counter. */
+  documents_skipped?: number;
+}
+
+/** One row of the "papers handed in with the form" list on the admit screen. */
+export interface AdmitDocument {
+  doc_type: string;
+  title: string;
+  file: File;
 }
 
 export interface StoredDocument {
@@ -2007,12 +2019,51 @@ class ApiClient {
       admitted_on?: string | null;
       is_hostel?: boolean;
       is_transport?: boolean;
+      /** The photograph handed across the counter. */
+      photo?: File | null;
+      /** The certificates handed in with the form. */
+      documents?: AdmitDocument[];
     },
   ): Promise<AdmitResult> {
-    return this.request<AdmitResult>(`/admissions/${admissionId}/admit/`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    const { photo, documents = [], ...fields } = body;
+
+    // No files means the ordinary JSON body: multipart would turn every null
+    // into the string "null", and the admit serializer would have to defend
+    // itself against that on a path where nothing was uploaded at all.
+    if (!photo && documents.length === 0) {
+      return this.request<AdmitResult>(`/admissions/${admissionId}/admit/`, {
+        method: 'POST',
+        body: JSON.stringify(fields),
+      });
+    }
+
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== null && value !== undefined) form.append(key, String(value));
+    }
+    if (photo) form.append('photo', photo);
+    // Three parallel repeated keys, matched by position — multipart carries no
+    // nested objects, and the serializer reads them back through `getlist()`.
+    for (const doc of documents) {
+      form.append('document_files', doc.file);
+      form.append('document_types', doc.doc_type);
+      form.append('document_titles', doc.title);
+    }
+
+    const send = () =>
+      fetch(`${this.getBaseUrl()}${this.withBranch(`/admissions/${admissionId}/admit/`)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.getAccessToken()}` },
+        body: form,
+      });
+
+    return (async () => {
+      let response = await send();
+      if (response.status === 401 && this.getAccessToken()) {
+        if (await this.refreshAccessToken()) response = await send();
+      }
+      return this.handleResponse<AdmitResult>(response);
+    })();
   }
 
   /**

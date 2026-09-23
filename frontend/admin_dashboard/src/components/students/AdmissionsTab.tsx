@@ -4,6 +4,7 @@ import type {
   AcademicClass,
   Admission,
   AdmissionStatus,
+  AdmitDocument,
   AdmitResult,
   FormTemplate,
   Gender,
@@ -17,6 +18,7 @@ import { apiErrorText, apiFieldErrors } from '../../lib/apiErrors';
 import { useRequestId } from '../../lib/useRequestId';
 import { formatDhakaDate, todayInDhaka } from '../../lib/timezone';
 import BaseModal from '../common/BaseModal';
+import ImageUploadField from '../common/ImageUploadField';
 import FilterBar, { filterInputCls, filterSelectCls } from '../common/FilterBar';
 import Pagination, { PAGE_SIZE } from '../common/Pagination';
 import ResponsiveTable from '../common/ResponsiveTable';
@@ -98,6 +100,19 @@ function emptyDraft(session: string): ApplicationDraft {
   };
 }
 
+/** The document types an applicant actually arrives holding. `photo` is not
+ *  one of them: the photograph has its own field, and offering it twice invites
+ *  two pictures of the same child that disagree. */
+const ADMIT_DOC_TYPES = [
+  { value: 'birth_certificate', label: 'Birth certificate' },
+  { value: 'nid', label: 'NID' },
+  { value: 'testimonial', label: 'Testimonial' },
+  { value: 'transfer_certificate', label: 'Transfer certificate' },
+  { value: 'marksheet', label: 'Marksheet' },
+  { value: 'certificate', label: 'Certificate' },
+  { value: 'other', label: 'Other' },
+];
+
 interface AdmitDraft {
   application: Admission;
   academic_class: string;
@@ -106,6 +121,19 @@ interface AdmitDraft {
   admitted_on: string;
   is_hostel: boolean;
   is_transport: boolean;
+  /** Handed over the counter with the form, not a week later from the student
+   *  record — which is how a roll ends up half without photographs. */
+  photo: File | null;
+  documents: AdmitDocRow[];
+}
+
+/** A row in the "papers handed in" list. The file is nullable here and not on
+ *  the wire: a row the clerk added and has not filled yet is nothing, not an
+ *  error to correct. */
+interface AdmitDocRow {
+  doc_type: string;
+  title: string;
+  file: File | null;
 }
 
 export default function AdmissionsTab({
@@ -146,6 +174,10 @@ export default function AdmissionsTab({
   // is a document about the applicant, and an admission officer who may capture
   // an application does not automatically get to issue paper (`docs/02` §2.1).
   const mayPrint = can('documents', 'view');
+  // Storing a certificate costs `documents.upload`, which admitting does not
+  // include. The list is hidden rather than the Admit button disabled: the
+  // papers are an extra, and a clerk who cannot file them must still admit.
+  const mayUploadDocs = can('documents', 'upload');
 
   // ── Printing (`docs/07` §9) ──────────────────────────────────────────────
   const [preview, setPreview] = useState<PreviewRequest | null>(null);
@@ -364,8 +396,46 @@ export default function AdmissionsTab({
       admitted_on: todayInDhaka(),
       is_hostel: false,
       is_transport: false,
+      photo: null,
+      documents: [],
     });
   };
+
+  const patchAdmit = (patch: Partial<AdmitDraft>) =>
+    setAdmitDraft((current) => (current ? { ...current, ...patch } : current));
+
+  // Functional updates, not `{ ...admitDraft }`: two taps on "Add a paper"
+  // inside one React batch would otherwise both read the same draft and only
+  // one row would appear.
+  const addDocument = () =>
+    setAdmitDraft((current) =>
+      current
+        ? {
+            ...current,
+            documents: [
+              ...current.documents,
+              { doc_type: 'birth_certificate', title: '', file: null },
+            ],
+          }
+        : current,
+    );
+
+  const removeDocument = (index: number) =>
+    setAdmitDraft((current) =>
+      current
+        ? { ...current, documents: current.documents.filter((_, i) => i !== index) }
+        : current,
+    );
+
+  const patchDocument = (index: number, patch: Partial<AdmitDocRow>) =>
+    setAdmitDraft((current) =>
+      current
+        ? {
+            ...current,
+            documents: current.documents.map((d, i) => (i === index ? { ...d, ...patch } : d)),
+          }
+        : current,
+    );
 
   const admit = async () => {
     if (!admitDraft) return;
@@ -381,6 +451,12 @@ export default function AdmissionsTab({
         admitted_on: admitDraft.admitted_on || null,
         is_hostel: admitDraft.is_hostel,
         is_transport: admitDraft.is_transport,
+        photo: admitDraft.photo,
+        // A row with no file chosen is a row the clerk started and left; it is
+        // not an error to correct, it is nothing.
+        documents: admitDraft.documents
+          .filter((d): d is AdmitDocRow & { file: File } => d.file !== null)
+          .map<AdmitDocument>((d) => ({ doc_type: d.doc_type, title: d.title, file: d.file })),
       });
       setAdmitted(result);
       await load();
@@ -938,6 +1014,18 @@ export default function AdmissionsTab({
                     <dd className="font-mono text-sm font-semibold text-gray-900">{admitted.roll ?? '—'}</dd>
                   </div>
                 </dl>
+                {(admitted.documents_attached ?? 0) > 0 && (
+                  <p className="text-xs text-gray-500">
+                    {`${admitted.documents_attached} ${t('papers were filed with this admission.')}`}
+                  </p>
+                )}
+                {(admitted.documents_skipped ?? 0) > 0 && (
+                  // Said out loud rather than swallowed: the clerk would
+                  // otherwise find out next month that nothing was stored.
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {t('The papers were not stored — your role may admit but may not file documents. Ask an administrator to add them to the student record.')}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500">
                   {t('A login is not part of this. Open the student record to give them one.')}
                 </p>
@@ -1026,6 +1114,85 @@ export default function AdmissionsTab({
                   />
                   <span className="text-sm text-gray-700">{t('Uses the transport')}</span>
                 </label>
+
+                {/* ── What was handed across the counter ─────────────────── */}
+                <section className="space-y-3 rounded-lg border border-gray-100 p-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {t('Papers handed in')}
+                  </h4>
+
+                  <ImageUploadField
+                    label={t('Photograph')}
+                    value={admitDraft.application.photo || ''}
+                    onChange={(file) => patchAdmit({ photo: file })}
+                    helperText={t('Taken now or picked from the gallery. It goes on the student record and on the admission form.')}
+                  />
+
+                  {mayUploadDocs ? (
+                    <div className="space-y-3">
+                      {admitDraft.documents.map((doc, index) => (
+                        <div
+                          key={index}
+                          className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-2"
+                        >
+                          <FieldGrid>
+                            <Field label={t('Document type')}>
+                              <select
+                                value={doc.doc_type}
+                                onChange={(e) => patchDocument(index, { doc_type: e.target.value })}
+                                className={selectCls}
+                              >
+                                {ADMIT_DOC_TYPES.map((d) => (
+                                  <option key={d.value} value={d.value}>
+                                    {t(d.label)}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                            <Field
+                              label={t('Title')}
+                              hint={t('Left blank, the type is used.')}
+                            >
+                              <input
+                                value={doc.title}
+                                onChange={(e) => patchDocument(index, { title: e.target.value })}
+                                className={inputCls}
+                              />
+                            </Field>
+                          </FieldGrid>
+                          <Field label={t('File')}>
+                            <input
+                              type="file"
+                              onChange={(e) =>
+                                patchDocument(index, { file: e.target.files?.[0] ?? null })
+                              }
+                              className="block w-full text-base text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:text-gray-700"
+                            />
+                          </Field>
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(index)}
+                            className={btnRowAction}
+                          >
+                            {t('Remove')}
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={addDocument}
+                        className={`${btnSecondary} w-full sm:w-auto`}
+                      >
+                        {t('Add a certificate')}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      {t('Certificates need the documents permission. The admission itself does not.')}
+                    </p>
+                  )}
+                </section>
 
                 <p className="text-xs leading-relaxed text-gray-500">
                   {t('One step: the student record, the enrolment, the guardian and the numbers are all created together, or none of them are.')}

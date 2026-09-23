@@ -137,6 +137,18 @@ const students: Record<string, string> = {
   'A login is not part of this. Open the student record to give them one.':
     'লগইন এর অংশ নয়। প্রয়োজনে শিক্ষার্থীর রেকর্ড খুলে চালু করুন।',
   'Could not admit this applicant.': 'আবেদনকারীকে ভর্তি করা যায়নি।',
+
+  // What the applicant hands across the counter, at the moment they hand it.
+  'Papers handed in': 'জমা দেওয়া কাগজপত্র',
+  'Taken now or picked from the gallery. It goes on the student record and on the admission form.':
+    'এখনই তোলা যাবে বা গ্যালারি থেকে বেছে নেওয়া যাবে। ছবিটি শিক্ষার্থীর রেকর্ড ও ভর্তি ফরমে যুক্ত হবে।',
+  'Add a certificate': 'সনদ যোগ করুন',
+  'Left blank, the type is used.': 'খালি রাখলে কাগজের ধরনটিই শিরোনাম হবে।',
+  'Certificates need the documents permission. The admission itself does not.':
+    'সনদ সংরক্ষণের জন্য কাগজপত্রের অনুমতি লাগে; ভর্তির জন্য লাগে না।',
+  'papers were filed with this admission.': 'টি কাগজ এই ভর্তির সঙ্গে সংরক্ষিত হয়েছে।',
+  'The papers were not stored — your role may admit but may not file documents. Ask an administrator to add them to the student record.':
+    'কাগজগুলো সংরক্ষণ করা হয়নি — আপনার ভূমিকা ভর্তি করতে পারে, কিন্তু কাগজপত্র জমা দিতে পারে না। প্রশাসককে বলে শিক্ষার্থীর রেকর্ডে যুক্ত করান।',
   'Could not load the class list.': 'শ্রেণি তালিকা আনা যায়নি।',
 };
 

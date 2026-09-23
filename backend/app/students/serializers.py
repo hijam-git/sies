@@ -16,8 +16,8 @@ from rest_framework import serializers
 from accounts.phone import normalize_bd_phone
 from core.serializers import check_same_branch, request_branch_id  # noqa: F401
 
-from .models import (Admission, Document, DocumentOwner, Guardian, Student,
-                     StudentGuardian)
+from .models import (Admission, Document, DocumentOwner, DocumentType, Guardian,
+                     Student, StudentGuardian)
 
 
 # `request_branch_id` and `check_same_branch` now live in `core.serializers`,
@@ -249,6 +249,65 @@ class AdmitSerializer(serializers.Serializer):
     admitted_on = serializers.DateField(required=False, allow_null=True)
     is_hostel = serializers.BooleanField(required=False, default=False)
     is_transport = serializers.BooleanField(required=False, default=False)
+
+    # ── What the applicant hands across the counter ─────────────────────────
+    # The photograph and the birth certificate arrive WITH the child, not a week
+    # later. Making them a second visit to the student record is how a roll ends
+    # up half without photographs. Sent as multipart, so this serializer reads
+    # `request.data`, which DRF has already merged with `request.FILES`.
+    photo = serializers.ImageField(required=False, allow_null=True)
+
+    # Three parallel lists rather than one nested field: multipart carries no
+    # nested objects, and `ListField` reads repeated form keys through
+    # `getlist()`. They are zipped in `validate()`, so the service never sees
+    # the wire shape.
+    document_files = serializers.ListField(
+        child=serializers.FileField(), required=False, allow_empty=True,
+    )
+    document_types = serializers.ListField(
+        child=serializers.CharField(max_length=30), required=False, allow_empty=True,
+    )
+    document_titles = serializers.ListField(
+        child=serializers.CharField(max_length=150, allow_blank=True),
+        required=False, allow_empty=True,
+    )
+
+    def validate(self, attrs):
+        files = attrs.pop('document_files', []) or []
+        types = attrs.pop('document_types', []) or []
+        titles = attrs.pop('document_titles', []) or []
+
+        if types and len(types) != len(files):
+            raise serializers.ValidationError({
+                'document_types': 'One type per file · প্রতিটি ফাইলের জন্য একটি ধরন দিতে হবে।',
+            })
+        if titles and len(titles) != len(files):
+            raise serializers.ValidationError({
+                'document_titles': 'One title per file · প্রতিটি ফাইলের জন্য একটি শিরোনাম দিতে হবে।',
+            })
+
+        valid = set(DocumentType.values)
+        labels = dict(DocumentType.choices)
+        documents = []
+        for index, upload in enumerate(files):
+            doc_type = (types[index] if index < len(types) else '') or DocumentType.OTHER
+            if doc_type not in valid:
+                raise serializers.ValidationError({
+                    'document_types': f'{doc_type} is not a document type · '
+                                      'ওই ধরনের কাগজ নেই।',
+                })
+            title = (titles[index] if index < len(titles) else '').strip()
+            documents.append({
+                'doc_type': doc_type,
+                # An untitled row is not an error at a counter: the type already
+                # says what the paper is, and typing it out a second time is the
+                # step that gets skipped when there is a queue.
+                'title': title or str(labels[doc_type]),
+                'file': upload,
+            })
+
+        attrs['documents'] = documents
+        return attrs
 
 
 class DocumentSerializer(serializers.ModelSerializer):
