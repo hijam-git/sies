@@ -91,11 +91,13 @@ body {{
 .grid {{ display: grid; gap: 2mm 6mm; margin: 3mm 0; }}
 .grid .cell {{ display: flex; align-items: flex-end; gap: 2mm; }}
 .grid .label {{ white-space: nowrap; }}
-/* A resolved value prints underlined, sitting ON the rule, so a filled form
-   still reads as a form (§4). An empty one prints the same rule, unfilled. */
+/* The rule is a line to WRITE on, so it belongs under the blanks and nowhere
+   else. A value that has been filled in prints as text: underlining it as well
+   reads as emphasis — or worse, as a correction — on a document somebody signs
+   and files, and the form is already legible as a form from its labels. */
 .rule {{ display: inline-block; min-width: 32mm; flex: 1 1 auto;
         border-bottom: 1px dotted #000; height: 1.25em; vertical-align: baseline; }}
-.rule.filled {{ border-bottom: 1px solid #000; font-weight: 600; }}
+.rule.filled {{ border-bottom: none; font-weight: 600; }}
 .line {{ display: block; border-bottom: 1px dotted #000; height: 1.6em; margin-top: 2mm; }}
 .section-title {{ font-weight: 700; text-align: center; margin: 4mm 0 2mm; }}
 .q {{ margin: 1.5mm 0; }}

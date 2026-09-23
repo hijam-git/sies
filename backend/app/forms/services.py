@@ -15,7 +15,7 @@ restate:
   `branches.services.create_branch()`, never from a signal.
 """
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -69,7 +69,15 @@ def form_questions(branch, template=None):
     """
     questions = Question.objects.filter(branch=branch, is_active=True)
     if template is not None:
-        questions = questions.filter(template__in=[None, template.pk])
+        # `Q(template__isnull=True) | Q(template=template)`, and NOT
+        # `template__in=[None, template.pk]`: SQL's `IN (NULL, 4)` never matches
+        # a NULL row, so that spelling silently dropped every reusable question
+        # — which is the kind the question screen tells an admin to make ("leave
+        # blank and every form of this institution may ask it"). They were saved,
+        # listed on the screen, and printed on nothing.
+        questions = questions.filter(
+            models.Q(template__isnull=True) | models.Q(template=template),
+        )
     else:
         questions = questions.filter(template__isnull=True)
     return list(questions.order_by('section', 'order', 'id'))

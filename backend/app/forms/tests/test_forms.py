@@ -157,6 +157,70 @@ class MapsToTests(TestCase):
         self.assertEqual(AdmissionAnswer.objects.count(), 0)
 
 
+class ReusableQuestionTests(TestCase):
+    """A question with no template belongs to every form of the institution.
+
+    `form_questions` asked for `template__in=[None, template.pk]`, and SQL's
+    `IN (NULL, 4)` never matches a NULL row — so every reusable question was
+    dropped from every form. Saved, listed on the question screen, printed
+    nowhere, and no error anywhere to say so. It is the kind the screen itself
+    recommends making ("leave blank and every form of this institution may ask
+    it"), which is why nobody could see their questions on the admission form.
+    """
+
+    def setUp(self):
+        self.world = f.small_world()
+
+    def make_question(self, *, template, text_bn, section='admission'):
+        from forms.models import Question, QuestionType
+
+        return Question.objects.create(
+            branch=self.world['branch'], template=template, section=section,
+            type=QuestionType.SHORT_TEXT, text='Q', text_bn=text_bn, order=50,
+        )
+
+    def test_a_question_with_no_template_prints_on_the_form(self):
+        from forms.services import form_questions
+
+        reusable = self.make_question(template=None, text_bn='পূর্বের মাদ্রাসা')
+
+        picked = form_questions(self.world['branch'], self.world['template'])
+
+        self.assertIn(reusable, picked)
+
+    def test_it_reaches_the_rendered_page_and_not_only_the_queryset(self):
+        from forms.placeholders import build_context
+        from forms.services import form_questions
+
+        self.make_question(template=None, text_bn='পূর্বের মাদ্রাসা')
+        template = self.world['template']
+
+        html = render_form(
+            template=template,
+            context=build_context(branch=self.world['branch'],
+                                  admission=self.world['admission']),
+            questions=form_questions(self.world['branch'], template),
+            mode='filled',
+        )
+
+        self.assertIn('পূর্বের মাদ্রাসা', html)
+
+    def test_a_question_bound_to_another_template_stays_off_this_one(self):
+        """The other half of the rule — the binding still means something."""
+        from forms.models import FormTemplate
+        from forms.services import form_questions
+
+        other = FormTemplate.objects.create(
+            branch=self.world['branch'], name='Transfer form', form_type='admission',
+            blocks=[], paper='a4',
+        )
+        theirs = self.make_question(template=other, text_bn='শুধু ছাড়পত্রের প্রশ্ন')
+
+        picked = form_questions(self.world['branch'], self.world['template'])
+
+        self.assertNotIn(theirs, picked)
+
+
 class BlankAndFilledTests(TestCase):
     """One template, two outputs (§7) — so the two can never drift."""
 
@@ -183,6 +247,23 @@ class BlankAndFilledTests(TestCase):
         self.assertIn('বিনীত নিবেদন', blank)
         self.assertGreater(blank.count('class="rule"'), filled.count('class="rule"'))
         self.assertIn('class="rule filled"', filled)
+
+    def test_a_filled_value_prints_without_a_line_under_it(self):
+        """The rule is a line to WRITE on.
+
+        It was drawn under filled values too, so every typed answer on a
+        printed form came out underlined — which reads as emphasis, or as a
+        correction, on a document a guardian signs and the office files. The
+        blanks keep their rule; that is what they are for.
+        """
+        template = self.world['template']
+
+        css = render_form(template=template, mode='filled')
+
+        self.assertIn('.rule.filled { border-bottom: none;', css)
+        # And the blanks still have theirs.
+        self.assertIn('.rule { display: inline-block;', css)
+        self.assertIn('border-bottom: 1px dotted #000', css)
 
     def test_both_modes_produce_a_printable_a4_document(self):
         template = self.world['template']
