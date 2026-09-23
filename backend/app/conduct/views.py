@@ -23,16 +23,17 @@ from academics.services import (teacher_class_scope, teacher_for_user,
                                 teacher_scope_applies)
 from accounts.permissions import HasResourcePermission
 from accounts.services import ActivityAction, ActivityLogMixin, log_activity
-from core.middleware import get_branch
+from core.middleware import get_branch, is_all_branches
 from core.viewsets import BranchScopedViewSet
 from students.models import Student
 
 from .models import ReportAssignment, ReportTemplate, StudentReport
-from .serializers import (ReportAssignmentSerializer, ReportTemplateSerializer,
-                          SaveSheetSerializer, StudentReportSerializer,
-                          TemplateQuestionsSerializer)
-from .services import (parse_period, save_sheet, set_template_questions,
-                       sheet, student_history, templates_for)
+from .serializers import (MyDutiesQuerySerializer, ReportAssignmentSerializer,
+                          ReportTemplateSerializer, SaveSheetSerializer,
+                          StudentReportSerializer, TemplateQuestionsSerializer)
+from .services import (duties_for, parse_period, save_sheet,
+                       set_template_questions, sheet, student_history,
+                       templates_for)
 
 
 def scoped_class(request, class_id):
@@ -229,6 +230,37 @@ class ConductSheetView(APIView):
             atomic=False,
         )
         return Response(result, status=status.HTTP_200_OK)
+
+
+class MyConductDutiesView(APIView):
+    """`GET /api/conduct/my-duties/?date=` — the sheets I am responsible for.
+
+    What the teacher's dashboard lists and the Conduct badge counts: every
+    `ReportAssignment` naming the caller's own `Teacher`, with how much of this
+    period's sheet is filled. Filtered to the caller rather than scoped — like
+    the day board, a principal with no assignments gets an empty list, which is
+    the honest answer to a question about *their* duties, not a 403.
+    """
+
+    permission_classes = [IsAuthenticated, HasResourcePermission]
+    permission_resource = 'conduct'
+    action = 'list'
+    permission_action_map = {'list': 'view'}
+
+    def get(self, request):
+        query = MyDutiesQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+
+        branch = get_branch(request)
+        return Response({
+            'duties': duties_for(
+                teacher_for_user(request.user),
+                # A platform admin viewing every institution has no Teacher
+                # row anyway; None here just means "do not narrow further".
+                branch=None if branch is None or is_all_branches(branch) else branch,
+                on_date=query.validated_data.get('date'),
+            ),
+        })
 
 
 class StudentConductView(APIView):

@@ -69,6 +69,9 @@ interface Props {
    *  anyway. */
   templates: ReportTemplate[];
   onSectionsNeeded: (classId: string) => void;
+  /** The sheet a link asked for — the teacher dashboard's "Fill report". Each
+   *  value is only a starting choice; the teacher can still change any of them. */
+  initial?: { academicClass: string; section: string; template: string; date: string } | null;
 }
 
 type PhoneView = 'student' | 'grid';
@@ -88,14 +91,17 @@ export default function ConductSheetTab({
   sections,
   templates,
   onSectionsNeeded,
+  initial = null,
 }: Props) {
   const { t, lang } = useT();
   const { can } = usePermissions();
 
-  const [classChoice, setClassChoice] = useState('');
-  const [sectionId, setSectionId] = useState('');
-  const [templateChoice, setTemplateChoice] = useState('');
-  const [date, setDate] = useState(() => todayInDhaka());
+  const [classChoice, setClassChoice] = useState(initial?.academicClass ?? '');
+  const [sectionId, setSectionId] = useState(initial?.section ?? '');
+  const [templateChoice, setTemplateChoice] = useState(initial?.template ?? '');
+  const [date, setDate] = useState(() =>
+    /^\d{4}-\d{2}-\d{2}$/.test(initial?.date ?? '') ? (initial?.date as string) : todayInDhaka(),
+  );
   /** The pickers start hidden because every one of them already holds the
    *  right answer (§7b rule 4). Covering a colleague is real, but it is the
    *  exception, and it should not cost four decisions every morning. */
@@ -137,9 +143,18 @@ export default function ConductSheetTab({
     );
   }, [templates, classes, classId]);
 
+  /* A teacher cannot list templates (that is `settings.view`), so a linked
+   * template never appears in `classTemplates` for them. It is passed through
+   * as-is while its own class is on screen — the server checks it fits the
+   * class and answers 404 if not — and dropped the moment they pick another
+   * class, where the server's own choice is the right default again. */
+  const linkedTemplate =
+    templates.length === 0 && initial?.template && classId === initial.academicClass
+      ? initial.template
+      : '';
   const templateId = classTemplates.some((tpl) => String(tpl.id) === templateChoice)
     ? templateChoice
-    : '';
+    : linkedTemplate;
 
   useEffect(() => {
     if (classId) onSectionsNeeded(classId);

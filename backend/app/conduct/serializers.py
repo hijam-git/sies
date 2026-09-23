@@ -163,3 +163,13 @@ class SaveSheetSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 'Nothing to save · সংরক্ষণ করার মতো কিছু নেই।')
         return value
+
+
+class MyDutiesQuerySerializer(serializers.Serializer):
+    """`GET /api/conduct/my-duties/?date=` — which day's periods to report on.
+
+    A date, not a period: the duties span templates of different frequencies,
+    and only the server should turn one day into a week, a month or a term.
+    """
+
+    date = serializers.DateField(required=False)

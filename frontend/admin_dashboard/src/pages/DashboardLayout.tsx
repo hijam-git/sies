@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, usePermissions } from '../lib/auth-context';
+import { apiClient } from '../lib/api';
 import ChangePasswordModal from '../components/account/ChangePasswordModal';
 import { useT, LanguageToggle } from '../lib/i18n';
 import NavIcon from '../components/common/NavIcon';
@@ -25,18 +26,43 @@ function NavBadge({ count }: { count: number }) {
   );
 }
 
+const NO_BADGES: Record<string, number> = {};
+
 /**
  * Waiting work, by nav path.
  *
- * Phase 1 adds `GET /api/dashboard/badge-counts/` and this polls it on an
- * interval, refreshing on tab focus — Awliaa's pattern, and the same one
- * `docs/08` D8 chose for the activity feed over WebSockets. Until the modules
- * that produce the counts exist there is nothing to poll, and inventing a
- * request that 404s every sixty seconds would fill the console and the server
- * log for no one's benefit.
+ * Polled on an interval and again on tab focus — Awliaa's `useBadgeCounts`
+ * pattern, and the same one `docs/08` D8 chose for the activity feed over
+ * WebSockets. The one count today is the caller's own: conduct sheets they are
+ * responsible for that this period's grid does not yet cover. It asks only
+ * when the caller may see conduct at all, so nobody else pays for the request.
+ * A failed poll keeps the last numbers rather than flashing the badge away.
  */
-function useNavBadges(): Record<string, number> {
-  return useMemo(() => ({}), []);
+function useNavBadges(enabled: boolean): Record<string, number> {
+  const [counts, setCounts] = useState<Record<string, number>>(NO_BADGES);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    const poll = () => {
+      apiClient
+        .getMyConductDuties()
+        .then(({ duties }) => {
+          if (alive) setCounts({ '/conduct': duties.filter((d) => !d.is_done).length });
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const timer = setInterval(poll, 60_000);
+    window.addEventListener('focus', poll);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener('focus', poll);
+    };
+  }, [enabled]);
+
+  return enabled ? counts : NO_BADGES;
 }
 
 /**
@@ -95,7 +121,7 @@ export default function DashboardLayout() {
   const { user, logout, branches, activeBranchId } = useAuth();
   const { can, canView } = usePermissions();
   const location = useLocation();
-  const badges = useNavBadges();
+  const badges = useNavBadges(can('conduct', 'view'));
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);

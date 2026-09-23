@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import type { AcademicClass, ReportTemplate, Section, Stream } from '../lib/api';
 import { useAuth, usePermissions } from '../lib/auth-context';
@@ -30,6 +31,7 @@ export default function ConductPage() {
   const { t } = useT();
   const { canView, can } = usePermissions();
   const [tab, setTab] = useTabParam<Tab>(TABS, 'sheet');
+  const [params] = useSearchParams();
 
   const [classes, setClasses] = useState<AcademicClass[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
@@ -95,6 +97,18 @@ export default function ConductPage() {
     );
   }
 
+  // The teacher dashboard links here with the sheet it means already chosen —
+  // the one this teacher is responsible for — so they land on the grid rather
+  // than on three pickers. Attendance takes the day board's link the same way.
+  const initial = params.get('class')
+    ? {
+        academicClass: params.get('class') ?? '',
+        section: params.get('section') ?? '',
+        template: params.get('template') ?? '',
+        date: params.get('date') ?? '',
+      }
+    : null;
+
   const tabs: TabDef<Tab>[] = [];
   if (mayFill) tabs.push({ key: 'sheet', label: t('Sheet') });
   if (maySetUp) tabs.push({ key: 'setup', label: t('Reports') });
@@ -110,6 +124,7 @@ export default function ConductPage() {
           sections={sections}
           templates={templates}
           onSectionsNeeded={loadForClass}
+          initial={initial}
         />
       )}
       {active === 'setup' && <ConductSetupTab classes={classes} streams={streams} />}

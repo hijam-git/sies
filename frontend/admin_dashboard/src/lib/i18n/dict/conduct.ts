@@ -95,6 +95,18 @@ const conduct: Record<string, string> = {
   'This section holds no questions yet.': 'এই অংশে এখনো কোনো প্রশ্ন নেই।',
   'Open Settings → Questions': 'সেটিংস → প্রশ্নাবলী খুলুন',
 
+  // ── On the teacher's own dashboard ─────────────────────────────────────
+  // The other end of দায়িত্ব: the named teacher is told what is theirs.
+  // `Filled`, `Whole class` and the frequency labels are reused as they are.
+  'Your reports': 'আপনার দায়িত্বের রিপোর্ট',
+  'left to fill': 'টি বাকি',
+  'All filled': 'সব পূরণ হয়েছে',
+  'Fill report': 'রিপোর্ট পূরণ করুন',
+  'Finish report': 'বাকিটা পূরণ করুন',
+  'Review report': 'রিপোর্ট দেখুন ও ঠিক করুন',
+  'View report': 'রিপোর্ট দেখুন',
+  'Could not load your reports.': 'আপনার রিপোর্টের তালিকা লোড করা যায়নি।',
+
   // ── On the student's record ────────────────────────────────────────────
   'What was observed, newest first — নামাজ, তিলাওয়াত, আদব.':
     'যা যা লেখা হয়েছে, নতুনটি আগে — নামাজ, তিলাওয়াত, আদব।',
