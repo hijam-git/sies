@@ -187,10 +187,65 @@ def assignments_for(teacher, *, branch=None):
 
     rows = (ReportAssignment.objects
             .filter(teacher=teacher)
-            .select_related('template', 'academic_class', 'section'))
+            .select_related('template', 'academic_class__session', 'section'))
     if branch is not None:
         rows = rows.filter(branch=branch)
     return list(rows)
+
+
+def duties_for(teacher, *, branch=None, on_date=None):
+    """The teacher's own sheets for the period that `on_date` falls in.
+
+    One row per assignment, with how much of the sheet is filled — what the
+    teacher's dashboard lists and what the Conduct badge counts. "This period"
+    is the template's own: today for a daily sheet, this ISO week for a weekly
+    one, so a monthly review stays on the list until the month is done rather
+    than nagging every morning.
+
+    Only live assignments: an inactive template, an inactive class or section,
+    or a class from a session that is no longer current is history, and a to-do
+    list that never empties is one nobody reads. Unfilled first, so what is left
+    to do is what the teacher sees without scrolling.
+    """
+    if teacher is None:
+        return []
+
+    duties = []
+    for row in assignments_for(teacher, branch=branch):
+        template, academic_class, section = row.template, row.academic_class, row.section
+        if not (template.is_active and academic_class.is_active
+                and academic_class.session.is_current):
+            continue
+        if section is not None and not section.is_active:
+            continue
+
+        period = period_for(template.frequency, on_date)
+        enrolments = sheet_enrolments(row.branch, academic_class, section)
+        filled = (StudentReport.objects
+                  .filter(branch=row.branch, template=template, period=period,
+                          enrolment__in=[e.pk for e in enrolments])
+                  .count())
+        duties.append({
+            'assignment': row.pk,
+            'template': template.pk,
+            'template_name': template.name,
+            'template_name_bn': template.name_bn,
+            'frequency': template.frequency,
+            'academic_class': academic_class.pk,
+            'class_name': academic_class.name,
+            'class_name_bn': academic_class.name_bn,
+            'section': section.pk if section else None,
+            'section_name': section.name if section else '',
+            'period': period,
+            'student_count': len(enrolments),
+            'filled_count': filled,
+            # An empty class is not a job left undone: there is nobody to fill.
+            'is_done': filled >= len(enrolments),
+        })
+
+    duties.sort(key=lambda d: (d['is_done'], d['template_name'], d['class_name'],
+                               d['section_name']))
+    return duties
 
 
 def sheet_enrolments(branch, academic_class, section=None):

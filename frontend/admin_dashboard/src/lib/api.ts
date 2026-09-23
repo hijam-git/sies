@@ -1298,6 +1298,29 @@ export interface ConductSheet {
   students: ConductStudent[];
 }
 
+/**
+ * One sheet the signed-in teacher is responsible for, in the period `date`
+ * falls in — the teacher dashboard's "reports to fill" list. `period` is the
+ * template's own: a day, an ISO week, a month or a term.
+ */
+export interface ConductDuty {
+  assignment: number;
+  template: number;
+  template_name: string;
+  template_name_bn: string;
+  frequency: ReportFrequency;
+  academic_class: number;
+  class_name: string;
+  class_name_bn: string;
+  /** null when the assignment is for the whole class. */
+  section: number | null;
+  section_name: string;
+  period: string;
+  student_count: number;
+  filled_count: number;
+  is_done: boolean;
+}
+
 /** One name on that line. `section` is null for a whole-class assignment. */
 export interface ConductResponsible {
   teacher: number;
@@ -2367,6 +2390,14 @@ class ApiClient {
     if (params.template) q.set('template', String(params.template));
     if (params.section) q.set('section', String(params.section));
     return this.request<ConductSheet>(`/conduct/sheet/?${q.toString()}`);
+  }
+
+  /** The sheets named to the caller's own teacher profile, with how much of
+   *  each is filled. Empty — not an error — for anyone with no assignments. */
+  getMyConductDuties(date?: string): Promise<{ duties: ConductDuty[] }> {
+    return this.request<{ duties: ConductDuty[] }>(
+      `/conduct/my-duties/${date ? `?date=${date}` : ''}`,
+    );
   }
 
   /** The dirty rows only. Idempotent on (template, enrolment, period), so a

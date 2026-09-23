@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../lib/api';
-import type { MyDayPeriod, PeriodState } from '../lib/api';
+import type { ConductDuty, MyDayPeriod, PeriodState, ReportFrequency } from '../lib/api';
 import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT } from '../lib/i18n';
 import { apiErrorText } from '../lib/apiErrors';
@@ -28,7 +28,20 @@ import { formatDhakaDate, todayInDhaka } from '../lib/timezone';
  *
  * Phone-first by construction: one column of full-width cards, the action
  * button the width of the card and at the bottom of it, where a thumb is.
+ *
+ * **Your reports** sits under the periods: every conduct sheet the office has
+ * named this teacher responsible for (Settings → Reports), with how much of
+ * this period's sheet is filled. Unfilled first, and the button opens that
+ * exact sheet — class, শাখা, template and date already chosen — so being
+ * told about a report and starting it are one tap apart.
  */
+
+const FREQUENCY_LABEL: Record<ReportFrequency, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  term: 'Per term',
+};
 
 const STATE_MARK: Record<PeriodState, { glyph: string; label: string; className: string }> = {
   taken: { glyph: '✓', label: 'Taken', className: 'bg-green-100 text-green-700' },
@@ -48,20 +61,36 @@ export default function TeacherDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const mayTake = can('attendance', 'take') || can('attendance', 'update');
+  const mayViewConduct = can('conduct', 'view');
+  const mayFillConduct = can('conduct', 'take') || can('conduct', 'update');
+
+  const [duties, setDuties] = useState<ConductDuty[]>([]);
+  const [dutiesError, setDutiesError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const data = await apiClient.getMyDay(date);
-      setPeriods(data.periods);
-    } catch (err) {
+    setDutiesError(null);
+    // Two requests, two failures: a broken report list must not hide the
+    // periods a teacher is about to take attendance for.
+    const [day, mine] = await Promise.allSettled([
+      apiClient.getMyDay(date),
+      mayViewConduct ? apiClient.getMyConductDuties(date) : Promise.resolve({ duties: [] }),
+    ]);
+    if (day.status === 'fulfilled') {
+      setPeriods(day.value.periods);
+    } else {
       setPeriods([]);
-      setError(apiErrorText(err, t, t('Could not load today’s classes.')));
-    } finally {
-      setLoading(false);
+      setError(apiErrorText(day.reason, t, t('Could not load today’s classes.')));
     }
-  }, [date, t]);
+    if (mine.status === 'fulfilled') {
+      setDuties(mine.value.duties);
+    } else {
+      setDuties([]);
+      setDutiesError(apiErrorText(mine.reason, t, t('Could not load your reports.')));
+    }
+    setLoading(false);
+  }, [date, mayViewConduct, t]);
 
   // Deferred by a tick, like the other list screens: `load` sets state
   // synchronously, and doing that from an effect body cascades a render before
@@ -81,6 +110,7 @@ export default function TeacherDashboard() {
   }, [date, load]);
 
   const taken = periods.filter((p) => p.state === 'taken').length;
+  const reportsLeft = duties.filter((d) => !d.is_done).length;
 
   return (
     <div className="space-y-4">
@@ -185,6 +215,95 @@ export default function TeacherDashboard() {
           );
         })}
       </div>
+
+      {mayViewConduct && (duties.length > 0 || dutiesError) && (
+        <section className="space-y-3" aria-labelledby="your-reports">
+          <div className="flex items-end justify-between gap-3 pt-2">
+            <h2 id="your-reports" className="text-lg font-bold text-gray-900">
+              {t('Your reports')}
+            </h2>
+            {duties.length > 0 && (
+              <span className="text-sm font-medium text-gray-600">
+                {reportsLeft > 0 ? `${reportsLeft} ${t('left to fill')}` : t('All filled')}
+              </span>
+            )}
+          </div>
+
+          {dutiesError && <FormError message={dutiesError} />}
+
+          {duties.map((duty) => {
+            const where = [
+              lang === 'bn' ? duty.class_name_bn || duty.class_name : duty.class_name,
+              duty.section_name || t('Whole class'),
+            ].join(' · ');
+            const pct = duty.student_count
+              ? Math.round((duty.filled_count / duty.student_count) * 100)
+              : 100;
+            const link =
+              `/conduct?tab=sheet&class=${duty.academic_class}` +
+              `&template=${duty.template}&date=${date}` +
+              (duty.section ? `&section=${duty.section}` : '');
+
+            return (
+              <article
+                key={duty.assignment}
+                className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-semibold text-gray-900">
+                      {(lang === 'bn' && duty.template_name_bn) || duty.template_name}
+                    </h3>
+                    <p className="mt-0.5 truncate text-sm text-gray-900">{where}</p>
+                    <p className="text-xs text-gray-400">
+                      {`${t(FREQUENCY_LABEL[duty.frequency])} · ${duty.period}`}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      duty.is_done ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    <span aria-hidden>{duty.is_done ? '✓' : '!'}</span>
+                    {`${duty.filled_count} / ${duty.student_count}`}
+                  </span>
+                </div>
+
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"
+                  role="progressbar"
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t('Filled')}
+                >
+                  <div
+                    className={`h-full rounded-full ${duty.is_done ? 'bg-green-500' : 'bg-amber-500'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <Link
+                    to={link}
+                    className={`${
+                      duty.is_done || !mayFillConduct ? btnSecondary : btnPrimary
+                    } flex w-full items-center justify-center`}
+                  >
+                    {!mayFillConduct
+                      ? t('View report')
+                      : duty.is_done
+                        ? t('Review report')
+                        : duty.filled_count > 0
+                          ? t('Finish report')
+                          : t('Fill report')}
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Link to="/attendance" className={btnSecondary}>

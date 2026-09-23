@@ -11,9 +11,9 @@ on Settings → Questions and served read-only with the template.
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (ConductSheetView, ReportAssignmentViewSet,
-                    ReportTemplateViewSet, StudentConductView,
-                    StudentReportViewSet)
+from .views import (ConductSheetView, MyConductDutiesView,
+                    ReportAssignmentViewSet, ReportTemplateViewSet,
+                    StudentConductView, StudentReportViewSet)
 
 app_name = 'conduct'
 
@@ -25,6 +25,7 @@ router.register('student-reports', StudentReportViewSet, basename='student-repor
 
 urlpatterns = [
     path('conduct/sheet/', ConductSheetView.as_view(), name='conduct-sheet'),
+    path('conduct/my-duties/', MyConductDutiesView.as_view(), name='conduct-my-duties'),
     path('conduct/student/<int:pk>/', StudentConductView.as_view(), name='conduct-student'),
     path('', include(router.urls)),
 ]

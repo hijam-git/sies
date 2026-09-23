@@ -394,6 +394,18 @@ else
   info "check_schema is not available yet (it arrives with the backend) — skipping"
 fi
 
+# The system role presets live in code (accounts/permissions.py ROLE_PRESETS)
+# and reach the Role table only through seed_roles. fresh_deploy.sh runs it once;
+# without it here, a release that grants a role something new — conduct for the
+# Teacher preset was exactly this — deploys, and no teacher can open the screen.
+# Institution-made roles are never touched. Not fatal: the release still works
+# for everyone the old matrix already covered.
+if compose run --rm --no-deps -T "$BACKEND" python manage.py seed_roles >/dev/null 2>&1; then
+  ok "role presets refreshed"
+else
+  warn "seed_roles failed — new permissions in this release will not reach system roles"
+fi
+
 # ── 7. Static files ──────────────────────────────────────────────────────────
 step 7 "Collecting static files"
 if ! compose run --rm --no-deps -T "$BACKEND" python manage.py collectstatic --noinput >/dev/null; then
