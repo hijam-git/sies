@@ -146,7 +146,10 @@ fi
 
 # ── 4. Redis ─────────────────────────────────────────────────────────────────
 if running "$REDIS"; then
-  if docker exec "$REDIS" redis-cli ping 2>/dev/null | grep -q PONG; then
+  # Captured, then matched: `cmd | grep -q` under pipefail reports failure
+  # whenever grep exits before cmd has finished writing.
+  PING=$(docker exec "$REDIS" redis-cli ping 2>/dev/null || true)
+  if [ "${PING#*PONG}" != "$PING" ]; then
     # The two queues the worker consumes (CELERY_TASK_ROUTES). Celery's own
     # `celery` key is never used here, so counting it always said 0.
     QUEUED=0
@@ -168,7 +171,8 @@ fi
 # A worker that has lost its broker keeps running and looks perfectly fine in
 # `docker ps`. Only a ping across the broker proves it is still consuming.
 if running "$WORKER"; then
-  if docker exec "$WORKER" celery -A core inspect ping -t 10 2>/dev/null | grep -q pong; then
+  PONG=$(docker exec "$WORKER" celery -A core inspect ping -t 10 2>/dev/null || true)
+  if [ "${PONG#*pong}" != "$PONG" ]; then
     ok "Celery worker answers a broker ping"
   else
     bad "the Celery worker does not answer — fees, reports and reminders are not running"

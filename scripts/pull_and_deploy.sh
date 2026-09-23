@@ -174,13 +174,19 @@ u.urlopen(u.Request('http://127.0.0.1:8000/api/health/', headers={'Host':'${DOMA
 # (3s interval, see the compose labels). A container that answers is therefore
 # not yet a container that receives traffic, and the gap between those two facts
 # is where a deploy loses requests. This closes it.
+#
+# Traefik v3 reports the SERVICE as `"status":"enabled"` and each server's
+# health under `"serverStatus":{"http://…":"UP"}`. Matching `"status":"UP"`
+# never succeeded, so every deploy rolled itself back. The body is captured
+# before it is matched: `curl | grep -q` under pipefail fails whenever grep
+# stops reading early, which turns a match into a miss.
 wait_in_pool() {  # traefik-service-name timeout
-  local svc="$1" max="$2" t0=$SECONDS
+  local svc="$1" max="$2" t0=$SECONDS body
   while [ $(( SECONDS - t0 )) -lt "$max" ]; do
-    if curl -fsS -m 3 "http://127.0.0.1:8080/api/http/services/${svc}@docker" 2>/dev/null \
-         | grep -q '"status":"UP"'; then
-      return 0
-    fi
+    body=$(curl -fsS -m 3 "http://127.0.0.1:8080/api/http/services/${svc}@docker" 2>/dev/null || true)
+    case "$body" in
+      *'"serverStatus":{'*'"UP"'*) return 0 ;;
+    esac
     sleep 2
   done
   return 1
@@ -263,7 +269,12 @@ else
   fi
   SELF_HASH_BEFORE=$(md5sum "$SCRIPT_PATH" 2>/dev/null | cut -d' ' -f1)
 
-  git pull --ff-only origin main || die "git pull failed (see above)"
+  # The branch that is checked out, not `main`: a server deploying a release
+  # branch must not have main merged into it by the routine deploy.
+  BRANCH=$(git symbolic-ref --short -q HEAD) \
+    || die "HEAD is detached — check out the branch this server deploys first"
+  info "pulling origin/${BRANCH}"
+  git pull --ff-only origin "$BRANCH" || die "git pull failed (see above)"
   AFTER_SHA=$(git rev-parse --short HEAD)
 
   if [ "$BEFORE_SHA" = "$AFTER_SHA" ]; then

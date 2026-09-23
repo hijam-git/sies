@@ -191,7 +191,7 @@ fi
 
 if command -v ufw >/dev/null 2>&1; then
   UFW_STATUS="$(ufw status 2>/dev/null || echo unknown)"
-  if printf '%s' "$UFW_STATUS" | head -1 | grep -q active; then
+  if printf '%s' "$UFW_STATUS" | head -1 | grep -q '^Status: active'; then
     ok "ufw is active"
   elif apply; then
     # Order matters absolutely: allow SSH BEFORE enabling, or this command ends
@@ -208,7 +208,7 @@ if command -v ufw >/dev/null 2>&1; then
     todo "ufw installed but INACTIVE"
   fi
 
-  if printf '%s' "$UFW_STATUS" | head -1 | grep -q active; then
+  if printf '%s' "$UFW_STATUS" | head -1 | grep -q '^Status: active'; then
     for p in 22 80 443; do
       # A port can be allowed by number or by an application profile (OpenSSH,
       # 'WWW Full'). Checking only the number reports a perfectly good firewall
