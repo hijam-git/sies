@@ -114,6 +114,24 @@ class SheetTests(ConductFixture, TestCase):
 
         self.assertEqual(len(template_questions(self.template)), 3)
 
+    def test_the_sheet_echoes_the_class_section_and_names_the_question_section(self):
+        """Two different sections, and they were both called `section`.
+
+        A duplicate key in the response dict meant Python kept the last one, so
+        the class-section id a caller asked for never came back — the screen
+        could not confirm which section it had been given.
+        """
+        from academics.models import Section
+
+        section = Section.objects.create(branch=self.branch,
+                                         academic_class=self.academic_class, name='A')
+
+        data = sheet(self.template, academic_class=self.academic_class,
+                     section=section)
+
+        self.assertEqual(data['section'], section.pk)
+        self.assertEqual(data['question_section'], 'conduct')
+
     def test_a_deactivated_question_leaves_tomorrows_sheet_alone(self):
         self.quran.is_active = False
         self.quran.save(update_fields=['is_active'])

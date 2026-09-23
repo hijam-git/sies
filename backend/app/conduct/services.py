@@ -180,8 +180,11 @@ def sheet(template, *, academic_class, section=None, period=None, on_date=None):
         'frequency': template.frequency,
         'period': period,
         'academic_class': academic_class.pk,
-        'section': getattr(section, 'pk', None),
-        'section': template.section,
+        # TWO different sections, and they were both called `section` — a
+        # duplicate key, so Python kept the last one and the class-section id
+        # the caller asked for was silently dropped from every response.
+        'section': getattr(section, 'pk', None),      # the CLASS section, echoed back
+        'question_section': template.section,          # the question-bank slice
         'items': [
             {
                 'id': item.pk, 'text': item.text, 'text_bn': item.text_bn,

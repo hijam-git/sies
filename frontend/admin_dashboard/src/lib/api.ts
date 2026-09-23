@@ -1279,9 +1279,11 @@ export interface ConductSheet {
   frequency: ReportFrequency;
   period: string;
   academic_class: number;
-  /** The question-bank section this template asks — the API sends the section
-   *  NAME here, not the class-section id it was asked for. */
-  section: string;
+  /** The class section this sheet was asked for, echoed back — null for the
+   *  whole class. */
+  section: number | null;
+  /** The question-bank section the template draws its questions from. */
+  question_section: string;
   items: ConductItem[];
   students: ConductStudent[];
 }
