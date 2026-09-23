@@ -176,6 +176,7 @@ data and no rework of what V1 wrote:
 |----------|-----------------|
 | Notifications — fee-due, absence and notice SMS | Dues and absences are read on screen. **The result SMS is V1** (below); the outbox and template tables it needed are built and shaped for the rest |
 | Payroll (`PayrollRun`, `Payslip`) | Salary is an ordinary `Expense` row under "Teacher Salary" |
+| ~~A behaviour/practice record~~ | **Built 2026-09-23 as the `conduct` app** (`02` §4.10). It was not on this list because nobody had asked for it; a madrasah's day turns on নামাজ and তিলাওয়াত long before it turns on a half-yearly paper. It added no question model — `forms.Question` is the bank for both it and the admission form |
 | ~~`AuditLog`~~ | **Promoted into V1 as `ActivityLog`** (`08` D8) — it is the data behind the platform admin's live feed |
 | Rollup tables (`AttendanceSummary` etc.) | Reports query source rows directly — correct at V1 data volume, just slower |
 | `ExportJob` / async exports | Synchronous CSV download, which is fine at this scale |

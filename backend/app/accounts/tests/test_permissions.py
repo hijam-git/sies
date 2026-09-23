@@ -15,14 +15,21 @@ from .factories import make_branch, make_platform_admin, make_role, make_user
 
 
 class CatalogueTests(TestCase):
-    def test_the_catalogue_matches_the_twenty_resources_of_the_docs(self):
+    def test_the_catalogue_matches_the_resources_of_the_docs(self):
+        """The list, in order, as `docs/02` §2.1 prints it.
+
+        Asserting the whole list and not merely its length is the point: a
+        resource added here is a checkbox on every permission screen and a
+        line in every preset, so it should cost a deliberate edit in two
+        places — this test and the doc — rather than arriving unnoticed.
+        """
         resources = [entry['resource'] for entry in PERMISSION_CATALOG]
-        self.assertEqual(len(resources), 20)
-        self.assertEqual(len(set(resources)), 20, 'a resource is listed twice')
+        self.assertEqual(len(set(resources)), len(resources),
+                         'a resource is listed twice')
         self.assertEqual(resources, [
             'dashboard', 'branches', 'academics', 'students', 'admissions',
-            'teachers', 'employees', 'attendance', 'fees', 'income', 'expenses',
-            'salary',
+            'teachers', 'employees', 'attendance', 'conduct', 'fees', 'income',
+            'expenses', 'salary',
             'exams', 'marks', 'reports', 'notices', 'documents', 'settings',
             'users', 'activity',
         ])

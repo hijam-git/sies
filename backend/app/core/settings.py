@@ -109,6 +109,10 @@ _SIES_APPS = [
     # a noticeboard. The other events §19 lists — fee due, absence, notices —
     # are still V2, and the table is shaped for them.
     'notifications',  # Phase 6 — NotificationTemplate, SmsMessage
+    # What a student DOES, as against what exam marks say they know:
+    # নামাজ, তিলাওয়াত, আদব. The institution writes its own items, so
+    # nothing here knows what any of them mean (docs/02 §4.10).
+    'conduct',      # Phase 6 — ReportTemplate, ReportItem, StudentReport
 ]
 
 INSTALLED_APPS = [

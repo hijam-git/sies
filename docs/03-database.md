@@ -764,6 +764,44 @@ edited.
 
 ---
 
+## 9b. Conduct app — the observation register — **V1**
+
+What a student *does*: নামাজ, তিলাওয়াত, আদব (`02` §4.10). **No question model
+of its own** — the questions are `forms.Question`, selected by section, so one
+bank and one editor serve both the admission form and the sheet.
+
+### `ReportTemplate` **[BS]**
+
+| `branch`, `name`, `name_bn`, `frequency` (`daily`/`weekly`/`monthly`/`term`), `section` (which slice of the question bank), `stream` → Stream null, `academic_class` → AcademicClass null, `is_active` |
+
+`stream`/`academic_class` NULL means every one of them. A হিফজ template
+narrowed to its class never appears on a general class's screen.
+Unique on `(branch, name)`.
+
+### `StudentReport` **[BS]**
+
+| `branch`, `template` → ReportTemplate PROTECT, `enrolment` → Enrolment PROTECT, `student` → Student PROTECT, `period`, `status`, `remarks`, `filled_by` → Teacher SET_NULL, `filled_at` |
+
+`period` is one string whose shape the frequency decides: `2026-09-23`,
+`2026-W39`, `2026-09`, `2026-T3`.
+
+Unique on `(branch, template, enrolment, period)` — **this is what makes saving
+the grid safe to repeat**, the same property the monthly fee job has, for the
+same reason: two teachers with one class open on two phones.
+
+### `ReportAnswer` **[BS]**
+
+| `branch`, `report` → StudentReport CASCADE, `item` → **forms.Question** PROTECT, `value` (JSON) |
+
+`value` is JSON because the question says what it means — `true`, `"good"`,
+`12`, `"আজ দেরিতে এসেছে"`. Five nullable columns would be four NULLs on every
+row plus a rule nothing enforces about which one is filled. PROTECT on the
+question: an answer is a record of what was asked, and deleting the question
+would leave a value nobody can read. Deactivating it takes it off tomorrow's
+sheet and leaves every filled sheet intact.
+
+---
+
 ## 10. Notifications app — **the two tables below are V1**
 
 Built for `result_published` and shaped for the rest of the events (`05` §6.2).

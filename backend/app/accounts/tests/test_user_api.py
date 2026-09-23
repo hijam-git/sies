@@ -186,7 +186,12 @@ class PermissionCatalogEndpointTests(TestCase):
         self.client.force_login(make_platform_admin())
         body = self.client.get(reverse('accounts:permission-catalog')).json()['data']
 
-        self.assertEqual(len(body['resources']), 20)
+        # The count lives in one place — accounts.tests.test_permissions
+        # asserts the whole list, in order. Here it only has to be the same
+        # catalogue the server actually holds.
+        from accounts.permissions import PERMISSION_CATALOG
+
+        self.assertEqual(len(body['resources']), len(PERMISSION_CATALOG))
         self.assertTrue(body['presets'])
 
         # The reason this endpoint exists: the SPA's checkboxes are generated

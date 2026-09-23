@@ -71,8 +71,11 @@ sies/
 │       ├── fees/        FeeCategory, Fee, Payment
 │       ├── finance/     Income, Expense, categories
 │       ├── exams/       Exam, ExamSchedule, Mark
-│       └── notifications/ NotificationTemplate, SmsMessage, gateways
-│                          (result SMS only — `05` §6.2)
+│       ├── notifications/ NotificationTemplate, SmsMessage, gateways
+│       │                  (result, admission and fee-received SMS)
+│       └── conduct/     ReportTemplate, StudentReport, ReportAnswer —
+│                        the নামাজ/আদব register. Its questions are
+│                        `forms.Question`; there is no second bank
 └── frontend/
     └── admin_dashboard/         React 19 + Vite + Tailwind (copied from Awliaa)
 ```

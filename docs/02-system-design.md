@@ -64,6 +64,7 @@ and every institution eventually needs exactly that. So:
 | `teachers` | view, create, update, delete | Teacher profiles and assignments |
 | `employees` | view, create, update, delete | Non-teaching staff |
 | `attendance` | view, take, update | Taking and correcting attendance |
+| `conduct` | view, take, update | Filling and correcting the observation sheet — নামাজ, তিলাওয়াত, আদব (§4.10). Its own resource, because an institution may want the hall supervisor filling it and the class teacher taking attendance |
 | `fees` | view, create, update, collect, waive | Invoices, collection, discounts |
 | `income` | view, create, update | Recording income; `update` corrects entries and manages income heads |
 | `expenses` | view, create, update | Recording expenses; `update` corrects entries and manages expense heads |
@@ -104,7 +105,7 @@ starting point, never a cage — see §2.3.
 | **Income Clerk** | `dashboard.view` · `income.view/create` — records income only; cannot correct, reverse, add heads or see expenses |
 | **Expense Clerk** | `dashboard.view` · `expenses.view/create` — records expenses only; cannot correct, reverse, add heads or see income |
 | **Admission Officer** | `dashboard.view` · `admissions.*` · `students.view/create/update` · `fees.view/create` · `documents.upload` |
-| **Teacher** | `dashboard.view` · `academics.view` · `attendance.view/take` · `marks.view/enter/update` · `students.view` · `exams.view` |
+| **Teacher** | `dashboard.view` · `academics.view` · `attendance.view/take` · `conduct.view/take` · `marks.view/enter/update` · `students.view` · `exams.view` |
 | **Class Teacher** | Teacher, plus `attendance.update` · `documents.view` |
 | **Hostel Warden** | `dashboard.view` · `students.view` · `attendance.view/take` |
 | **Office Assistant** | `dashboard.view` · `students.view` · `documents.view/upload` · `notices.view` |
@@ -401,6 +402,37 @@ Bangladesh, primary) channel. Templates are per branch, per language, per event
 (fee due, fee received, absent, result published, notice). Every send is logged
 with its provider response, because "we sent it" needs evidence when a guardian
 says otherwise.
+
+---
+
+### 4.10 Conduct — the observation register (নামাজ, তিলাওয়াত, আদব)
+
+Exam marks say what a student **knows**. This says what they **do**, and in a
+madrasah the second is the one a guardian asks about first. None of it fits a
+`Mark`: there is no full-marks, no pass mark and no exam it belongs to.
+
+**The institution writes the questions, and there is only one question bank.**
+`forms.Question` already holds text in both languages, a type (yes/no, single
+choice, number, short text), options, ordering and an active flag — and
+Settings → Questions is already its editor. A `ReportTemplate` names a
+**section** of that bank; the questions in it are the sheet. Adding নামাজ is
+adding a question, exactly as it is for the admission form.
+
+```
+forms.Question ──section──▶ ReportTemplate ──▶ StudentReport ──▶ ReportAnswer
+  the bank, already built      what/how often      one student,     one answer
+                               and for whom        one period
+```
+
+| Decision | Why |
+|---|---|
+| The sheet is a **grid**, like the attendance register | It is the same act — a teacher in front of a class recording one small thing per student — so it gets the same screen, the same sticky first column and the same single-student view on a phone (§7a) |
+| `frequency` lives on the template | A daily নামাজ register and a monthly আদব review are the same table; one field is what lets an institution run both |
+| `period` is one string | `2026-09-23`, `2026-W39`, `2026-09`, `2026-T3`. Four nullable columns would be four ways for them to disagree, and nothing ever asks "which week" without first knowing the frequency |
+| One live sheet per (template, enrolment, period) | Two teachers with the same class open on two phones must produce one sheet. The same idempotency the monthly fee job rests on |
+| A value that does not fit its question becomes **unanswered** | A refusal would fail forty students' save over one stray cell; an unanswered question is a state the sheet already has and the teacher can see |
+| `conduct` is its own permission resource | The same teacher usually does both, but an institution that wants the নামাজ register filled by the hall supervisor and attendance by the class teacher can say so. What is ON the sheet is `settings` — deciding what is observed is the office's act, not the observer's |
+| Teacher scoping is reused, not rebuilt | `teacher_class_scope()` already answers "which classes may this teacher reach" (docs/08 D6) |
 
 ---
 

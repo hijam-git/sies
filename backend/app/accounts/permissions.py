@@ -102,6 +102,18 @@ PERMISSION_CATALOG = [
         'hint_bn': 'উপস্থিতি নেওয়া ও সংশোধন করা',
     },
     {
+        # Its own resource and not a corner of `attendance`: the same teacher
+        # does both, but an institution that wants the নামাজ register filled by
+        # the hall supervisor and attendance by the class teacher can say so.
+        # What is ON the sheet is `settings`, because deciding what the
+        # institution observes is the office's act, not the observer's.
+        'resource': 'conduct',
+        'label': 'Conduct report', 'label_bn': 'আমল ও আদব',
+        'actions': ['view', 'take', 'update'],
+        'hint': 'Filling and correcting the observation sheet (নামাজ, তিলাওয়াত, আদব)',
+        'hint_bn': 'আমল-আদবের রিপোর্ট পূরণ ও সংশোধন',
+    },
+    {
         'resource': 'fees',
         'label': 'Fees', 'label_bn': 'ফি',
         'actions': ['view', 'create', 'update', 'collect', 'waive'],
@@ -298,6 +310,9 @@ ROLE_PRESETS = {
         # take, not update. Correcting yesterday's register is the class
         # teacher's call — the next preset down.
         'attendance': ['view', 'take'],
+        # Same split, same reason: today's sheet is the teacher's, yesterday's
+        # correction is the class teacher's.
+        'conduct': ['view', 'take'],
         'marks': ['view', 'enter', 'update'],
         'students': ['view'],
         'exams': ['view'],
@@ -307,6 +322,7 @@ ROLE_PRESETS = {
         'dashboard': ['view'],
         'academics': ['view'],
         'attendance': ['view', 'take', 'update'],
+        'conduct': ['view', 'take', 'update'],
         'marks': ['view', 'enter', 'update'],
         'students': ['view'],
         'exams': ['view'],
@@ -317,6 +333,8 @@ ROLE_PRESETS = {
         'dashboard': ['view'],
         'students': ['view'],
         'attendance': ['view', 'take'],
+        # The warden sees নামাজ and আদব at closer range than anyone.
+        'conduct': ['view', 'take'],
     },
 
     'Office Assistant': {
