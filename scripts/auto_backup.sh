@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# SIES — nightly backup: database + media, with retention and an off-box copy.
+# SIES — nightly backup: database + media, with retention and an off-box copy
+# to rsync, to Cloudflare R2, or to both.
 #
 #   scripts/auto_backup.sh
 #   scripts/auto_backup.sh --no-media     # database only (faster, incomplete)
@@ -70,6 +71,10 @@ KEEP_DAILY=$(envget BACKUP_KEEP_DAILY);   KEEP_DAILY="${KEEP_DAILY:-14}"
 KEEP_WEEKLY=$(envget BACKUP_KEEP_WEEKLY); KEEP_WEEKLY="${KEEP_WEEKLY:-8}"
 REMOTE=$(envget BACKUP_REMOTE)
 REMOTE_KEY=$(envget BACKUP_REMOTE_SSH_KEY)
+# Cloudflare R2, the other off-box target. Either one counts as offsite;
+# having both is better than choosing, because they fail differently — a
+# dead SSH key and a rotated API token are not the same outage.
+R2_BACKUP_BUCKET=$(envget R2_BACKUP_BUCKET)
 SERVER_NAME=$(envget THIS_SERVER_NAME); SERVER_NAME="${SERVER_NAME:-sies}"
 
 LOG_DIR="$PROJECT_ROOT/logs"
@@ -229,11 +234,43 @@ fi
 # A backup on the same disk as the database survives a bad migration but not a
 # dead server, and the dead server is the case backups exist for.
 OFFSITE=FAILED
+
+# ── Cloudflare R2 ────────────────────────────────────────────────────────────
+# Runs inside the backend container, which already holds the R2 credentials it
+# uses for uploads — nothing extra to configure per host or per cron user, which
+# is the way an off-box copy usually dies (see the rsync note below about HOME).
+#
+# The dump lives on the host, so it is copied in rather than mounted: a mount
+# would put the whole backup directory inside a running application container
+# for the sake of one file a night.
+if [ -n "$R2_BACKUP_BUCKET" ]; then
+  log INFO "copying to R2 bucket ${R2_BACKUP_BUCKET}…"
+  R2_OK=1
+  for f in "$DUMP" ${MEDIA_TAR:+"$MEDIA_TAR"}; do
+    if docker cp "$f" "${BACKEND_CONTAINER}:/tmp/$(basename "$f")" 2>>"$LOG_FILE" \
+       && docker exec "$BACKEND_CONTAINER" python manage.py backup_to_r2 \
+            --file "/tmp/$(basename "$f")" >>"$LOG_FILE" 2>&1; then
+      :
+    else
+      R2_OK=0
+      log ERROR "R2 upload FAILED for $(basename "$f") — see $LOG_FILE"
+    fi
+    # Never leave a database dump inside the application container.
+    docker exec "$BACKEND_CONTAINER" rm -f "/tmp/$(basename "$f")" 2>/dev/null || true
+  done
+  if [ "$R2_OK" = 1 ]; then
+    OFFSITE=ok
+    log INFO "R2 copy complete"
+  fi
+fi
+
 if [ -z "$REMOTE" ]; then
-  # Deliberately an ERROR, not an info line. Local-only is a real gap, and the
-  # nightly cron mail is the only place anyone will ever see it said.
-  log ERROR "BACKUP_REMOTE is not set — the only copy of tonight's backup is on this machine"
-  log ERROR "  it will not survive losing this server. Set BACKUP_REMOTE in .env.production."
+  if [ "$OFFSITE" != ok ]; then
+    # Deliberately an ERROR, not an info line. Local-only is a real gap, and the
+    # nightly cron mail is the only place anyone will ever see it said.
+    log ERROR "no off-box copy — tonight's backup exists only on this machine"
+    log ERROR "  set BACKUP_REMOTE (rsync) or R2_BACKUP_BUCKET (Cloudflare R2) in .env.production."
+  fi
 else
   RSYNC_SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
   # cron's HOME is not the HOME the key was configured in, which is the single

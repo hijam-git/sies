@@ -262,7 +262,44 @@ way "we tested it in staging" is a true statement.
 | DB read cache | Brief; correctness of money beats microseconds |
 | API rate limiting | Brief; known internal user population |
 | Storefront, catalog, orders, subscriptions, chatbot, blog, reviews, marketing | Awliaa is a SaaS e-commerce platform; SIES is one institution's internal system |
-| CDN / R2 media | Student photos and documents are private records, served through the API behind auth, not from a public bucket |
+| ~~CDN / R2 media~~ | **Superseded 2026-09-23.** Files now go to a PRIVATE R2 bucket (`core/storage.py`), which is a different thing from the public one this line refused: nothing is served from a bucket URL. Links are presigned and expire in five minutes; a document still leaves only through the authenticated endpoint that streams it. What changed is that a student's birth certificate now survives the server it was uploaded to. An install with no R2 credentials still writes to the volume |
+
+---
+
+## 8a. Where files live
+
+```
+FileField / ImageField
+        │  Django's storage API — no model or call site knows the difference
+        ▼
+STORAGES['default']
+        ├── R2_* set      → core.storage.R2Storage  (private bucket)
+        └── not set       → FileSystemStorage       (the media volume, as before)
+```
+
+Three properties, and each is enforced in code rather than in a dashboard:
+
+* **The key is generated, never the uploaded filename.** Phones name every
+  photo `IMG_20240101.jpg`; accepting that name means the second upload
+  silently replaces the first student's picture. Awliaa hit this with product
+  photos, which is why `get_available_name()` always makes a fresh key.
+* **Every URL expires** (`R2_PRESIGN_TTL`, five minutes). There is no permanent
+  link to forward, index or leak.
+* **Documents are still streamed through the API** (`students.views._stream`),
+  so the rule that a scanned certificate leaves only through a permission check
+  is unchanged by where the bytes are kept.
+
+Backups go to a **separate private bucket** (`R2_BACKUP_BUCKET`), and
+`manage.py backup_to_r2` refuses to run if it is empty or equal to the media
+bucket: a dump beside the student photos is every student, every guardian's
+phone number and every fee record one guessed key away. `scripts/auto_backup.sh`
+calls it, and counts either rsync or R2 as the off-box copy — they fail
+differently, and a dead SSH key is not a rotated API token.
+
+Not built: the Cloudflare-API check that asks whether the backup bucket has a
+public domain attached (awliaa's `core/r2_privacy.py`, which `CLAUDE.md` §3.2
+lists as not-to-copy). The local guard above is what we have; if the bucket is
+made public in the dashboard, nothing here would notice.
 
 ---
 

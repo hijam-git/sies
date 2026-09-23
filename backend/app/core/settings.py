@@ -13,6 +13,7 @@ misconfigured deploy fails loudly at boot rather than quietly running open.
 
 
 import os
+import re
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -265,9 +266,56 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
-# A named volume in both compose files. Student photos and scanned admission
-# documents live here; they are backed up with the database, never regenerated.
+# The fallback when no object store is configured: a named volume in both
+# compose files. Still the right answer for a single-server install.
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cloudflare R2 — where uploaded files live (docs/01 §8, core/storage.py)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# **The bucket must be PRIVATE — no r2.dev domain, no custom domain.** It holds
+# students' birth certificates and an institution's fee vouchers, not product
+# photos. `core.storage.R2Storage` hands out presigned links that expire, and
+# `Document.file` is still streamed through the authenticated endpoint, so
+# there is no permanent URL to leak either way — but a bucket served publicly
+# would make both of those precautions decoration.
+#
+# Not configured is not an error: the disk below keeps working exactly as it
+# does today, which is what dev, CI and a one-server deployment run on.
+R2_ACCOUNT_ID = os.getenv('R2_ACCOUNT_ID', '')
+R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
+R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
+R2_BUCKET = os.getenv('R2_BUCKET', '')
+# Derived from the account id; set only for a non-standard endpoint.
+R2_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL', '')
+# How long a presigned link lives. Five minutes: long enough for a page to load
+# a photo, short enough that a forwarded URL is already dead.
+R2_PRESIGN_TTL = int(os.getenv('R2_PRESIGN_TTL', '300'))
+
+# Offsite database backups go to a SEPARATE bucket, and the separation is the
+# point: a dump in the media bucket is every student, guardian phone number and
+# fee record one guessed key away. `backup_to_r2` refuses to run when this is
+# empty or equal to R2_BUCKET.
+R2_BACKUP_BUCKET = os.getenv('R2_BACKUP_BUCKET', '')
+
+# Which server a dump came from — it goes in the FILENAME, because one bucket
+# may hold dumps from production, staging and a migration box at once.
+SIES_SERVER_NAME = re.sub(
+    r'[^a-zA-Z0-9-]+', '-',
+    os.getenv('THIS_SERVER_NAME', '') or os.getenv('DOMAIN', '') or 'server',
+).strip('-')[:32] or 'server'
+
+# Django 5's storage registry. One switch decides where every FileField in the
+# project writes, so no model, migration or call site knows the difference.
+STORAGES = {
+    'default': (
+        {'BACKEND': 'core.storage.R2Storage'}
+        if all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET])
+        else {'BACKEND': 'django.core.files.storage.FileSystemStorage'}
+    ),
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 
 # A scanned admission document or a photo from a phone camera routinely exceeds
 # Django's 2.5 MB default, at which point the upload spools to a temp file. This

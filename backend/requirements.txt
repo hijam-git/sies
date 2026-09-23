@@ -2,10 +2,15 @@
 #
 # This list is short on purpose. It was derived from awliaa/backend/requirements.txt
 # by deleting everything that served the storefront rather than the framework:
-# R2/boto3 object storage, Cloudflare, Google OAuth, drf-spectacular, dnspython,
-# qrcode, the Anthropic client and the encryption used for third-party tokens.
-# SIES has no storefront, no social login (CLAUDE.md §1: phone + password only),
-# no object storage (media is a volume) and no public API to publish a schema for.
+# Cloudflare, Google OAuth, drf-spectacular, dnspython, qrcode, the Anthropic
+# client and the encryption used for third-party tokens. SIES has no storefront,
+# no social login (CLAUDE.md §1: phone + password only) and no public API to
+# publish a schema for.
+#
+# `boto3` came back (2026-09-23): uploaded files now go to a private Cloudflare
+# R2 bucket, so a student's birth certificate survives the server it was
+# uploaded to and the nightly dump lands somewhere that is not the same disk as
+# Postgres. An install with no R2 credentials still writes to the volume.
 #
 # Nothing here is optional, and CLAUDE.md §8.6 says a new line needs a reason.
 # Keeping it readable in one screen is what makes that rule enforceable.
@@ -37,3 +42,8 @@ python-dotenv==1.0.1
 
 # Student photos, branch logos, scanned admission documents.
 Pillow==11.0.0
+
+# Cloudflare R2, which speaks S3 (core/storage.py, backup_to_r2). The AWS SDK
+# is the only client R2 documents, and writing enough of SigV4 by hand to
+# presign a URL is not a saving.
+boto3==1.35.76
