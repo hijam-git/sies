@@ -41,7 +41,9 @@ class BranchSerializer(serializers.ModelSerializer):
             'restrict_teachers_to_assigned_classes',
             'activity_retention_days',
             'weekly_off_days',
-            'sms_enabled', 'sms_sender_id', 'default_language',
+            'sms_enabled', 'sms_sender_id',
+            'sms_on_admission', 'sms_on_payment',
+            'default_language',
             'is_active',
             'created_at', 'updated_at',
         ]

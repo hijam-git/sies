@@ -59,6 +59,8 @@ The tenant boundary. Everything else hangs off it.
 | `restrict_teachers_to_assigned_classes` | Bool, default **True** | A teacher reaches only the classes they are assigned to (`08` D6). Turn off for a small institution where everyone covers everything |
 | `weekly_off_days` | JSON list | `["fri"]`. **V1**, not V2: the month attendance grid (`02` §4.4) shows four or five of them on screen at once, so it cannot wait for the holiday calendar |
 | `sms_enabled` | Bool, default True | The institution's own switch. The platform's is the gateway: `SMS_PROVIDER=console` sends nothing |
+| `sms_on_admission` | Bool, default **False** | Send when a student is admitted |
+| `sms_on_payment` | Bool, default **False** | Send a receipt when a fee payment is taken |
 | `sms_sender_id` | Char(20), blank | The name on the guardian's handset, registered with the operator. Per institution, because a madrasah and a college on one gateway account must not appear as each other |
 | `default_language` | Char(2) | `bn` / `en` |
 | `is_active` | Bool | |
@@ -782,6 +784,16 @@ Every send is a row with its provider's answer (`02` §4.9), **including the
 sends that did not happen** — a student with no guardian number is a `skipped`
 row, because that list is the office's work for the afternoon and an absence of
 rows is not.
+
+The two automatic events default to **off**: they ride on `admit_student()`
+and `collect_fee()` with nobody watching, and a send the office did not ask for
+is money leaving without a decision. The result SMS needs no switch — a person
+presses it having seen what it will cost.
+
+`reference` is what the message is about, and it decides what "already sent"
+means: `exam:12` per student (one result each), `student:88` (one admission
+message), `payment:412` — the **payment**, not the invoice, because three
+instalments against one invoice are three receipts and three messages.
 
 Unique on `(branch, event, reference, to_phone)` **where status is queued or
 sent** — this is what makes "send the results" safe to press twice. Partial,

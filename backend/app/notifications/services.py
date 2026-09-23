@@ -24,6 +24,9 @@ from .parts import sms_parts
 
 logger = logging.getLogger(__name__)
 
+#: BDT, platform-wide. One symbol, one place.
+TAKA = '৳'
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # What a message says
@@ -52,6 +55,23 @@ DEFAULT_BODIES = {
     (NotificationEvent.RESULT_PUBLISHED, 'en'): (
         '{student} ({roll}) — {exam}: {grade}, {result}'
     ),
+    # Admission. The two numbers the guardian will be asked for at every
+    # counter from now on — the student id and the roll — and nothing else.
+    (NotificationEvent.ADMISSION, 'bn'): (
+        '{student} ভর্তি হয়েছে। আইডি {student_id}, রোল {roll}'
+    ),
+    (NotificationEvent.ADMISSION, 'en'): (
+        '{student} admitted. ID {student_id}, roll {roll}'
+    ),
+    # A receipt. `{balance}` is the whole point of sending it: a guardian who
+    # paid ৳500 of a ৳1,500 invoice in cash has the paper slip and nothing else
+    # that says what is left, and that is what they ring the office to ask.
+    (NotificationEvent.FEE_RECEIVED, 'bn'): (
+        '{student}: {amount} জমা, বাকি {balance}। রসিদ {receipt}'
+    ),
+    (NotificationEvent.FEE_RECEIVED, 'en'): (
+        '{student}: {amount} paid, {balance} due. Receipt {receipt}'
+    ),
 }
 
 #: What a template writer may use, and what each one means. Served to the
@@ -68,6 +88,24 @@ PLACEHOLDERS = {
         ('percentage', 'Percentage · শতকরা'),
         ('rank', 'Class rank · মেধাক্রম'),
         ('result', 'Passed or failed · উত্তীর্ণ/অকৃতকার্য'),
+        ('institution', 'Institution name · প্রতিষ্ঠানের নাম'),
+    ],
+    NotificationEvent.ADMISSION: [
+        ('student', 'Student name · শিক্ষার্থীর নাম'),
+        ('student_id', 'Student ID · শিক্ষার্থী আইডি'),
+        ('admission_no', 'Admission number · ভর্তি নম্বর'),
+        ('roll', 'Roll · রোল'),
+        ('class', 'Class · শ্রেণি'),
+        ('session', 'Session · শিক্ষাবর্ষ'),
+        ('institution', 'Institution name · প্রতিষ্ঠানের নাম'),
+    ],
+    NotificationEvent.FEE_RECEIVED: [
+        ('student', 'Student name · শিক্ষার্থীর নাম'),
+        ('amount', 'Amount paid · জমার পরিমাণ'),
+        ('balance', 'Still owing on this invoice · এই বিলে বাকি'),
+        ('receipt', 'Receipt number · রসিদ নম্বর'),
+        ('head', 'What it was for · কিসের ফি'),
+        ('period', 'Month, where the fee has one · মাস'),
         ('institution', 'Institution name · প্রতিষ্ঠানের নাম'),
     ],
 }
@@ -248,6 +286,117 @@ def deliver(message) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Results — the event this module was built for
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The automatic events — admission and payment
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Unlike the result, nobody presses a button for these: they ride on
+# `admit_student()` and `collect_fee()`. Two consequences shape the code below.
+#
+# **They are opt-in per institution** (`Branch.sms_on_admission`,
+# `sms_on_payment`, both default False). A send nobody asked for, happening on
+# every admission and every receipt, is money leaving without a decision — and
+# the only thing worse than a guardian not getting an SMS is an institution
+# finding out from an invoice that it sent four thousand.
+#
+# **They must never break what they report.** `notify()` swallows everything: a
+# gateway outage, a template that will not render, a column that moved. The
+# payment is the money; the SMS is a courtesy about the money, and a courtesy
+# does not get to roll back a receipt.
+
+def notify(send, *args, **kwargs):
+    """Run a sender and swallow whatever it raises, loudly in the log.
+
+    The pattern is awliaa's — every order-SMS call there is wrapped for exactly
+    this reason — and it is what lets these two hooks sit inside the money
+    transactions at all.
+    """
+    try:
+        return send(*args, **kwargs)
+    except Exception:  # noqa: BLE001 — the whole point is that nothing escapes
+        logger.exception('Notification failed; the action it reports stands')
+        return None
+
+
+def event_is_on(branch, event) -> bool:
+    """Whether this institution has asked for this automatic event.
+
+    The result SMS is not in the table below and never disabled here: it is
+    pressed by a person who has already seen what it will cost.
+    """
+    if not sms_is_on(branch):
+        return False
+    field = {
+        NotificationEvent.ADMISSION: 'sms_on_admission',
+        NotificationEvent.FEE_RECEIVED: 'sms_on_payment',
+    }.get(event)
+    return True if field is None else bool(getattr(branch, field, False))
+
+
+def send_admission_sms(*, student, enrolment, actor=None):
+    """Tell the guardian the child is admitted, with the numbers they will be
+    asked for at every counter from now on.
+
+    Called from `students.services.admit_student()` **inside its transaction**,
+    so an admission that rolls back takes the message with it: the outbox row
+    and the student appear together or not at all.
+    """
+    branch = student.branch
+    if not event_is_on(branch, NotificationEvent.ADMISSION):
+        return None
+
+    phone, label = recipient_for(student)
+    academic_class = getattr(enrolment, 'academic_class', None)
+    context = {
+        'student': student.name_bn or student.name,
+        'student_id': student.student_id,
+        'admission_no': getattr(enrolment, 'admission_number', ''),
+        'roll': getattr(enrolment, 'roll', ''),
+        'class': (getattr(academic_class, 'name_bn', '')
+                  or getattr(academic_class, 'name', '')),
+        'session': str(getattr(enrolment, 'session', '') or ''),
+        'institution': branch.name_bn or branch.name,
+    }
+    return queue_sms(
+        branch=branch, event=NotificationEvent.ADMISSION,
+        body=body_for(branch, NotificationEvent.ADMISSION, context=context),
+        to_phone=phone, reference=f'student:{student.pk}',
+        student=student, recipient_label=label, actor=actor,
+    )
+
+
+def send_payment_sms(payment, *, actor=None):
+    """The receipt, on the guardian's phone.
+
+    The reference is the **payment**, not the invoice: three instalments
+    against one invoice are three receipts and three messages, and the
+    idempotency key has to let all three through while still refusing to send
+    the same receipt twice.
+    """
+    branch = payment.branch
+    if not event_is_on(branch, NotificationEvent.FEE_RECEIVED):
+        return None
+
+    fee = payment.fee
+    student = payment.student or fee.student
+    phone, label = recipient_for(student)
+    context = {
+        'student': student.name_bn or student.name,
+        'amount': f'{TAKA}{payment.amount:,.0f}',
+        'balance': f'{TAKA}{fee.balance:,.0f}',
+        'receipt': payment.receipt_no,
+        'head': fee.category.name_bn or fee.category.name,
+        'period': fee.period or '',
+        'institution': branch.name_bn or branch.name,
+    }
+    return queue_sms(
+        branch=branch, event=NotificationEvent.FEE_RECEIVED,
+        body=body_for(branch, NotificationEvent.FEE_RECEIVED, context=context),
+        to_phone=phone, reference=f'payment:{payment.pk}',
+        student=student, recipient_label=label, actor=actor,
+    )
+
 
 def result_reference(exam) -> str:
     return f'exam:{exam.pk}'

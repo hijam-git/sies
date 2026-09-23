@@ -240,14 +240,25 @@ No payslips. No guardian login. No audit trail beyond `created_by`. No async
 exports. No standing discounts. These are the price of shipping, they are all
 in group D, and none of them cost anything to add later.
 
-**SMS was on this list and is not any more, for one event.** A published result
-that nobody is told about is a result on a noticeboard: the guardian who is
-meant to read it lives an hour away and has a phone, not a mailbox. So
-`result_published` sends, from a screen the principal presses — and the outbox,
-the templates, the gateway adapter and the per-institution sender id that event
-needed are the same ones fee-due and absence SMS will use when their turn
-comes. The rest of §19 is still V2; what changed is that its foundation now
-exists and is carrying one real message.
+**SMS was on this list and is not any more, for three events.** A published
+result that nobody is told about is a result on a noticeboard: the guardian who
+is meant to read it lives an hour away and has a phone, not a mailbox. So V1
+sends:
+
+| Event | How it fires | Default |
+|---|---|---|
+| `result_published` | a button on Exams → Results, after a preview that costs the send | — |
+| `admission` | rides on `admit_student()` | **off** |
+| `fee_received` | rides on `collect_fee()`, carrying the receipt and the balance | **off** |
+
+The two automatic ones are opt-in per institution, because a send nobody asked
+for on every admission and every receipt is money leaving without a decision.
+Both are wrapped so they can never break what they report: a payment is the
+money, and a courtesy about the money does not get to roll back a receipt.
+
+Still V2: fee-due reminders, absence SMS and the notice board — the outbox,
+the templates, the gateway adapter and the per-institution sender id they need
+are built and carrying three real messages.
 
 ---
 

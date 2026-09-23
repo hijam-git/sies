@@ -247,5 +247,12 @@ const admin: Record<string, string> = {
   'The message could not be saved.': 'বার্তাটি সংরক্ষণ করা যায়নি।',
   'That could not be saved.': 'এটি সংরক্ষণ করা যায়নি।',
   Provider: 'সরবরাহকারী',
+  'Send automatically': 'স্বয়ংক্রিয়ভাবে পাঠানো হবে',
+  'When a student is admitted': 'শিক্ষার্থী ভর্তি হলে',
+  'When a fee payment is taken': 'ফি জমা নেওয়া হলে',
+  'What each message says': 'কোন বার্তায় যা থাকবে',
+  Results: 'ফলাফল',
+  Admission: 'ভর্তি',
+  'Fee received': 'ফি জমা',
 };
 export default admin;

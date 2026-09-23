@@ -60,6 +60,11 @@ export interface ResultSmsPreview {
   /** Billable SMS, not messages: a Bengali body over 70 characters is two.  */
   parts_total: number;
   sms_enabled: boolean;
+  /** The two AUTOMATIC events, both opt-in. The result SMS has no switch: a
+   *  person presses it having seen what it will cost, while these ride on
+   *  every admission and every receipt. */
+  sms_on_admission: boolean;
+  sms_on_payment: boolean;
   sender_id: string;
 }
 

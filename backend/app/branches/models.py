@@ -184,6 +184,16 @@ class Branch(models.Model):
     # branch that has SMS available and does not want it used.
     sms_enabled = models.BooleanField(_('send SMS · এসএমএস পাঠানো হবে'), default=True)
     sms_sender_id = models.CharField(_('SMS sender id · এসএমএস প্রেরক'), max_length=20, blank=True)
+    # The two AUTOMATIC events, both opt-in. The result SMS is not here
+    # because a person presses it having seen what it costs; these ride on
+    # every admission and every receipt, and a send nobody asked for is
+    # money leaving without a decision.
+    sms_on_admission = models.BooleanField(
+        _('SMS on admission · ভর্তিতে এসএমএস'), default=False,
+    )
+    sms_on_payment = models.BooleanField(
+        _('SMS on payment · ফি জমায় এসএমএস'), default=False,
+    )
     default_language = models.CharField(
         _('default language · ডিফল্ট ভাষা'),
         max_length=2, choices=Language.choices, default=Language.BANGLA,

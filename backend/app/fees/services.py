@@ -764,6 +764,15 @@ def collect_fee(*, fee, amount, method=PaymentMethod.CASH, transaction_id='',
         # back is the right answer (accounts.services.log_activity).
         atomic=True,
     )
+
+    # The receipt, on the guardian's phone — if this institution asked for it.
+    # `notify()` swallows anything the send raises: the money is written and
+    # audited above, and a courtesy about the money does not get to roll back
+    # a receipt (notifications.services).
+    from notifications.services import notify, send_payment_sms
+
+    notify(send_payment_sms, payment, actor=collected_by)
+
     return payment
 
 

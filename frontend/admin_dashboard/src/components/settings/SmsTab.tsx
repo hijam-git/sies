@@ -26,7 +26,14 @@ import { btnPrimary, btnSecondary, inputCls } from '../common/styles';
  * should find that out while typing rather than on an invoice.
  */
 
-const EVENT = 'result_published';
+/** The three events V1 sends, in the order an institution meets them.
+ *  `result_published` is pressed by a person; the other two ride on an
+ *  admission and a receipt, which is why only they have switches. */
+const EVENTS = [
+  { key: 'result_published', label: 'Results', auto: null },
+  { key: 'admission', label: 'Admission', auto: 'sms_on_admission' as const },
+  { key: 'fee_received', label: 'Fee received', auto: 'sms_on_payment' as const },
+];
 
 /** A titled panel. NOT `common/SectionCard`, which is a preview-and-button
  *  tile for a settings checklist and ignores children — this screen's sections
@@ -51,8 +58,14 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
   const [guide, setGuide] = useState<TemplatePlaceholders | null>(null);
   const [outbox, setOutbox] = useState<SmsMessage[]>([]);
 
+  const [event, setEvent] = useState(EVENTS[0].key);
   const [body, setBody] = useState('');
   const [saving, setSaving] = useState(false);
+  /** The switch currently in flight, so ONE of them is disabled while it
+   *  saves rather than all of them. Flipping two switches is one thought,
+   *  and a screen that ignores the second click because the first is still
+   *  in the air loses it silently. */
+  const [savingField, setSavingField] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +83,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
     try {
       const [branches, templates, placeholders, messages] = await Promise.all([
         apiClient.getBranches(),
-        apiClient.listAll<MessageTemplate>('/message-templates/', `?event=${EVENT}`),
+        apiClient.listAll<MessageTemplate>('/message-templates/', ''),
         apiClient.templatePlaceholders(),
         apiClient.list<SmsMessage>('/sms/', '?ordering=-created_at'),
       ]);
@@ -78,7 +91,9 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
 
       const own = branches.find((b) => b.id === branchId) ?? null;
       const language = own?.default_language === 'en' ? 'en' : 'bn';
-      const mineTemplate = templates.find((row) => row.language === language) ?? null;
+      const mineTemplate = templates.find(
+        (row) => row.event === event && row.language === language,
+      ) ?? null;
 
       setBranch(own);
       setTemplate(mineTemplate);
@@ -89,7 +104,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
         // The built-in wording, so the box is never empty and "save" always
         // means "this is what we send" rather than "start from nothing".
         ?? placeholders.defaults.find(
-          (d) => d.event === EVENT && d.language === language,
+          (d) => d.event === event && d.language === language,
         )?.body
         ?? '',
       );
@@ -99,7 +114,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
     } finally {
       if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [branchId, req, t]);
+  }, [branchId, event, req, t]);
 
   // Deferred by a tick rather than called from the effect body: `load` sets
   // state synchronously, which during an effect cascades a render before the
@@ -123,16 +138,27 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
 
   const saveSwitch = async (patch: Partial<Branch>) => {
     if (!branch) return;
-    setSaving(true);
+    const field = Object.keys(patch)[0] ?? '';
+    // Painted first, saved second. Each switch is one boolean the server
+    // accepts on its own, so two of them in flight at once is fine — what is
+    // not fine is a tick that does not appear until the network answers.
+    setBranch({ ...branch, ...patch } as Branch);
+    setSavingField(field);
     setError(null);
     setSaved(null);
     try {
-      setBranch(await apiClient.updateBranch(branch.id, patch));
+      const updated = await apiClient.updateBranch(branch.id, patch);
+      // Merge rather than replace: a second switch flipped while this one was
+      // in the air is already in state, and the server's copy of THIS request
+      // does not know about it.
+      setBranch((current) => ({ ...(current ?? updated), ...patch } as Branch));
       setSaved(t('Saved'));
     } catch (err) {
+      // Put it back the way it was — the save is what makes it true.
+      setBranch((current) => (current ? ({ ...current, ...branch } as Branch) : current));
       setError(apiErrorText(err, t, t('That could not be saved.')));
     } finally {
-      setSaving(false);
+      setSavingField((current) => (current === field ? null : current));
     }
   };
 
@@ -143,7 +169,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
     setSaved(null);
     const language = branch.default_language === 'en' ? 'en' : 'bn';
     try {
-      const payload = { event: EVENT, channel: 'sms', language, body: body.trim(), is_active: true };
+      const payload = { event, channel: 'sms', language, body: body.trim(), is_active: true };
       const row = template
         ? await apiClient.patch<MessageTemplate>('/message-templates/', template.id, payload)
         : await apiClient.create<MessageTemplate>('/message-templates/', payload);
@@ -230,7 +256,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
               type="checkbox"
               className="mt-1 h-5 w-5 shrink-0 rounded border-gray-300 text-blue-600"
               checked={branch?.sms_enabled ?? true}
-              disabled={!mayEdit || saving}
+              disabled={!mayEdit || savingField === 'sms_enabled'}
               onChange={(e) => void saveSwitch({ sms_enabled: e.target.checked })}
             />
             <span>
@@ -243,6 +269,31 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
             </span>
           </label>
 
+          {/* The automatic events. Opt-in, one line each, with the reason
+              they are off by default said out loud: these spend money with
+              nobody watching, unlike the results button. */}
+          <div className="space-y-2 rounded-lg bg-gray-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              {t('Send automatically')}
+            </p>
+            {EVENTS.filter((e) => e.auto).map((e) => (
+              <label key={e.key} className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 text-blue-600"
+                  checked={Boolean(branch?.[e.auto as 'sms_on_admission'])}
+                  disabled={!mayEdit || savingField === e.auto || !(branch?.sms_enabled ?? true)}
+                  onChange={(ev) => void saveSwitch({ [e.auto as string]: ev.target.checked })}
+                />
+                <span className="text-sm text-gray-900">
+                  {e.key === 'admission'
+                    ? t('When a student is admitted')
+                    : t('When a fee payment is taken')}
+                </span>
+              </label>
+            ))}
+          </div>
+
           <Field
             label={t('Sender name')}
             hint={t('What the guardian sees the message is from. Registered with the SMS operator; left blank, the platform’s own name is used.')}
@@ -251,7 +302,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
               className={inputCls}
               maxLength={20}
               defaultValue={branch?.sms_sender_id ?? ''}
-              disabled={!mayEdit || saving}
+              disabled={!mayEdit || savingField === 'sms_sender_id'}
               onBlur={(e) => {
                 const next = e.target.value.trim();
                 if (next !== (branch?.sms_sender_id ?? '')) void saveSwitch({ sms_sender_id: next });
@@ -261,8 +312,25 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
         </div>
       </Panel>
 
-      <Panel title={t('What a result message says')}>
+      <Panel title={t('What each message says')}>
         <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {EVENTS.map((e) => (
+              <button
+                key={e.key}
+                type="button"
+                onClick={() => setEvent(e.key)}
+                className={`rounded-lg px-3 py-1.5 text-[13px] font-medium ${
+                  event === e.key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {t(e.label)}
+              </button>
+            ))}
+          </div>
+
           <textarea
             className={`${inputCls} min-h-[96px]`}
             value={body}
@@ -287,7 +355,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
 
           {guide && (
             <div className="flex flex-wrap gap-1.5">
-              {(guide.placeholders[EVENT] ?? []).map((p) => (
+              {(guide.placeholders[event] ?? []).map((p) => (
                 <button
                   key={p.name}
                   type="button"
@@ -310,7 +378,7 @@ export default function SmsTab({ branchId }: { branchId: number | null }) {
                 onClick={() => {
                   const language = branch?.default_language === 'en' ? 'en' : 'bn';
                   setBody(guide?.defaults.find(
-                    (d) => d.event === EVENT && d.language === language,
+                    (d) => d.event === event && d.language === language,
                   )?.body ?? '');
                 }}
               >

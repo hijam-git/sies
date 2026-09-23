@@ -360,6 +360,17 @@ def admit_student(application, *, academic_class=None, section=None, roll=None,
         atomic=True,
     )
 
+    # 6 ── the guardian's SMS, if this institution asked for one.
+    #
+    # Imported here rather than at module scope for the same reason `fees` is:
+    # `notifications` reads students, and a module-level import would close the
+    # loop (CLAUDE.md §2). Wrapped in `notify()`, which swallows everything —
+    # an admission is not allowed to fail because a gateway is down, and the
+    # outbox row rides inside this transaction either way.
+    from notifications.services import notify, send_admission_sms
+
+    notify(send_admission_sms, student=student, enrolment=enrolment, actor=actor)
+
     return student, enrolment
 
 
