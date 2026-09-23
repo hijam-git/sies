@@ -136,6 +136,20 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    // Directly after Attendance, because it is the same act at the same hour:
+    // a teacher in front of a class recording one small thing per student.
+    path: '/conduct',
+    label: 'Conduct',
+    icon: 'conduct',
+    resource: 'conduct',
+    anyResource: ['conduct', 'settings'],
+    phase: 6,
+    children: [
+      { tab: 'sheet', label: 'Sheet', anyOf: [['conduct', 'view']] },
+      { tab: 'setup', label: 'Reports', anyOf: [['settings', 'view']] },
+    ],
+  },
+  {
     path: '/fees',
     label: 'Fees',
     icon: 'fees',

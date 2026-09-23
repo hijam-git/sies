@@ -16,6 +16,7 @@ import AcademicsPage from './pages/AcademicsPage';
 import FeesPage from './pages/FeesPage';
 import AccountsPage from './pages/AccountsPage';
 import AttendancePage from './pages/AttendancePage';
+import ConductPage from './pages/ConductPage';
 import ExamsPage from './pages/ExamsPage';
 import ReportsPage from './pages/ReportsPage';
 import TeacherDashboard from './pages/TeacherDashboard';
@@ -105,6 +106,11 @@ function App() {
                   exams is where a term ends. Each gates its own data, and each
                   tab inside gates its own resource. */}
               <Route path="attendance" element={<AttendancePage />} />
+              {/* The observation register — নামাজ, তিলাওয়াত, আদব. Two
+                  permissions in one screen: `conduct` fills the sheet and
+                  `settings` decides what is on it, so the page picks its own
+                  tabs from what the reader holds. */}
+              <Route path="conduct" element={<ConductPage />} />
               <Route path="exams" element={<ExamsPage />} />
 
               {/* Phase 6. Reports read the other modules' list endpoints and

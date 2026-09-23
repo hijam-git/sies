@@ -21,6 +21,7 @@ export type Resource =
   | 'teachers'
   | 'employees'
   | 'attendance'
+  | 'conduct'
   | 'fees'
   | 'income'
   | 'expenses'
@@ -74,6 +75,11 @@ export const PERMISSION_CATALOG: Record<Resource, readonly Action[]> = {
   teachers: ['view', 'create', 'update', 'delete'],
   employees: ['view', 'create', 'update', 'delete'],
   attendance: ['view', 'take', 'update'],
+  // Its own resource, not a corner of `attendance`: the same teacher usually
+  // does both, but an institution that wants the নামাজ register filled by the
+  // hall supervisor and attendance by the class teacher can say so. Deciding
+  // WHAT is on the sheet is `settings` — that is the office's act.
+  conduct: ['view', 'take', 'update'],
   fees: ['view', 'create', 'update', 'collect', 'waive'],
   // `create` records an entry; `update` corrects or reverses one and manages
   // the heads entries are filed under.
@@ -123,6 +129,9 @@ const TEACHER_PRESET: string[] = flatten({
   dashboard: ['view'],
   academics: ['view'],
   attendance: ['view', 'take'],
+  // Same split, same reason: today's sheet is the teacher's, yesterday's
+  // correction is the class teacher's.
+  conduct: ['view', 'take'],
   marks: ['view', 'enter', 'update'],
   students: ['view'],
   exams: ['view'],
@@ -181,12 +190,14 @@ export const ROLE_PERMISSIONS: Record<RolePreset, readonly string[]> = {
 
   // A teacher who also owns a class register, so they may correct a cell
   // somebody else filled in.
-  class_teacher: [...TEACHER_PRESET, 'attendance.update', 'documents.view'],
+  class_teacher: [...TEACHER_PRESET, 'attendance.update', 'conduct.update', 'documents.view'],
 
   hostel_warden: flatten({
     dashboard: ['view'],
     students: ['view'],
     attendance: ['view', 'take'],
+    // The warden sees নামাজ and আদব at closer range than anyone.
+    conduct: ['view', 'take'],
   }),
 
   office_assistant: flatten({

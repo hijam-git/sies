@@ -10,6 +10,7 @@ import BaseModal from '../common/BaseModal';
 import Field, { FieldGrid, FormError } from '../common/Field';
 import { btnPrimary, btnSecondary, inputCls, selectCls } from '../common/styles';
 import PrintedFormsSection from '../forms/PrintedFormsSection';
+import StudentConductSection from '../conduct/StudentConductSection';
 
 /**
  * One student's whole record: who they are, who to call, where they have been,
@@ -392,6 +393,13 @@ export default function StudentDetailModal({
                 )}
               </ul>
             </section>
+
+            {/* What this student DOES — নামাজ, তিলাওয়াত, আদব (`docs/02`
+                §4.10). Directly under the enrolment history because the two
+                answer the same question about a boy from opposite ends: where
+                he has been, and how he has been. Its own component, and silent
+                for anyone without `conduct.view`. */}
+            <StudentConductSection studentId={studentId} />
 
             {/* The forms printed for this student, reprintable from their
                 snapshots — the paper in the office file, not today's record

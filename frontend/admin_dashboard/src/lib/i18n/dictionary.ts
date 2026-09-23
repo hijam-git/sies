@@ -18,6 +18,7 @@ import academics from './dict/academics';
 import fees from './dict/fees';
 import finance from './dict/finance';
 import attendance from './dict/attendance';
+import conduct from './dict/conduct';
 import exams from './dict/exams';
 import forms from './dict/forms';
 import reports from './dict/reports';
@@ -33,6 +34,7 @@ export const BN: Record<string, string> = {
   ...staff,
   ...academics,
   ...attendance,
+  ...conduct,
   ...exams,
   ...forms,
   ...reports,

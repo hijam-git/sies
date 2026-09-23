@@ -1210,6 +1210,118 @@ export interface FormQuestion {
   mappable_fields: string[];
 }
 
+// ── Conduct — the observation register (`docs/02` §4.10) ──────────────────
+//
+// What a student DOES: নামাজ, তিলাওয়াত, আদব. The shape mirrors the attendance
+// register on purpose — one request draws the whole grid, one POST carries the
+// dirty rows back — because it is the same act by the same person standing in
+// the same place.
+//
+// **There is no conduct question model.** The items are `forms.Question`, the
+// same bank the admission form draws on, selected by `section`; a template
+// serves them read-only and Settings → Questions is their only editor.
+
+export type ReportFrequency = 'daily' | 'weekly' | 'monthly' | 'term';
+
+/** A question as the sheet reads it — `forms.Question`, served with the
+ *  template. Not `FormQuestion`: the sheet needs neither the print settings nor
+ *  the student-field mapping, and the API does not send them. */
+export interface ConductItem {
+  id: number;
+  text: string;
+  text_bn: string;
+  type: QuestionType;
+  options: QuestionOption[];
+  is_required: boolean;
+  order: number;
+}
+
+export interface ReportTemplate {
+  id: number;
+  name: string;
+  name_bn: string;
+  frequency: ReportFrequency;
+  /** Which slice of the question bank this sheet asks. */
+  section: string;
+  /** NULL means every বিভাগ / every class — the narrowing exists so a হিফজ
+   *  sheet never appears on a general class's screen. */
+  stream: number | null;
+  academic_class: number | null;
+  is_active: boolean;
+  items: ConductItem[];
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One answer, as its question says it should be. `null` is unanswered, which
+ *  is a state the sheet has and can show. */
+export type ConductValue = boolean | number | string | string[] | null;
+
+export interface ConductStudent {
+  enrolment: number;
+  student: number;
+  name: string;
+  name_bn: string;
+  roll: number | null;
+  section: number | null;
+  filled: boolean;
+  filled_by: number | null;
+  filled_by_name: string;
+  remarks: string;
+  /** Keyed by item id as a STRING — JSON object keys, not numbers. */
+  answers: Record<string, ConductValue>;
+}
+
+export interface ConductSheet {
+  template: number;
+  template_name: string;
+  frequency: ReportFrequency;
+  period: string;
+  academic_class: number;
+  /** The question-bank section this template asks — the API sends the section
+   *  NAME here, not the class-section id it was asked for. */
+  section: string;
+  items: ConductItem[];
+  students: ConductStudent[];
+}
+
+export interface ConductRowInput {
+  enrolment: number;
+  answers: Record<string, ConductValue>;
+  remarks: string;
+}
+
+export interface ConductSaveResult {
+  saved: number;
+  /** The rows the server refused, with its own reason — `not_enrolled`,
+   *  `unknown_item`. Never silently dropped. */
+  skipped: Array<{ enrolment: number; item?: string; reason: string }>;
+  period: string;
+}
+
+export interface ConductHistoryAnswer {
+  item: number;
+  text: string;
+  type: QuestionType;
+  value: ConductValue;
+}
+
+export interface ConductHistoryRow {
+  period: string;
+  template: number;
+  template_name: string;
+  filled_by_name: string;
+  remarks: string;
+  answers: ConductHistoryAnswer[];
+}
+
+export interface StudentConductHistory {
+  student: number;
+  name: string;
+  reports: ConductHistoryRow[];
+}
+
 /**
  * A form that was printed. `snapshot` is deliberately not in the list shape —
  * it is a whole document, and the reprint endpoint renders it.
@@ -2187,6 +2299,60 @@ class ApiClient {
         cells: body.cells,
       }),
     });
+  }
+
+  // ── Conduct (`docs/02` §4.10) ───────────────────────────────────────────
+  // Named, for the same reason the register's are: the sheet is one grid in one
+  // response and the save is a batch of the rows that changed.
+
+  /**
+   * The sheet for a class on a date.
+   *
+   * `date`, not `period`: the server knows what today means for a monthly
+   * template, and the alternative is this file computing ISO week numbers and
+   * getting January wrong. `template` is optional — with none, the API opens on
+   * the most specific one for the class (`CLAUDE.md` §7b).
+   */
+  getConductSheet(params: {
+    academicClass: number;
+    date: string;
+    template?: number | null;
+    section?: number | null;
+  }): Promise<ConductSheet> {
+    const q = new URLSearchParams({
+      class: String(params.academicClass),
+      date: params.date,
+    });
+    if (params.template) q.set('template', String(params.template));
+    if (params.section) q.set('section', String(params.section));
+    return this.request<ConductSheet>(`/conduct/sheet/?${q.toString()}`);
+  }
+
+  /** The dirty rows only. Idempotent on (template, enrolment, period), so a
+   *  retry after a dropped connection writes the same sheet. */
+  saveConductSheet(body: {
+    academicClass: number;
+    date: string;
+    template?: number | null;
+    section?: number | null;
+    rows: ConductRowInput[];
+  }): Promise<ConductSaveResult> {
+    return this.request<ConductSaveResult>('/conduct/sheet/', {
+      method: 'POST',
+      body: JSON.stringify({
+        class: body.academicClass,
+        date: body.date,
+        template: body.template ?? undefined,
+        section: body.section ?? undefined,
+        rows: body.rows,
+      }),
+    });
+  }
+
+  /** One student's filled sheets, newest first — what a guardian is shown at
+   *  the counter. */
+  getStudentConduct(studentId: number): Promise<StudentConductHistory> {
+    return this.request<StudentConductHistory>(`/conduct/student/${studentId}/`);
   }
 
   // ── Exams ───────────────────────────────────────────────────────────────
