@@ -635,7 +635,12 @@ def _store_results(exam, actor=None):
     )
 
     to_create = []
-    for academic_class in AcademicClass.objects.filter(pk__in=class_ids):
+    # `branch_id` as well as the ids: the ids already come from this exam's own
+    # schedules and marks, so they cannot belong to another institution — but a
+    # reader should not have to prove that from two queries away, and the
+    # scoping audit should not have to either.
+    for academic_class in AcademicClass.objects.filter(pk__in=class_ids,
+                                                       branch_id=exam.branch_id):
         rows, scale, lines = _compute_rows(exam, academic_class)
         for row in rows:
             to_create.append(Result(
