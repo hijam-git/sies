@@ -11,13 +11,16 @@ on Settings → Questions and served read-only with the template.
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (ConductSheetView, ReportTemplateViewSet, StudentConductView,
+from .views import (ConductSheetView, ReportAssignmentViewSet,
+                    ReportTemplateViewSet, StudentConductView,
                     StudentReportViewSet)
 
 app_name = 'conduct'
 
 router = DefaultRouter()
 router.register('report-templates', ReportTemplateViewSet, basename='report-template')
+router.register('report-assignments', ReportAssignmentViewSet,
+                basename='report-assignment')
 router.register('student-reports', StudentReportViewSet, basename='student-report')
 
 urlpatterns = [

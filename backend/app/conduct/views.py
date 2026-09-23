@@ -27,11 +27,12 @@ from core.middleware import get_branch
 from core.viewsets import BranchScopedViewSet
 from students.models import Student
 
-from .models import ReportTemplate, StudentReport
-from .serializers import (ReportTemplateSerializer, SaveSheetSerializer,
-                          StudentReportSerializer)
-from .services import (parse_period, save_sheet, sheet, student_history,
-                       templates_for)
+from .models import ReportAssignment, ReportTemplate, StudentReport
+from .serializers import (ReportAssignmentSerializer, ReportTemplateSerializer,
+                          SaveSheetSerializer, StudentReportSerializer,
+                          TemplateQuestionsSerializer)
+from .services import (parse_period, save_sheet, set_template_questions,
+                       sheet, student_history, templates_for)
 
 
 def scoped_class(request, class_id):
@@ -77,6 +78,68 @@ class ReportTemplateViewSet(ActivityLogMixin, BranchScopedViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['frequency', 'stream', 'academic_class', 'is_active']
     ordering_fields = ['name', 'created_at']
+
+    @action(detail=True, methods=['post'])
+    def questions(self, request, pk=None):
+        """`POST /api/report-templates/<id>/questions/` — what this one asks.
+
+        `{"questions": [12, 9, 30]}` — the whole list, in the order it is asked,
+        replacing whatever was there. An empty list puts the template back on
+        its section, which is the quick path: most institutions want the whole
+        section and should not have to tick it.
+
+        This is what lets a daily sheet of three questions and a monthly review
+        of twelve share নামাজ from one bank rather than keeping two copies of
+        it that drift apart.
+        """
+        template = self.get_object()
+        body = TemplateQuestionsSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+
+        count = set_template_questions(template, body.validated_data['questions'])
+        log_activity(
+            action=ActivityAction.UPDATE, user=request.user, request=request,
+            branch=template.branch, obj=template, model='ReportTemplate',
+            summary=f'Set {count} questions on {template.name}',
+            summary_bn=f'{template.name} — {count}টি প্রশ্ন নির্ধারণ করা হয়েছে',
+            after={'questions': body.validated_data['questions']}, atomic=False,
+        )
+        return Response(ReportTemplateSerializer(
+            template, context={'request': request}).data)
+
+
+class ReportAssignmentViewSet(ActivityLogMixin, BranchScopedViewSet):
+    """Who is responsible for which sheet.
+
+    Writing it is `settings.update` — handing out responsibility is the office's
+    act — while any holder of `conduct.view` may read it, because "who is meant
+    to be filling this" is a question a teacher and a principal both ask.
+
+    It directs and chases; it does not fence anybody out (see the model).
+    """
+
+    queryset = ReportAssignment.objects.select_related(
+        'template', 'academic_class', 'section', 'teacher')
+    serializer_class = ReportAssignmentSerializer
+    permission_classes = [IsAuthenticated, HasResourcePermission]
+    permission_resource = 'conduct'
+    permission_action_map = {'list': 'view', 'retrieve': 'view'}
+    activity_model = 'ReportAssignment'
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['template', 'academic_class', 'section', 'teacher']
+    ordering_fields = ['template', 'academic_class', 'created_at']
+
+    def get_permissions(self):
+        # Reading is `conduct.view`; changing who is responsible is a setting.
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            self.permission_resource = 'conduct'
+        else:
+            self.permission_resource = 'settings'
+            self.permission_action_map = {
+                'create': 'update', 'update': 'update',
+                'partial_update': 'update', 'destroy': 'update',
+            }
+        return super().get_permissions()
 
 
 class ConductSheetView(APIView):

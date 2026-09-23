@@ -778,6 +778,43 @@ bank and one editor serve both the admission form and the sheet.
 narrowed to its class never appears on a general class's screen.
 Unique on `(branch, name)`.
 
+### `ReportTemplateQuestion` **[BS]**
+
+| `branch`, `template` → ReportTemplate CASCADE, `question` → **forms.Question** PROTECT, `order` |
+
+**Which questions THIS template asks, and in what order.** The section alone
+could not answer "some reports have fewer questions, some more": a question
+belongs to exactly one section, so two templates drawing on `conduct` asked an
+identical list, and the only way to differ was to duplicate নামাজ into a second
+section — two rows that then drift apart.
+
+So the section is the **default** and this is the **override**, the same shape
+as every picker on the SPA (§7b: an explicit choice beats the obvious default):
+
+* no rows → the template asks its whole section (the quick path);
+* rows → exactly those, in this order, and two templates may **share** a
+  question rather than copying it.
+
+A chosen question may come from any section — the section is where a template
+looks by default, not a fence. Unique on `(template, question)`.
+
+### `ReportAssignment` **[BS]**
+
+| `branch`, `template` → ReportTemplate CASCADE, `academic_class` → AcademicClass PROTECT, `section` → Section null, `teacher` → Teacher PROTECT |
+
+**Who is responsible for filling it.** Responsibility, not exclusivity: it
+decides what a teacher's screen opens on and who appears against a sheet nobody
+filled, and it does **not** stop a colleague covering. Locking a sheet to one
+person means it simply does not get filled the day they are ill, which is the
+opposite of what an institution wants — and `StudentReport.filled_by` already
+records who actually did it. The same rule `SubjectAssignment` follows for the
+routine (docs/08 D6): an assignment grants and directs, it does not fence off.
+
+`section` NULL means the whole class, and such a row covers every শাখা. Two
+partial unique constraints rather than one, because Postgres treats NULLs as
+distinct: without the second, "the whole class" could be handed to the same
+teacher twice and both rows would be legal.
+
 ### `StudentReport` **[BS]**
 
 | `branch`, `template` → ReportTemplate PROTECT, `enrolment` → Enrolment PROTECT, `student` → Student PROTECT, `period`, `status`, `remarks`, `filled_by` → Teacher SET_NULL, `filled_at` |

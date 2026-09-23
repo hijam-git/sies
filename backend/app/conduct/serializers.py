@@ -8,9 +8,11 @@ template cannot be pointed at another institution's বিভাগ or class.
 from rest_framework import serializers
 
 from core.serializers import BranchSafeSerializer
+from academics.models import Section
 from forms.models import Question
 
-from .models import ReportAnswer, ReportTemplate, StudentReport
+from .models import (ReportAnswer, ReportAssignment, ReportTemplate,
+                     StudentReport)
 
 
 class SheetQuestionSerializer(serializers.ModelSerializer):
@@ -57,6 +59,56 @@ class ReportTemplateSerializer(BranchSafeSerializer):
                 and academic_class.stream_id != stream.pk:
             raise serializers.ValidationError({
                 'stream': 'That class is not in this বিভাগ · ওই শ্রেণি এই বিভাগের নয়।',
+            })
+        return attrs
+
+
+class TemplateQuestionsSerializer(serializers.Serializer):
+    """The body of `POST /api/report-templates/<id>/questions/`.
+
+    The whole list, in order — not add/remove calls. The setup screen holds the
+    list, and two half-applied requests are how an ordering ends up with two
+    questions claiming position three.
+    """
+
+    questions = serializers.ListField(child=serializers.IntegerField(),
+                                      allow_empty=True)
+
+
+class ReportAssignmentSerializer(BranchSafeSerializer):
+    """Who is responsible for a template on a class."""
+
+    teacher_name = serializers.CharField(source='teacher.name', read_only=True)
+    class_name = serializers.CharField(source='academic_class.name', read_only=True)
+    section_name = serializers.CharField(source='section.name', read_only=True, default='')
+    template_name = serializers.CharField(source='template.name', read_only=True)
+
+    #: Declared rather than inferred, and `default=None` is the load-bearing
+    #: part. `section` is in a UniqueConstraint, and DRF's matching validator
+    #: demands every field of a uniqueness rule be present — so leaving it out
+    #: was a 400 saying "this is required" about the field whose whole purpose
+    #: is to be optional ("the whole class" is NULL).
+    section = serializers.PrimaryKeyRelatedField(
+        queryset=Section.objects.all(), required=False, allow_null=True, default=None,
+    )
+
+    class Meta:
+        model = ReportAssignment
+        fields = ['id', 'template', 'template_name', 'academic_class', 'class_name',
+                  'section', 'section_name', 'teacher', 'teacher_name',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'teacher_name', 'class_name', 'section_name',
+                            'template_name', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        section = attrs.get('section', getattr(self.instance, 'section', None))
+        academic_class = attrs.get('academic_class',
+                                   getattr(self.instance, 'academic_class', None))
+        if section is not None and academic_class is not None \
+                and section.academic_class_id != academic_class.pk:
+            raise serializers.ValidationError({
+                'section': 'That শাখা is not in this class · ওই শাখা এই শ্রেণির নয়।',
             })
         return attrs
 

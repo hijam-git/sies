@@ -98,6 +98,104 @@ class ReportTemplate(BranchScopedModel):
         return True
 
 
+class ReportTemplateQuestion(BranchScopedModel):
+    """Which questions THIS template asks, and in what order.
+
+    The section alone could not answer "some reports have fewer questions, some
+    more": a question belongs to exactly one section, so two templates drawing
+    from `conduct` asked the identical list and the only way to differ was to
+    duplicate নামাজ into a second section — two rows that then drift apart.
+
+    So the section is the **default** and this is the **override**, which is the
+    same shape as every picker on the SPA (§7b: an explicit choice beats the
+    obvious default). A template with no rows here asks its whole section, which
+    is what makes the quick path quick; a template with rows asks exactly those,
+    in this order, and two templates may share a question without copying it.
+    """
+
+    template = models.ForeignKey(
+        ReportTemplate, verbose_name=_('template · নমুনা'),
+        on_delete=models.CASCADE, related_name='question_links',
+    )
+    question = models.ForeignKey(
+        'forms.Question', verbose_name=_('question · প্রশ্ন'),
+        # PROTECT, not CASCADE: dropping a question that a template asks should
+        # fail loudly rather than quietly shorten somebody's sheet. Deactivating
+        # it takes it off tomorrow's sheet and leaves the filled ones alone.
+        on_delete=models.PROTECT, related_name='report_links',
+    )
+    order = models.PositiveSmallIntegerField(_('order · ক্রম'), default=0)
+
+    class Meta(BranchScopedModel.Meta):
+        verbose_name = _('template question · নমুনার প্রশ্ন')
+        verbose_name_plural = _('template questions · নমুনার প্রশ্ন')
+        ordering = ['template', 'order', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['template', 'question'],
+                                    name='templatequestion_once_per_template'),
+        ]
+
+    def __str__(self):
+        return f'{self.template_id} · {self.question_id}'
+
+
+class ReportAssignment(BranchScopedModel):
+    """Who is responsible for filling one template for one class.
+
+    **Responsibility, not exclusivity.** It decides what a teacher's screen
+    opens on and who appears on the list of sheets nobody has filled; it does
+    NOT stop a colleague covering for them. Locking the sheet to one person
+    would mean a report simply does not get filled on the day they are ill,
+    which is the opposite of what an institution wants from it — and
+    `StudentReport.filled_by` already records who actually did it.
+
+    The same rule `SubjectAssignment` follows for the routine (docs/08 D6):
+    an assignment grants and directs, it does not fence off.
+    """
+
+    template = models.ForeignKey(
+        ReportTemplate, verbose_name=_('template · নমুনা'),
+        on_delete=models.CASCADE, related_name='assignments',
+    )
+    academic_class = models.ForeignKey(
+        'academics.AcademicClass', verbose_name=_('class · শ্রেণি'),
+        on_delete=models.PROTECT, related_name='conduct_assignments',
+    )
+    #: NULL means the whole class rather than one শাখা.
+    section = models.ForeignKey(
+        'academics.Section', verbose_name=_('section · শাখা'),
+        null=True, blank=True, on_delete=models.PROTECT,
+        related_name='conduct_assignments',
+    )
+    teacher = models.ForeignKey(
+        'staff.Teacher', verbose_name=_('teacher · শিক্ষক'),
+        on_delete=models.PROTECT, related_name='conduct_assignments',
+    )
+
+    class Meta(BranchScopedModel.Meta):
+        verbose_name = _('report assignment · রিপোর্টের দায়িত্ব')
+        verbose_name_plural = _('report assignments · রিপোর্টের দায়িত্ব')
+        ordering = ['template', 'academic_class', 'section', 'teacher']
+        constraints = [
+            # Two constraints and not one, because Postgres treats NULLs as
+            # distinct: without the second, "the whole class" could be assigned
+            # to the same teacher twice and both rows would be legal.
+            models.UniqueConstraint(
+                fields=['template', 'academic_class', 'section', 'teacher'],
+                condition=models.Q(section__isnull=False),
+                name='reportassignment_once_per_section',
+            ),
+            models.UniqueConstraint(
+                fields=['template', 'academic_class', 'teacher'],
+                condition=models.Q(section__isnull=True),
+                name='reportassignment_once_per_class',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.template_id} · {self.academic_class_id} → {self.teacher_id}'
+
+
 class StudentReport(BranchScopedModel):
     """One student's sheet for one period."""
 

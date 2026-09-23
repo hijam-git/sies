@@ -102,18 +102,95 @@ def templates_for(branch, academic_class=None):
 
 
 def template_questions(template):
-    """The sheet's questions: this template's section of the bank, in order.
+    """The sheet's questions, in the order they are asked.
 
-    `forms.Question` is the bank and Settings → Questions is its editor — there
+    **Explicitly chosen questions win; otherwise the whole section.** The same
+    shape as every default on the SPA (§7b) — an explicit choice beats the
+    obvious one — and it is what lets two templates drawing on one bank ask
+    different lists. A daily sheet of three questions and a monthly review of
+    twelve can share নামাজ without a second copy of it drifting out of step.
+
+    `forms.Question` is the bank and Settings → Questions is its editor: there
     is no second place to write a question, and none of this code knows what
     any of them say.
     """
+    chosen = list(
+        Question.objects
+        .filter(report_links__template=template, is_active=True)
+        .order_by('report_links__order', 'report_links__id')
+    )
+    if chosen:
+        return chosen
+
     return list(
         Question.objects
         .for_branch(template.branch)
         .filter(section=template.section, is_active=True)
         .order_by('order', 'id')
     )
+
+
+def set_template_questions(template, question_ids):
+    """Replace what a template asks, in the order given. Returns the count.
+
+    A replace rather than add/remove calls: the setup screen holds the whole
+    list, and two half-applied requests are how an ordering ends up with two
+    questions claiming position three.
+
+    A question from another institution is dropped rather than refused — the
+    branch-scoped queryset simply never returns it, which is the same 404-shaped
+    answer the rest of the API gives (CLAUDE.md §5).
+    """
+    from .models import ReportTemplateQuestion
+
+    with transaction.atomic():
+        allowed = {
+            question.pk: question
+            for question in Question.objects.for_branch(template.branch)
+            .filter(pk__in=list(question_ids or []))
+        }
+        ReportTemplateQuestion.objects.filter(template=template).delete()
+        ReportTemplateQuestion.objects.bulk_create([
+            ReportTemplateQuestion(branch=template.branch, template=template,
+                                   question=allowed[pk], order=(index + 1) * 10)
+            for index, pk in enumerate(question_ids or [])
+            if pk in allowed
+        ])
+    return ReportTemplateQuestion.objects.filter(template=template).count()
+
+
+def responsible_teachers(template, academic_class, section=None):
+    """Who is responsible for this sheet — and it is a list, not one person.
+
+    A whole-class assignment covers every শাখা, so a section's sheet may have
+    both its own teacher and the class's. Responsibility here directs and
+    chases; it does not fence anybody out (see `ReportAssignment`).
+    """
+    from django.db.models import Q
+
+    from .models import ReportAssignment
+
+    query = Q(section__isnull=True)
+    if section is not None:
+        query |= Q(section=section)
+
+    return list(
+        ReportAssignment.objects
+        .filter(query, template=template, academic_class=academic_class)
+        .select_related('teacher', 'section')
+    )
+
+
+def assignments_for(teacher, *, branch=None):
+    """Every sheet this teacher is responsible for — their own to-do list."""
+    from .models import ReportAssignment
+
+    rows = (ReportAssignment.objects
+            .filter(teacher=teacher)
+            .select_related('template', 'academic_class', 'section'))
+    if branch is not None:
+        rows = rows.filter(branch=branch)
+    return list(rows)
 
 
 def sheet_enrolments(branch, academic_class, section=None):
@@ -185,6 +262,15 @@ def sheet(template, *, academic_class, section=None, period=None, on_date=None):
         # the caller asked for was silently dropped from every response.
         'section': getattr(section, 'pk', None),      # the CLASS section, echoed back
         'question_section': template.section,          # the question-bank slice
+        # Who is meant to fill this, so the screen can say so — and so a sheet
+        # nobody filled has a name against it rather than an accusation at the
+        # whole staff room.
+        'responsible': [
+            {'teacher': row.teacher_id,
+             'name': row.teacher.name_bn or row.teacher.name,
+             'section': row.section_id}
+            for row in responsible_teachers(template, academic_class, section)
+        ],
         'items': [
             {
                 'id': item.pk, 'text': item.text, 'text_bn': item.text_bn,
