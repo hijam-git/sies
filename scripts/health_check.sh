@@ -147,7 +147,13 @@ fi
 # ── 4. Redis ─────────────────────────────────────────────────────────────────
 if running "$REDIS"; then
   if docker exec "$REDIS" redis-cli ping 2>/dev/null | grep -q PONG; then
-    QUEUED=$(docker exec "$REDIS" redis-cli -n 2 llen celery 2>/dev/null || echo 0)
+    # The two queues the worker consumes (CELERY_TASK_ROUTES). Celery's own
+    # `celery` key is never used here, so counting it always said 0.
+    QUEUED=0
+    for q in default slow; do
+      n=$(docker exec "$REDIS" redis-cli -n 2 llen "$q" 2>/dev/null || echo 0)
+      QUEUED=$((QUEUED + ${n:-0}))
+    done
     ok "Redis answers PING (${QUEUED} task(s) queued)"
     # A queue that is long is not itself a failure — a bulk fee run is supposed
     # to make one. A queue that is long AND not draining is, but that needs two
