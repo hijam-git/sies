@@ -433,7 +433,9 @@ services:
       - "traefik.http.middlewares.sies-admin-slash.redirectregex.replacement=$${1}/"
       - "traefik.http.middlewares.sies-admin-slash.redirectregex.permanent=true"
       - "traefik.http.middlewares.sies-admin-strip.stripprefix.prefixes=/myadmin"
-      # The bare domain has nothing of its own — send it to the dashboard.
+      # The bare domain is the public landing page — the same container, no
+      # second one: it is public/landing/index.html in the SPA build, and `/` is
+      # rewritten to /landing/ on its way in. The browser's URL stays `/`.
       # Priority 1: anything more specific (the backend's 100, /myadmin's 50)
       # wins. Any other unclaimed path is Traefik's plain 404.
       - "traefik.http.routers.sies-root.rule=Host(`${DOMAIN}`) && Path(`/`)"
@@ -441,9 +443,8 @@ services:
       - "traefik.http.routers.sies-root.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-root.priority=1"
       - "traefik.http.routers.sies-root.service=sies-admin"
-      - "traefik.http.routers.sies-root.middlewares=sies-root-redirect"
-      - "traefik.http.middlewares.sies-root-redirect.redirectregex.regex=^(https?://[^/]+)/$$"
-      - "traefik.http.middlewares.sies-root-redirect.redirectregex.replacement=$${1}/myadmin/"
+      - "traefik.http.routers.sies-root.middlewares=sies-landing,secure-headers@file,compression@file"
+      - "traefik.http.middlewares.sies-landing.replacepath.path=/landing/index.html"
       - "traefik.http.services.sies-admin.loadbalancer.server.port=3001"
       - "traefik.http.services.sies-admin.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.sies-admin.loadbalancer.healthcheck.interval=3s"

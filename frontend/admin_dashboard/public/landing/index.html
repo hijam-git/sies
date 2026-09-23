@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f3d91" />
+  <title>SIES — স্মার্ট ইসলামিক এডুকেশন সিস্টেম</title>
+  <meta name="description" content="মাদ্রাসা, স্কুল ও কলেজ পরিচালনার সম্পূর্ণ ব্যবস্থা — ভর্তি, হাজিরা, ফি, পরীক্ষা, ফলাফল ও আমল-আদব, এক জায়গায়, ফোনেই।" />
+  <!--
+    The public face of siesbd.com, served at `/` (docker-compose.prod.yml,
+    router sies-root). Self-contained on purpose: no CDN, no web-font request,
+    no script from anyone else — the same rule the dashboard keeps. The fonts
+    are the dashboard's own self-hosted files under /myadmin/fonts.
+  -->
+  <style>
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 400; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-400-0.woff2') format('woff2');
+      unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 400; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-400-2.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+2000-206F, U+2122, U+2212; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 500; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-500-0.woff2') format('woff2');
+      unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 500; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-500-2.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+2000-206F, U+2122, U+2212; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 600; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-600-0.woff2') format('woff2');
+      unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 600; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-600-2.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+2000-206F, U+2122, U+2212; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 700; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-700-0.woff2') format('woff2');
+      unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+    @font-face { font-family: 'Hind Siliguri'; font-weight: 700; font-display: swap;
+      src: url('/myadmin/fonts/HindSiliguri-700-2.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+2000-206F, U+2122, U+2212; }
+    @font-face { font-family: 'Amiri'; font-weight: 400; font-display: swap;
+      src: url('/myadmin/fonts/Amiri-400-0.woff2') format('woff2'); }
+
+    :root {
+      --ink: #0b1b3a;
+      --ink-soft: #3d4a66;
+      --muted: #6b7690;
+      --line: #e3e8f2;
+      --paper: #ffffff;
+      --wash: #f5f7fc;
+      --brand: #1d4ed8;
+      --brand-deep: #0f3d91;
+      --brand-night: #0a2560;
+      --gold: #e2b54a;
+      --gold-soft: #fbf1d6;
+      --green: #15803d;
+      --green-soft: #dcfce7;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --radius: 18px;
+      --shadow: 0 1px 2px rgba(11, 27, 58, .06), 0 12px 32px -12px rgba(11, 27, 58, .18);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Hind Siliguri', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    img, svg { display: block; }
+
+    /* One language at a time. Bangla is the default — the people who open this
+       are a madrasah's office, not a search engine. */
+    html[lang="bn"] [data-en] { display: none !important; }
+    html[lang="en"] [data-bn] { display: none !important; }
+
+    .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 640px) { .wrap { padding: 0 24px; } }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      min-height: 48px; padding: 0 22px; border-radius: 12px;
+      font: inherit; font-weight: 600; font-size: 16px; line-height: 1;
+      border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+    .btn-gold {
+      background: linear-gradient(180deg, #f0c963, var(--gold));
+      color: var(--brand-night);
+      box-shadow: 0 10px 24px -10px rgba(226, 181, 74, .8), inset 0 1px 0 rgba(255,255,255,.5);
+    }
+    .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 14px 28px -10px rgba(226, 181, 74, .9), inset 0 1px 0 rgba(255,255,255,.5); }
+    .btn-ghost { color: #fff; border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.06); }
+    .btn-ghost:hover { background: rgba(255,255,255,.12); }
+    .btn-brand { background: var(--brand); color: #fff; box-shadow: 0 10px 24px -12px rgba(29, 78, 216, .8); }
+    .btn-brand:hover { background: var(--brand-deep); transform: translateY(-1px); }
+    .btn svg { width: 18px; height: 18px; flex: none; }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    .top {
+      position: absolute; inset: 0 0 auto 0; z-index: 10;
+      padding: 14px 0;
+    }
+    .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: #fff; min-width: 0; }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 11px; flex: none;
+      display: grid; place-items: center;
+      background: linear-gradient(145deg, #3b6cf0, var(--brand));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px rgba(0,0,0,.4);
+    }
+    .brand-mark svg { width: 20px; height: 20px; color: #fff; }
+    .brand-name { font-weight: 700; font-size: 19px; letter-spacing: .02em; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .lang {
+      display: inline-flex; padding: 3px; border-radius: 10px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+    }
+    .lang button {
+      font: inherit; font-size: 13px; font-weight: 600; min-height: 30px; min-width: 44px;
+      padding: 0 10px; border: 0; border-radius: 7px; cursor: pointer;
+      background: transparent; color: rgba(255,255,255,.75);
+    }
+    .lang button[aria-pressed="true"] { background: #fff; color: var(--brand-night); }
+    .top-login { min-height: 38px; padding: 0 14px; font-size: 14px; border-radius: 10px; }
+    @media (max-width: 420px) { .top-login { display: none; } }
+
+    /* ── Hero ────────────────────────────────────────────────────────────── */
+    .hero {
+      position: relative; isolation: isolate; overflow: hidden;
+      color: #fff;
+      background:
+        radial-gradient(900px 500px at 85% -10%, rgba(59,108,240,.55), transparent 60%),
+        radial-gradient(700px 480px at -10% 110%, rgba(226,181,74,.18), transparent 60%),
+        linear-gradient(160deg, var(--brand-deep) 0%, var(--brand-night) 70%);
+      padding: 104px 0 72px;
+    }
+    /* The eight-pointed star, tiled — the one ornament, kept faint. */
+    .hero::before {
+      content: ''; position: absolute; inset: 0; z-index: -1; opacity: .09;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.2'%3E%3Cpath d='M36 8l8.5 19.5L64 36l-19.5 8.5L36 64l-8.5-19.5L8 36l19.5-8.5z'/%3E%3Cpath d='M16.2 16.2L36 24.4l19.8-8.2L47.6 36l8.2 19.8L36 47.6l-19.8 8.2L24.4 36z'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: 72px 72px;
+      mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.6) 60%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.6) 60%, transparent 100%);
+    }
+    .hero-grid { display: grid; gap: 48px; align-items: center; }
+    @media (min-width: 960px) { .hero-grid { grid-template-columns: 1.05fr .95fr; gap: 56px; } .hero { padding: 132px 0 110px; } }
+
+    .bismillah {
+      font-family: 'Amiri', serif; font-size: 22px; line-height: 1.4;
+      color: var(--gold); margin: 0 0 18px; direction: rtl; text-align: left;
+    }
+    .eyebrow {
+      display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px;
+      padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 500;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+      color: rgba(255,255,255,.9);
+    }
+    .eyebrow b { color: var(--gold); font-weight: 600; }
+    h1 {
+      margin: 0; font-weight: 700; letter-spacing: -.01em;
+      font-size: clamp(32px, 7.4vw, 56px); line-height: 1.18;
+    }
+    h1 .accent {
+      background: linear-gradient(90deg, #ffe3a1, var(--gold));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lead { margin: 20px 0 0; font-size: clamp(16px, 2.2vw, 19px); color: rgba(255,255,255,.82); max-width: 560px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    @media (max-width: 480px) { .cta .btn { width: 100%; } }
+    .assure { margin: 20px 0 0; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: rgba(255,255,255,.7); }
+    .assure span { display: inline-flex; align-items: center; gap: 6px; }
+    .assure svg { width: 16px; height: 16px; color: var(--gold); }
+
+    /* The product, drawn rather than screenshotted: it stays sharp, weighs
+       nothing, and never shows a real student's name. */
+    .mock { position: relative; max-width: 460px; width: 100%; margin: 0 auto; }
+    .mock-card {
+      background: #fff; color: var(--ink); border-radius: 20px;
+      box-shadow: 0 30px 60px -20px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.08);
+      padding: 18px;
+    }
+    .mock-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+    .mock-title { font-weight: 700; font-size: 18px; margin: 0; }
+    .mock-sub { font-size: 13px; color: var(--muted); margin: 0; }
+    .mock-count { font-size: 13px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
+    .period {
+      border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px;
+      display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: start;
+    }
+    .period h4 { margin: 0; font-size: 15px; font-weight: 600; }
+    .period p { margin: 0; font-size: 13px; color: var(--muted); grid-column: 1; }
+    .pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+    .pill-ok { background: var(--green-soft); color: var(--green); }
+    .pill-live { background: #dbeafe; color: var(--brand); }
+    .pill-wait { background: var(--amber-soft); color: var(--amber); }
+    .mock-btn {
+      margin-top: 12px; grid-column: 1 / -1; min-height: 38px; border-radius: 10px;
+      background: var(--brand); color: #fff; font-size: 14px; font-weight: 600;
+      display: grid; place-items: center;
+    }
+    .bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: #eef1f7; overflow: hidden; margin-top: 6px; }
+    .bar i { display: block; height: 100%; width: 62%; border-radius: inherit; background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .float {
+      position: absolute; background: #fff; color: var(--ink); border-radius: 14px;
+      box-shadow: 0 20px 40px -18px rgba(0,0,0,.5); padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px; font-size: 13px;
+    }
+    .float b { display: block; font-size: 15px; }
+    .float .dot { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+    .float .dot svg { width: 18px; height: 18px; }
+    .float-1 { right: -8px; top: -22px; }
+    .float-2 { left: -10px; bottom: -26px; }
+    /* On a phone the mock is full width, and the receipt card would sit on
+       its title; the SMS card below it is enough to make the point. */
+    @media (max-width: 520px) { .float-1 { display: none; } .float-2 { left: 6px; bottom: -34px; } }
+
+    /* ── Sections ────────────────────────────────────────────────────────── */
+    section { padding: 72px 0; }
+    @media (min-width: 960px) { section { padding: 96px 0; } }
+    .kicker { color: var(--brand); font-weight: 600; font-size: 14px; letter-spacing: .04em; margin: 0 0 8px; text-transform: uppercase; }
+    h2 { margin: 0; font-size: clamp(26px, 4.4vw, 38px); line-height: 1.25; font-weight: 700; letter-spacing: -.01em; }
+    .sub { margin: 14px 0 0; color: var(--ink-soft); max-width: 640px; font-size: 17px; }
+
+    .features { display: grid; gap: 16px; margin-top: 40px; }
+    @media (min-width: 640px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .features { grid-template-columns: repeat(3, 1fr); gap: 20px; } }
+    .feature {
+      position: relative; background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 24px; box-shadow: var(--shadow); transition: transform .2s ease, border-color .2s ease;
+    }
+    .feature:hover { transform: translateY(-3px); border-color: #c8d4ef; }
+    .icon {
+      width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 16px;
+    }
+    .icon svg { width: 22px; height: 22px; }
+    .i-blue { background: #e0e9ff; color: var(--brand); }
+    .i-green { background: var(--green-soft); color: var(--green); }
+    .i-gold { background: var(--gold-soft); color: #9a6b06; }
+    .i-rose { background: #ffe4e6; color: #be123c; }
+    .i-violet { background: #ede9fe; color: #6d28d9; }
+    .i-teal { background: #ccfbf1; color: #0f766e; }
+    .feature h3 { margin: 0; font-size: 19px; font-weight: 600; }
+    .feature p { margin: 8px 0 0; color: var(--ink-soft); font-size: 15px; }
+
+    .band { background: var(--wash); border-block: 1px solid var(--line); }
+    .points { display: grid; gap: 14px; margin-top: 36px; }
+    @media (min-width: 640px) { .points { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .points { grid-template-columns: repeat(4, 1fr); } }
+    .point { display: flex; gap: 14px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+    .point .icon { margin: 0; width: 40px; height: 40px; border-radius: 11px; flex: none; }
+    .point h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .point p { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+
+    .closing {
+      position: relative; overflow: hidden; isolation: isolate;
+      border-radius: 24px; padding: 44px 24px; text-align: center; color: #fff;
+      background:
+        radial-gradient(600px 300px at 100% 0%, rgba(59,108,240,.6), transparent 60%),
+        linear-gradient(150deg, var(--brand-deep), var(--brand-night));
+    }
+    @media (min-width: 768px) { .closing { padding: 64px 48px; } }
+    .closing h2 { color: #fff; }
+    .closing p { margin: 12px auto 0; max-width: 560px; color: rgba(255,255,255,.8); font-size: 17px; }
+    .closing .btn { margin-top: 28px; }
+
+    footer { padding: 32px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; align-items: center; }
+    footer a { color: var(--brand); font-weight: 600; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="SIES">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2z"/><path d="M12 6.5v13"/></svg>
+        </span>
+        <span class="brand-name">SIES</span>
+      </a>
+      <div class="top-actions">
+        <div class="lang" role="group" aria-label="Language">
+          <button type="button" data-set-lang="bn" aria-pressed="true">বাংলা</button>
+          <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+        </div>
+        <a class="btn btn-ghost top-login" href="/myadmin/login">
+          <span data-bn>লগইন</span><span data-en>Log in</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+    <div class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="bismillah" lang="ar">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</p>
+          <p class="eyebrow">
+            <span data-bn><b>মাদ্রাসা</b> · <b>স্কুল</b> · <b>কলেজ</b> — সবার জন্য</span>
+            <span data-en>For every <b>madrasah</b>, <b>school</b> and <b>college</b></span>
+          </p>
+          <h1>
+            <span data-bn>পুরো প্রতিষ্ঠান চলুক<br /><span class="accent">এক জায়গা থেকে</span></span>
+            <span data-en>Run your whole institution<br /><span class="accent">from one place</span></span>
+          </h1>
+          <p class="lead">
+            <span data-bn>ভর্তি থেকে ফলাফল, হাজিরা থেকে ফি-র রসিদ, নামাজ ও আদবের খাতা — স্মার্ট ইসলামিক এডুকেশন সিস্টেম সবকিছু গুছিয়ে রাখে, আর শিক্ষক কাজ করেন নিজের ফোনেই।</span>
+            <span data-en>Admissions to results, attendance to fee receipts, the salah and adab register — Smart Islamic Education System keeps it all in order, and teachers work from their own phones.</span>
+          </p>
+          <div class="cta">
+            <a class="btn btn-gold" href="/myadmin/login">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+              <span data-bn>অ্যাডমিন লগইন</span><span data-en>Admin login</span>
+            </a>
+            <a class="btn btn-ghost" href="#features">
+              <span data-bn>কী কী আছে দেখুন</span><span data-en>See what's inside</span>
+            </a>
+          </div>
+          <p class="assure">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-bn>ফোনেই পুরোটা চলে</span><span data-en>Works fully on a phone</span></span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-bn>বাংলা ও ইংরেজি</span><span data-en>Bangla and English</span></span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><span data-bn>প্রতি রাতে ব্যাকআপ</span><span data-en>Backed up every night</span></span>
+          </p>
+        </div>
+
+        <div class="mock" aria-hidden="true">
+          <div class="mock-card">
+            <div class="mock-head">
+              <div>
+                <p class="mock-title"><span data-bn>আজকের ক্লাস</span><span data-en>Today's classes</span></p>
+                <p class="mock-sub"><span data-bn>হাফেজ ইউসুফ · বুধবার</span><span data-en>Hafiz Yusuf · Wednesday</span></p>
+              </div>
+              <span class="mock-count"><span data-bn>২ / ৩ নেওয়া হয়েছে</span><span data-en>2 / 3 taken</span></span>
+            </div>
+            <div class="period">
+              <h4><span data-bn>প্রথম ঘণ্টা · হিফজ</span><span data-en>1st period · Hifz</span></h4>
+              <span class="pill pill-ok">✓ <span data-bn>নেওয়া হয়েছে</span><span data-en>Taken</span></span>
+              <p>07:30–08:15 · <span data-bn>২৪ জন</span><span data-en>24 students</span></p>
+            </div>
+            <div class="period">
+              <h4><span data-bn>দ্বিতীয় ঘণ্টা · তাজবীদ</span><span data-en>2nd period · Tajwid</span></h4>
+              <span class="pill pill-live">● <span data-bn>এখন চলছে</span><span data-en>Live now</span></span>
+              <p>08:15–09:00 · <span data-bn>২৪ জন</span><span data-en>24 students</span></p>
+              <span class="mock-btn"><span data-bn>হাজিরা নিন</span><span data-en>Take attendance</span></span>
+            </div>
+            <div class="period">
+              <h4><span data-bn>দৈনিক আমল · পঞ্চম শ্রেণি</span><span data-en>Daily amal · Class 5</span></h4>
+              <span class="pill pill-wait">! <span data-bn>১৫ / ২৪</span><span data-en>15 / 24</span></span>
+              <p><span data-bn>নামাজ · তিলাওয়াত · আদব</span><span data-en>Salah · Tilawah · Adab</span></p>
+              <span class="bar"><i></i></span>
+            </div>
+          </div>
+
+          <div class="float float-1">
+            <span class="dot i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></span>
+            <span><b>৳ ১,৫০০</b><span data-bn>ফি জমা · রসিদ পাঠানো হয়েছে</span><span data-en>Fee paid · receipt sent</span></span>
+          </div>
+          <div class="float float-2">
+            <span class="dot i-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+            <span><b data-bn>ফলাফলের SMS</b><b data-en>Result SMS</b><span data-bn>অভিভাবকের ফোনে পৌঁছেছে</span><span data-en>delivered to guardians</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Features ──────────────────────────────────────────────────────── -->
+    <section id="features">
+      <div class="wrap">
+        <p class="kicker"><span data-bn>যা যা আছে</span><span data-en>What's inside</span></p>
+        <h2><span data-bn>প্রতিষ্ঠানের প্রতিদিনের কাজ, এক প্যানেলে</span><span data-en>An institution's everyday work, in one panel</span></h2>
+        <p class="sub"><span data-bn>অফিস, হিসাবরক্ষক আর শিক্ষক — প্রত্যেকে দেখেন শুধু নিজের কাজটুকু, নিজের অনুমতি অনুযায়ী।</span><span data-en>Office, accounts and teachers each see only their own work, within their own permissions.</span></p>
+
+        <div class="features">
+          <article class="feature">
+            <div class="icon i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div>
+            <h3><span data-bn>ভর্তি ও শিক্ষার্থী</span><span data-en>Admissions &amp; students</span></h3>
+            <p><span data-bn>কাউন্টারেই ভর্তি, ছবি ও সনদ, ছাপার উপযোগী ভর্তি ফরম আর শিক্ষার্থীর পূর্ণ রেকর্ড।</span><span data-en>Admit at the counter with photo and certificates, a printable admission form, and a full record for every student.</span></p>
+          </article>
+          <article class="feature">
+            <div class="icon i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg></div>
+            <h3><span data-bn>হাজিরা, ফোন থেকেই</span><span data-en>Attendance, from a phone</span></h3>
+            <p><span data-bn>শিক্ষক ক্লাসে দাঁড়িয়ে এক ট্যাপে হাজিরা নেন; মাসিক খাতা আপনাআপনি তৈরি হয়ে যায়।</span><span data-en>Teachers mark the class in one tap, standing in front of it; the monthly register builds itself.</span></p>
+          </article>
+          <article class="feature">
+            <div class="icon i-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></div>
+            <h3><span data-bn>ফি ও রসিদ</span><span data-en>Fees &amp; receipts</span></h3>
+            <p><span data-bn>মাসিক ফি নিজে থেকেই ধার্য হয়, জরিমানা ও বকেয়া হিসাব থাকে, রসিদ ছাপা হয় আর SMS যায়।</span><span data-en>Monthly fees raise themselves, fines and dues are tracked, receipts print and an SMS goes out.</span></p>
+          </article>
+          <article class="feature">
+            <div class="icon i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></div>
+            <h3><span data-bn>পরীক্ষা ও ফলাফল</span><span data-en>Exams &amp; results</span></h3>
+            <p><span data-bn>নম্বর এন্ট্রি, গ্রেড ও মেধাক্রম — প্রকাশের সঙ্গে সঙ্গে অভিভাবকের ফোনে ফলাফলের SMS।</span><span data-en>Marks entry, grades and merit — and the result reaches each guardian's phone the moment it is published.</span></p>
+          </article>
+          <article class="feature">
+            <div class="icon i-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></div>
+            <h3><span data-bn>আমল ও আদব</span><span data-en>Amal &amp; adab</span></h3>
+            <p><span data-bn>নামাজ, তিলাওয়াত আর আদবের খাতা — কোন রিপোর্ট কার দায়িত্বে, তা শিক্ষকের নিজের ড্যাশবোর্ডেই।</span><span data-en>The salah, tilawah and adab register — and each teacher sees the reports that are theirs on their own dashboard.</span></p>
+          </article>
+          <article class="feature">
+            <div class="icon i-rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+            <h3><span data-bn>আয়-ব্যয়ের হিসাব</span><span data-en>Income &amp; expenses</span></h3>
+            <p><span data-bn>প্রতিটি আয় ও ব্যয় ভাউচারসহ, খাতওয়ারি হিসাব আর মাস শেষের পরিষ্কার চিত্র।</span><span data-en>Every income and expense with its voucher, by category, and a clear picture at month end.</span></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Why trust it ──────────────────────────────────────────────────── -->
+    <section class="band">
+      <div class="wrap">
+        <p class="kicker"><span data-bn>নিশ্চিন্তে</span><span data-en>Peace of mind</span></p>
+        <h2><span data-bn>আপনার প্রতিষ্ঠানের তথ্য, নিরাপদে</span><span data-en>Your institution's records, kept safe</span></h2>
+        <div class="points">
+          <div class="point">
+            <span class="icon i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div><h3><span data-bn>প্রতিষ্ঠানভিত্তিক আলাদা তথ্য</span><span data-en>Each institution walled off</span></h3><p><span data-bn>এক প্রতিষ্ঠান অন্যটির কিছুই দেখে না।</span><span data-en>No institution can see another's data.</span></p></div>
+          </div>
+          <div class="point">
+            <span class="icon i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+            <div><h3><span data-bn>ভূমিকাভিত্তিক অনুমতি</span><span data-en>Role-based access</span></h3><p><span data-bn>যার যে কাজ, তার সেটুকু প্রবেশাধিকার।</span><span data-en>Everyone reaches exactly their own work.</span></p></div>
+          </div>
+          <div class="point">
+            <span class="icon i-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span>
+            <div><h3><span data-bn>প্রতি রাতে ব্যাকআপ</span><span data-en>Nightly backups</span></h3><p><span data-bn>ফি আর ফলাফলের তথ্য কখনো হারায় না।</span><span data-en>Fee and result records are never lost.</span></p></div>
+          </div>
+          <div class="point">
+            <span class="icon i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+            <div><h3><span data-bn>প্রতিটি পাতা ফোন-উপযোগী</span><span data-en>Every screen phone-ready</span></h3><p><span data-bn>ডেস্কে বা ক্লাসে — যেখানেই থাকুন।</span><span data-en>At the desk or in the classroom.</span></p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Closing ───────────────────────────────────────────────────────── -->
+    <section>
+      <div class="wrap">
+        <div class="closing">
+          <h2><span data-bn>আপনার প্রতিষ্ঠানের ড্যাশবোর্ডে প্রবেশ করুন</span><span data-en>Go to your institution's dashboard</span></h2>
+          <p><span data-bn>আপনার ১১ ডিজিটের মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে লগইন করুন।</span><span data-en>Log in with your 11-digit mobile number and password.</span></p>
+          <a class="btn btn-gold" href="/myadmin/login">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+            <span data-bn>অ্যাডমিন লগইন</span><span data-en>Admin login</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© <span id="year">2026</span> SIES — <span data-bn>স্মার্ট ইসলামিক এডুকেশন সিস্টেম</span><span data-en>Smart Islamic Education System</span></span>
+      <a href="/myadmin/login"><span data-bn>লগইন →</span><span data-en>Log in →</span></a>
+    </div>
+  </footer>
+
+  <script>
+    // The language choice is remembered per browser. Storage can be missing
+    // (private mode, blocked site data), so every access is guarded and the
+    // page stays correct in Bangla without it.
+    (function () {
+      var KEY = 'sies.landing.lang';
+      function apply(lang) {
+        document.documentElement.lang = lang;
+        document.title = lang === 'en'
+          ? 'SIES — Smart Islamic Education System'
+          : 'SIES — স্মার্ট ইসলামিক এডুকেশন সিস্টেম';
+        var buttons = document.querySelectorAll('[data-set-lang]');
+        for (var i = 0; i < buttons.length; i++) {
+          buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-set-lang') === lang));
+        }
+      }
+      var saved = null;
+      try { saved = window.localStorage.getItem(KEY); } catch (e) { /* storage blocked */ }
+      if (saved === 'en' || saved === 'bn') apply(saved);
+      document.addEventListener('click', function (event) {
+        var target = event.target.closest ? event.target.closest('[data-set-lang]') : null;
+        if (!target) return;
+        var lang = target.getAttribute('data-set-lang');
+        apply(lang);
+        try { window.localStorage.setItem(KEY, lang); } catch (e) { /* storage blocked */ }
+      });
+      document.getElementById('year').textContent = String(new Date().getFullYear());
+    })();
+  </script>
+</body>
+</html>
