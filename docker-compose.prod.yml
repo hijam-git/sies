@@ -117,12 +117,20 @@ services:
       # want the dashboard from a browser without a tunnel; basic auth and TLS
       # are then the whole protection, which is why the hash matters.
       #
+      # `tls=true`, NOT `tls.certresolver=letsencrypt`. With the resolver, every
+      # Traefik start asks Let's Encrypt for traefik.${DOMAIN}; with no A record
+      # that fails NXDOMAIN, logs an ERR on every retry and spends the account's
+      # failed-validation allowance — the first siesbd.com deploy did exactly
+      # that. Without it the router serves Traefik's default certificate. If
+      # you DO add the A record and want a real certificate, put the resolver
+      # line back in the same change.
+      #
       # Declared as a label rather than in dynamic/config.yml because the
       # credential hash comes from the environment, and Compose interpolates
       # label values while the file provider interpolates nothing.
       - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
       - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
-      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
       - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth,secure-headers@file"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:?TRAEFIK_DASHBOARD_AUTH must be set}"

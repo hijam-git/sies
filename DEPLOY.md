@@ -15,7 +15,7 @@ How this system is run: locally, on a new server, and every week after that.
                         │ EXPOSED PORT │
                         └───┬──────┬───┘
               priority 100  │      │  priority 50, prefix stripped
-        /api /admin /static /media │  /myadmin   (and / → /myadmin/)
+        /api /admin /static /media │  /myadmin   (and / → landing page)
                             │      │
                   ┌─────────▼──┐ ┌─▼──────────────────┐
                   │sies-backend│ │ sies-admin         │
@@ -327,7 +327,7 @@ Full detail in `traefik/README.md`. The short version:
 |---:|---|---|
 | 100 | `/api`, `/admin`, `/static`, `/media` | `sies-backend` |
 | 50 | `/myadmin`, **prefix stripped** | `sies-admin` |
-| 1 | `/` exactly | redirect to `/myadmin/` |
+| 1 | `/` exactly | `sies-admin`, rewritten to `/landing/index.html` (the landing page) |
 
 Anything else is Traefik's own 404.
 

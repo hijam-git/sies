@@ -324,6 +324,11 @@ step "7. Deploy user"
 # ~/.ssh, and `git clone` refuses a non-empty destination — so making the
 # checkout the home would mean the key blocks the clone that needs it.
 APP_HOME="/var/lib/${APP_USER}"
+# `--user root` (a single-operator box deploying from /root/project/sies) uses
+# root's real home. Without this the script creates an unused /var/lib/root,
+# and the deploy key it generates in step 8 lands where root's own git never
+# looks — so a later `git pull` as root cannot reach the private repo.
+[ "$APP_USER" = root ] && APP_HOME="/root"
 
 if id "$APP_USER" >/dev/null 2>&1; then
   ok "user ${APP_USER} exists"

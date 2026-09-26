@@ -32,7 +32,7 @@ an overlap by priority, never by order in the file.
 |---:|---|---|---|
 | **100** | `/api`, `/admin`, `/static`, `/media` | `sies-backend` | Django owns the API, the Django admin, static files (whitenoise) and uploaded media. |
 | **50** | `/myadmin`, prefix **stripped** | `sies-admin` | The built SPA. |
-| **1** | `/` exactly | redirect → `/myadmin/` | The bare domain has nothing of its own. |
+| **1** | `/` exactly | `sies-admin`, path rewritten to `/landing/index.html` | The public landing page, from the same SPA build. The browser URL stays `/`. |
 
 Anything else is Traefik's plain 404.
 
