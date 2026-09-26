@@ -200,6 +200,9 @@ export interface User {
    * `docs/02` §2.3 turns on, which a single merged field would hide.
    */
   effective_permissions?: string[];
+  /** A teacher login sees only the classes of the Teacher record it is linked
+   *  to — unlinked, it sees none. Flagged on the accounts list. */
+  has_teacher_profile?: boolean;
   last_login?: string | null;
 }
 

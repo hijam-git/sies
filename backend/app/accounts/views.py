@@ -208,7 +208,8 @@ class UserViewSet(ActivityLogMixin, BranchScopedMixin, viewsets.ModelViewSet):
     # table to know what the endpoint costs.
     permission_action_map = {'permissions': 'update'}
     activity_model = 'User'
-    queryset = User.objects.select_related('role', 'branch').all()
+    # teacher_profile for `has_teacher_profile` — one join, not a query per row.
+    queryset = User.objects.select_related('role', 'branch', 'teacher_profile').all()
     filterset_fields = ['user_type', 'role', 'is_active']
     search_fields = ['name', 'name_bn', 'phone', 'email']
     ordering_fields = ['name', 'created_at', 'last_login']

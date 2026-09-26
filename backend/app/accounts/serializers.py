@@ -9,9 +9,9 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import ActivityLog, Role, User
-from .permissions import (PERMISSION_CATALOG, ROLE_NAMES_BN, ROLE_PRESETS,
-                          VALID_PERMISSIONS, clean_permissions,
+from .models import ActivityLog, Role, User, UserType
+from .permissions import (PERMISSION_CATALOG, PLATFORM_ROLE_NAMES, ROLE_NAMES_BN,
+                          ROLE_PRESETS, VALID_PERMISSIONS, clean_permissions,
                           effective_permissions, preset_for)
 from .phone import INVALID_PHONE_MESSAGE, normalize_bd_phone
 
@@ -128,6 +128,7 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False,
                                      trim_whitespace=False, allow_blank=False)
     effective_permissions = serializers.SerializerMethodField()
+    has_teacher_profile = serializers.SerializerMethodField()
     role_name = serializers.CharField(source='role.name', read_only=True)
     branch_name = serializers.CharField(source='branch.name', read_only=True)
 
@@ -136,7 +137,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'phone', 'name', 'name_bn', 'email', 'user_type',
             'branch', 'branch_name', 'role', 'role_name',
-            'permissions', 'effective_permissions',
+            'permissions', 'effective_permissions', 'has_teacher_profile',
             'photo', 'language', 'is_active', 'must_change_password',
             'password', 'last_login', 'created_at', 'updated_at',
         ]
@@ -168,6 +169,27 @@ class UserSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+    def get_has_teacher_profile(self, obj):
+        # A teacher-typed login sees only the classes of the Teacher record it
+        # is linked to (academics.services.teacher_scope_applies). Unlinked, that
+        # is no classes: it can add a student and never list one. The accounts
+        # screen flags it instead of leaving it to be discovered.
+        return hasattr(obj, 'teacher_profile')
+
+    def validate(self, attrs):
+        user_type = attrs.get('user_type', getattr(self.instance, 'user_type', None))
+        role = attrs['role'] if 'role' in attrs else getattr(self.instance, 'role', None)
+        if (role is not None and role.name in PLATFORM_ROLE_NAMES
+                and user_type != UserType.PLATFORM_ADMIN):
+            raise serializers.ValidationError({
+                'role': (f'"{role.name}" is for accounts that work across every '
+                         'institution. Choose user type Platform admin, or a role '
+                         'for one institution such as Principal · '
+                         'এই ভূমিকা সব প্রতিষ্ঠানের অ্যাকাউন্টের জন্য; '
+                         'এক প্রতিষ্ঠানের জন্য যেমন অধ্যক্ষ বেছে নিন।'),
+            })
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)

@@ -25,15 +25,16 @@ import PermissionMatrix from './PermissionMatrix';
  * must reach the same account; compared as raw text they are two people.
  */
 
-const USER_TYPES: UserType[] = [
-  'platform_admin',
-  'platform_accountant',
-  'principal',
-  'accountant',
-  'teacher',
-  'employee',
-  'student',
-];
+/* The types this form can MAKE. Not `platform_accountant`, which the server
+   has no such type for — that is the Platform Accountant role on a platform
+   account. Not `student`: a student's login is switched on from their own
+   record (Students → enable login), which links the two; one made here would
+   belong to nobody. Both still display on an existing row (USER_TYPE_LABELS). */
+const USER_TYPES: UserType[] = ['platform_admin', 'principal', 'accountant', 'teacher', 'employee'];
+
+/* Presets that describe work across every institution — only meaningful on a
+   platform account. The server refuses them anywhere else (accounts.serializers). */
+const PLATFORM_ROLES = new Set(['Platform Admin', 'Platform Accountant']);
 
 const USER_TYPE_LABELS: Record<UserType, string> = {
   platform_admin: 'Platform admin',
@@ -50,7 +51,9 @@ interface UserDraft {
   name: string;
   name_bn: string;
   email: string;
-  user_type: UserType;
+  /** '' until chosen — there is no safe default. The old default, Teacher,
+   *  is how an account got made that could add students and list none. */
+  user_type: UserType | '';
   branch: string;
   role: string;
   language: 'bn' | 'en';
@@ -64,7 +67,7 @@ function emptyUserDraft(defaultBranch: number | null): UserDraft {
     name: '',
     name_bn: '',
     email: '',
-    user_type: 'teacher',
+    user_type: '',
     branch: defaultBranch === null ? '' : String(defaultBranch),
     role: '',
     language: 'bn',
@@ -182,6 +185,12 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
     setFormError(null);
     setFieldErrors({});
 
+    if (!draft.user_type) {
+      setFieldErrors({ user_type: t('Choose what kind of account this is.') });
+      setSaving(false);
+      return;
+    }
+
     const canonical = normalizeBdPhone(draft.phone);
     if (!canonical) {
       setFieldErrors({ phone: t('Enter an 11-digit mobile number, e.g. 01712345678.') });
@@ -289,7 +298,19 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
     {
       key: 'type',
       label: t('User type'),
-      render: (u) => t(USER_TYPE_LABELS[u.user_type] ?? u.user_type),
+      render: (u) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          {t(USER_TYPE_LABELS[u.user_type] ?? u.user_type)}
+          {u.user_type === 'teacher' && u.has_teacher_profile === false && (
+            <span
+              className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+              title={t('Link this login on the teacher’s record (Teachers → edit). Until then it sees no classes or students.')}
+            >
+              {t('Not linked to a teacher')}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: 'role',
@@ -507,13 +528,36 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
                 />
               </Field>
 
-              <Field label={t('User type')} required error={fieldErrors.user_type}>
+              <Field
+                label={t('User type')}
+                required
+                error={fieldErrors.user_type}
+                hint={
+                  draft.user_type === 'teacher'
+                    ? t('Link this login on the teacher’s record (Teachers → edit). Until then it sees no classes or students.')
+                    : draft.user_type === 'platform_admin'
+                      ? t('Every institution. What they may do comes from the role — e.g. Platform Accountant for money only.')
+                      : undefined
+                }
+              >
                 <select
                   className={selectCls}
                   value={draft.user_type}
-                  onChange={(e) => setDraft({ ...draft, user_type: e.target.value as UserType })}
+                  onChange={(e) => {
+                    const userType = e.target.value as UserType | '';
+                    // A platform role left selected after switching to an
+                    // institution type would be refused on save; clear it here.
+                    const role = roles.find((r) => String(r.id) === draft.role);
+                    const keepRole = userType === 'platform_admin' || !role || !PLATFORM_ROLES.has(role.name);
+                    setDraft({ ...draft, user_type: userType, role: keepRole ? draft.role : '' });
+                  }}
+                  required
                 >
-                  {USER_TYPES.map((type) => (
+                  <option value="">{t('Choose one')}</option>
+                  {(editingId !== null && !USER_TYPES.includes(draft.user_type as UserType)
+                    ? [...USER_TYPES, draft.user_type as UserType]
+                    : USER_TYPES
+                  ).map((type) => (
                     <option key={type} value={type}>
                       {t(USER_TYPE_LABELS[type])}
                     </option>
@@ -573,7 +617,9 @@ export default function AccountsTab({ catalog }: { catalog: PermissionCatalog | 
                   onChange={(e) => setDraft({ ...draft, role: e.target.value })}
                 >
                   <option value="">{t('No role')}</option>
-                  {roles.map((role) => (
+                  {roles
+                    .filter((role) => draft.user_type === 'platform_admin' || !PLATFORM_ROLES.has(role.name))
+                    .map((role) => (
                     <option key={role.id} value={role.id}>
                       {role.name_bn || role.name}
                     </option>

@@ -201,3 +201,69 @@ class PermissionCatalogEndpointTests(TestCase):
         for preset in body['presets']:
             self.assertTrue(set(preset['permissions']) <= catalogue,
                             f"{preset['name']} grants something uncatalogued")
+
+
+class AccountShapeTests(TestCase):
+    """Accounts that the form must not be able to make.
+
+    siesbd.com had one: user type left on the form's default, Teacher, with the
+    Platform Admin role. It could add students and list none — a teacher-typed
+    login sees only its linked Teacher record's classes, and it had no record.
+    """
+
+    def setUp(self):
+        self.branch = make_branch()
+        self.admin = make_user(
+            branch=self.branch, user_type='principal', name='Principal',
+            role=make_role('Institution Admin',
+                           matrix={'users': ['view', 'create', 'update']}))
+        self.client.force_login(self.admin)
+
+    def create(self, **body):
+        body = {'phone': '01755000444', 'name': 'Bojlur', 'password': 'a-decent-password-1',
+                **body}
+        return self.client.post(reverse('accounts:user-list'), body,
+                                content_type='application/json')
+
+    def test_a_platform_role_on_an_institution_account_is_refused(self):
+        for name in ('Platform Admin', 'Platform Accountant'):
+            role = make_role(name)
+            with self.subTest(role=name):
+                response = self.create(user_type='teacher', role=role.pk)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('role', response.json()['errors'])
+        self.assertFalse(User.objects.filter(phone='01755000444').exists())
+
+    def test_an_institution_role_is_accepted(self):
+        response = self.create(user_type='principal', role=make_role('Principal').pk)
+        self.assertEqual(response.status_code, 201, response.json())
+
+    def test_an_existing_account_cannot_be_moved_onto_a_platform_role(self):
+        clerk = make_user(branch=self.branch, user_type='employee')
+        response = self.client.patch(
+            reverse('accounts:user-detail', args=[clerk.pk]),
+            {'role': make_role('Platform Admin').pk}, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_platform_admin_may_hold_a_platform_role(self):
+        self.client.force_login(make_platform_admin())
+        response = self.client.post(
+            reverse('accounts:user-list'),
+            {'phone': '01755000555', 'name': 'Money', 'user_type': 'platform_admin',
+             'role': make_role('Platform Accountant').pk,
+             'password': 'a-decent-password-1'},
+            content_type='application/json')
+        self.assertEqual(response.status_code, 201, response.json())
+
+    def test_the_list_says_whether_a_teacher_login_is_linked(self):
+        from staff.services import create_teacher
+
+        linked = make_user(branch=self.branch, user_type='teacher', name='Linked')
+        create_teacher(branch=self.branch, name='Linked', user=linked)
+        unlinked = make_user(branch=self.branch, user_type='teacher', name='Unlinked')
+
+        rows = {r['id']: r for r in
+                self.client.get(reverse('accounts:user-list')).json()['results']}
+
+        self.assertTrue(rows[linked.pk]['has_teacher_profile'])
+        self.assertFalse(rows[unlinked.pk]['has_teacher_profile'])

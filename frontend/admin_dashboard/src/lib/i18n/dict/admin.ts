@@ -254,5 +254,13 @@ const admin: Record<string, string> = {
   Results: 'ফলাফল',
   Admission: 'ভর্তি',
   'Fee received': 'ফি জমা',
+
+  // ── Account shape — the form can no longer make an account that sees nothing ──
+  'Choose what kind of account this is.': 'কোন ধরনের অ্যাকাউন্ট, তা বেছে নিন।',
+  'Not linked to a teacher': 'শিক্ষকের সঙ্গে যুক্ত নয়',
+  'Link this login on the teacher’s record (Teachers → edit). Until then it sees no classes or students.':
+    'শিক্ষকের রেকর্ডে (শিক্ষক → সম্পাদনা) এই লগইনটি যুক্ত করুন। ততক্ষণ এটি কোনো শ্রেণি বা শিক্ষার্থী দেখতে পাবে না।',
+  'Every institution. What they may do comes from the role — e.g. Platform Accountant for money only.':
+    'সব প্রতিষ্ঠান। কী করতে পারবেন তা ঠিক হয় ভূমিকা থেকে — যেমন শুধু হিসাবের জন্য প্ল্যাটফর্ম হিসাবরক্ষক।',
 };
 export default admin;

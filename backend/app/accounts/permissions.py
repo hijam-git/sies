@@ -358,6 +358,13 @@ ROLE_PRESETS = {
 # (`Role.is_system`). Kept as a name list so `seed_roles` and the admin agree.
 SYSTEM_ROLE_NAMES = tuple(ROLE_PRESETS)
 
+# Presets that only make sense with no institution: they describe work ACROSS
+# institutions. Put on an account tied to one, they read as "admin" on the form
+# while the account is scoped to that institution — the confusion that left a
+# teacher-typed "Platform Admin" on siesbd.com able to add students and unable
+# to list them.
+PLATFORM_ROLE_NAMES = ('Platform Admin', 'Platform Accountant')
+
 # Bangla names for the shipped presets. The SPA renders whichever the user's
 # language selects, and a role created by an institution supplies its own.
 ROLE_NAMES_BN = {
