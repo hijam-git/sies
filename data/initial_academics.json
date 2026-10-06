@@ -1,8 +1,9 @@
 {
-  "_about": "Initial classes and subjects for Islamic Education Centar Dasherbari (IECD), as given by the owner on 2026-10-06. Loaded onto siesbd.com (branch IECD, session 2026) the same day. `name` is the owner's wording; `existing_name` is the class row it maps to on siesbd.com, which keeps its admins' naming. Subjects default to the values the live subjects use: full marks 100, pass marks 33, compulsory, no practical. Subjects have no order field in the database; the order here is the owner's.",
+  "_about": "Initial classes and subjects for Islamic Education Center Desherbari (IECD), as given by the owner on 2026-10-06. Loaded onto siesbd.com (branch IECD, session 2026) the same day. `name` is the owner's wording; `existing_name` is the class row it maps to on siesbd.com, which keeps its admins' naming. Subjects default to the values the live subjects use: full marks 100, pass marks 33, compulsory, no practical. Subjects have no order field in the database; the order here is the owner's.",
   "institution": {
     "code": "IECD",
-    "name": "Islamic Education Centar Dasherbari",
+    "name": "Islamic Education Center Desherbari",
+    "existing_name": "Islamic Education Centar Dasherbari",
     "session": "2026"
   },
   "subject_defaults": {
@@ -18,14 +19,39 @@
       "existing_name": "Nursery",
       "stream": "General",
       "subjects": [
-        {"name": "Arabic", "name_bn": "আরবি"},
-        {"name": "Bengali", "name_bn": "বাংলা", "existing_name": "Bangla"},
-        {"name": "English", "name_bn": "ইংরেজি"},
-        {"name": "Mathematics", "name_bn": "গণিত"},
-        {"name": "Hadith and Mas'ala", "name_bn": "হাদিস ও মাসআলা"},
-        {"name": "General Knowledge", "name_bn": "সাধারণ জ্ঞান"},
-        {"name": "Speaking Arabic", "name_bn": "আরবি কথোপকথন"},
-        {"name": "Speaking English", "name_bn": "ইংরেজি কথোপকথন"}
+        {
+          "name": "Arabic",
+          "name_bn": "আরবি"
+        },
+        {
+          "name": "Bengali",
+          "name_bn": "বাংলা",
+          "existing_name": "Bangla"
+        },
+        {
+          "name": "English",
+          "name_bn": "ইংরেজি"
+        },
+        {
+          "name": "Mathematics",
+          "name_bn": "গণিত"
+        },
+        {
+          "name": "Hadith and Mas'ala",
+          "name_bn": "হাদিস ও মাসআলা"
+        },
+        {
+          "name": "General Knowledge",
+          "name_bn": "সাধারণ জ্ঞান"
+        },
+        {
+          "name": "Speaking Arabic",
+          "name_bn": "আরবি কথোপকথন"
+        },
+        {
+          "name": "Speaking English",
+          "name_bn": "ইংরেজি কথোপকথন"
+        }
       ]
     },
     {
@@ -34,14 +60,39 @@
       "existing_name": "One",
       "stream": "General",
       "subjects": [
-        {"name": "Arabic", "name_bn": "আরবি"},
-        {"name": "Bengali", "name_bn": "বাংলা", "existing_name": "Bangla"},
-        {"name": "English", "name_bn": "ইংরেজি"},
-        {"name": "Mathematics", "name_bn": "গণিত"},
-        {"name": "Hadith and Mas'ala", "name_bn": "হাদিস ও মাসআলা"},
-        {"name": "General Knowledge", "name_bn": "সাধারণ জ্ঞান"},
-        {"name": "Speaking Arabic", "name_bn": "আরবি কথোপকথন"},
-        {"name": "Speaking English", "name_bn": "ইংরেজি কথোপকথন"}
+        {
+          "name": "Arabic",
+          "name_bn": "আরবি"
+        },
+        {
+          "name": "Bengali",
+          "name_bn": "বাংলা",
+          "existing_name": "Bangla"
+        },
+        {
+          "name": "English",
+          "name_bn": "ইংরেজি"
+        },
+        {
+          "name": "Mathematics",
+          "name_bn": "গণিত"
+        },
+        {
+          "name": "Hadith and Mas'ala",
+          "name_bn": "হাদিস ও মাসআলা"
+        },
+        {
+          "name": "General Knowledge",
+          "name_bn": "সাধারণ জ্ঞান"
+        },
+        {
+          "name": "Speaking Arabic",
+          "name_bn": "আরবি কথোপকথন"
+        },
+        {
+          "name": "Speaking English",
+          "name_bn": "ইংরেজি কথোপকথন"
+        }
       ]
     },
     {
@@ -50,17 +101,51 @@
       "existing_name": "Two",
       "stream": "General",
       "subjects": [
-        {"name": "Arabic Language", "name_bn": "আরবি ভাষা"},
-        {"name": "Arabic", "name_bn": "আরবি"},
-        {"name": "Bengali", "name_bn": "বাংলা", "existing_name": "Bangla"},
-        {"name": "English", "name_bn": "ইংরেজি"},
-        {"name": "Mathematics", "name_bn": "গণিত"},
-        {"name": "Quran", "name_bn": "কুরআন"},
-        {"name": "General Knowledge", "name_bn": "সাধারণ জ্ঞান"},
-        {"name": "Social Studies", "name_bn": "সমাজবিজ্ঞান"},
-        {"name": "Hadith and Mas'ala", "name_bn": "হাদিস ও মাসআলা"},
-        {"name": "Speaking Arabic", "name_bn": "আরবি কথোপকথন"},
-        {"name": "Speaking English", "name_bn": "ইংরেজি কথোপকথন"}
+        {
+          "name": "Arabic Language",
+          "name_bn": "আরবি ভাষা"
+        },
+        {
+          "name": "Arabic",
+          "name_bn": "আরবি"
+        },
+        {
+          "name": "Bengali",
+          "name_bn": "বাংলা",
+          "existing_name": "Bangla"
+        },
+        {
+          "name": "English",
+          "name_bn": "ইংরেজি"
+        },
+        {
+          "name": "Mathematics",
+          "name_bn": "গণিত"
+        },
+        {
+          "name": "Quran",
+          "name_bn": "কুরআন"
+        },
+        {
+          "name": "General Knowledge",
+          "name_bn": "সাধারণ জ্ঞান"
+        },
+        {
+          "name": "Social Studies",
+          "name_bn": "সমাজবিজ্ঞান"
+        },
+        {
+          "name": "Hadith and Mas'ala",
+          "name_bn": "হাদিস ও মাসআলা"
+        },
+        {
+          "name": "Speaking Arabic",
+          "name_bn": "আরবি কথোপকথন"
+        },
+        {
+          "name": "Speaking English",
+          "name_bn": "ইংরেজি কথোপকথন"
+        }
       ]
     },
     {
@@ -69,20 +154,63 @@
       "existing_name": "Three",
       "stream": "General",
       "subjects": [
-        {"name": "Arabic Language", "name_bn": "আরবি ভাষা"},
-        {"name": "Arabic Grammar (Sarf)", "name_bn": "আরবি ব্যাকরণ (সরফ)"},
-        {"name": "Nahw (Syntax)", "name_bn": "নাহু"},
-        {"name": "At-Ta'beer wal-Usloob", "name_bn": "আত-তা'বীর ওয়াল উসলূব"},
-        {"name": "Arabic Word", "name_bn": "আরবি শব্দ"},
-        {"name": "English Word", "name_bn": "ইংরেজি শব্দ"},
-        {"name": "Arabic", "name_bn": "আরবি"},
-        {"name": "Bengali", "name_bn": "বাংলা", "existing_name": "Bangla"},
-        {"name": "English", "name_bn": "ইংরেজি"},
-        {"name": "Mathematics", "name_bn": "গণিত"},
-        {"name": "Science", "name_bn": "বিজ্ঞান"},
-        {"name": "Social Studies", "name_bn": "সমাজবিজ্ঞান"},
-        {"name": "Quran", "name_bn": "কুরআন"},
-        {"name": "Hadith and Mas'ala", "name_bn": "হাদিস ও মাসআলা"}
+        {
+          "name": "Arabic Language",
+          "name_bn": "আরবি ভাষা"
+        },
+        {
+          "name": "Arabic Grammar (Sarf)",
+          "name_bn": "আরবি ব্যাকরণ (সরফ)"
+        },
+        {
+          "name": "Nahw (Syntax)",
+          "name_bn": "নাহু"
+        },
+        {
+          "name": "At-Ta'beer wal-Usloob",
+          "name_bn": "আত-তা'বীর ওয়াল উসলূব"
+        },
+        {
+          "name": "Arabic Word",
+          "name_bn": "আরবি শব্দ"
+        },
+        {
+          "name": "English Word",
+          "name_bn": "ইংরেজি শব্দ"
+        },
+        {
+          "name": "Arabic",
+          "name_bn": "আরবি"
+        },
+        {
+          "name": "Bengali",
+          "name_bn": "বাংলা",
+          "existing_name": "Bangla"
+        },
+        {
+          "name": "English",
+          "name_bn": "ইংরেজি"
+        },
+        {
+          "name": "Mathematics",
+          "name_bn": "গণিত"
+        },
+        {
+          "name": "Science",
+          "name_bn": "বিজ্ঞান"
+        },
+        {
+          "name": "Social Studies",
+          "name_bn": "সমাজবিজ্ঞান"
+        },
+        {
+          "name": "Quran",
+          "name_bn": "কুরআন"
+        },
+        {
+          "name": "Hadith and Mas'ala",
+          "name_bn": "হাদিস ও মাসআলা"
+        }
       ]
     },
     {
