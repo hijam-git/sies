@@ -105,6 +105,38 @@ def make_routine(*, session, academic_class, subject, teacher, period,
     )
 
 
+def make_student(branch, name='Abdullah', **extra):
+    """A student written directly, for the roll tests.
+
+    Imported inside the function: the module docstring's caution about the
+    `students` app predates it landing, and keeping the import local means the
+    routine and scope tests above still load nothing from it.
+    """
+    from students.models import Student
+    from students.services import allocate_student_id
+
+    extra.setdefault('stream', academic_stream(branch))
+    extra.setdefault('admitted_on', date(2026, 1, 5))
+    return Student.objects.create(
+        branch=branch, student_id=allocate_student_id(), name=name, **extra,
+    )
+
+
+def academic_stream(branch):
+    return branch.stream_set.order_by('order', 'id').first()
+
+
+def enrol(student, *, session, academic_class, section=None, roll=None):
+    """Through the real `enrol_student()`, so rolls come out as production's."""
+    from academics.services import enrol_student
+
+    return enrol_student(
+        branch=student.branch, student=student, session=session,
+        academic_class=academic_class, section=section, roll=roll,
+        enrolled_on=date(2026, 1, 5),
+    )
+
+
 def make_assignment(*, session, teacher, subject, academic_class, section=None):
     return SubjectAssignment.objects.create(
         branch=academic_class.branch, session=session, teacher=teacher,

@@ -240,7 +240,8 @@ class EnrolmentSerializer(serializers.ModelSerializer):
     `roll` and `admission_number` are read-only: both are issued by
     `services.enrol_student()` under a row lock, and a client-chosen number is a
     client-chosen collision (CLAUDE.md §4.4). Correcting one is a deliberate
-    operation, not a PATCH on the register.
+    operation, not a PATCH on the register: `POST /api/enrolments/{id}/roll/`,
+    which goes through `services.change_roll()` and offers a swap on collision.
     """
 
     student_name = serializers.CharField(source='student.name', read_only=True)
@@ -272,6 +273,17 @@ class EnrolmentSerializer(serializers.ModelSerializer):
                            'ওই শাখা অন্য শ্রেণির।',
             })
         return attrs
+
+
+class RollChangeSerializer(serializers.Serializer):
+    """The body of `POST /api/enrolments/{id}/roll/`.
+
+    `swap` defaults to False so the first attempt never moves anyone else: the
+    screen only sends True after the person has been told whose roll it is.
+    """
+
+    roll = serializers.IntegerField(min_value=1, max_value=9999)
+    swap = serializers.BooleanField(required=False, default=False)
 
 
 class SubjectAssignmentSerializer(serializers.ModelSerializer):

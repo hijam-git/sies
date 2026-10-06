@@ -463,7 +463,7 @@ cannot be 1,800 requests:
 ```
 GET  /api/attendance/register/?class=<id>&section=<id>&month=2026-03
   → { days: [ {date, is_markable, reason} … ],      # off days flagged here
-      students: [ {student_id, name, roll,
+      students: [ {student_id, name, roll, section,  # roll order
                    cells: { "2026-03-01": {status, taken_by, taken_at}, … },
                    present, absent, leave, percent } ] }
 

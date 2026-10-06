@@ -235,6 +235,17 @@ def month_days(year, month):
     return [date_cls(year, month, day) for day in range(1, last + 1)]
 
 
+#: The one order every attendance roster is read in: by class roll, then name.
+#:
+#: Section comes first because a roll is unique per section, not per class —
+#: so the "whole class" view of a class with sections A and B would otherwise
+#: interleave A-1, B-1, A-2, B-2. Within one section (or a class without
+#: sections) it is plain roll order. `id` last so two rows can never tie and
+#: swap places between two loads. The roll column is NOT NULL, so there is no
+#: "students without a roll" case to place.
+ROSTER_ORDER = ('section__name', 'roll', 'student__name', 'id')
+
+
 def register_enrolments(*, branch, academic_class, section=None, session=None):
     """The students whose rows make up this register, in roll order.
 
@@ -247,8 +258,8 @@ def register_enrolments(*, branch, academic_class, section=None, session=None):
                   .for_branch(branch)
                   .filter(academic_class=academic_class,
                           status=EnrolmentStatus.ACTIVE, is_active=True)
-                  .select_related('student')
-                  .order_by('roll', 'student__name'))
+                  .select_related('student', 'section')
+                  .order_by(*ROSTER_ORDER))
     if section is not None:
         enrolments = enrolments.filter(section=section)
     if session is not None:
@@ -322,6 +333,7 @@ def month_register(branch, academic_class, section=None, month=None, *,
             'name': enrolment.student.name,
             'name_bn': enrolment.student.name_bn,
             'roll': enrolment.roll,
+            **_section_of(enrolment),
             'cells': cells,
             **_totals(cells),
         })
@@ -332,6 +344,21 @@ def month_register(branch, academic_class, section=None, month=None, *,
         'section': section.pk if section is not None else None,
         'days': day_flags,
         'students': students,
+    }
+
+
+def _section_of(enrolment):
+    """The section a roll belongs to, so a whole-class view can say "A · 7".
+
+    Rolls restart per section, which means roll 7 alone is ambiguous on the
+    whole-class register of a class that has sections; the section name is what
+    makes it a number somebody can call out.
+    """
+    section = enrolment.section
+    return {
+        'section': enrolment.section_id,
+        'section_name': section.name if section is not None else '',
+        'section_name_bn': section.name_bn if section is not None else '',
     }
 
 
@@ -804,6 +831,7 @@ def period_roster(*, branch, academic_class, period, on_date, section=None,
             'name': enrolment.student.name,
             'name_bn': enrolment.student.name_bn,
             'roll': enrolment.roll,
+            **_section_of(enrolment),
             'status': row.status if row else AttendanceStatus.PRESENT,
             'remarks': row.remarks if row else '',
             'taken_by': row.taken_by_id if row else None,

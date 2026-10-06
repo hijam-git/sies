@@ -11,7 +11,9 @@ Two families live here:
   transaction that writes the row they belong to.
 """
 
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.db.models import Max
 
 from core.models import NumberSequence
 from core.services import format_number, next_number
@@ -252,18 +254,155 @@ def next_admission_number(*, branch, session):
     )
 
 
+def roll_scope(*, branch, session, academic_class, section=None):
+    """Every enrolment that shares one roll series with the given place.
+
+    The series is per (session, class, section) — exactly what `Enrolment`'s two
+    unique constraints enforce, split on whether the student is in a section. A
+    class without sections numbers 1, 2, 3 across the whole class; a class with
+    them numbers each section from 1. `section=None` filters to IS NULL, which is
+    the second constraint's half.
+
+    Each argument may be a model or a primary key. Inactive enrolments are
+    included on purpose: a student who left still holds their roll in the
+    database, and the constraint counts them.
+    """
+    return Enrolment.objects.filter(
+        branch_id=getattr(branch, 'pk', branch),
+        session_id=getattr(session, 'pk', session),
+        academic_class_id=getattr(academic_class, 'pk', academic_class),
+        section_id=getattr(section, 'pk', section),
+    )
+
+
 def next_roll(*, branch, session, academic_class, section=None):
-    """The next roll in this class/section, for this session.
+    """The next free roll in this class/section, for this session.
 
     Per (session, class, section), which is what `Enrolment`'s unique constraint
-    enforces — so a roll issued here and a roll typed in by an admin cannot
-    collide silently; the second one fails at the database.
+    enforces. Usually that is simply the counter's next number — but a roll can
+    also arrive from outside the counter: typed in at admission, imported from
+    last year's paper register, or changed afterwards with `change_roll()`. A
+    counter that did not know about those would hand out a roll somebody
+    already holds, and the admission would die at the database as a 500.
+
+    So the number is checked against the class before it is returned, under the
+    counter's own row lock, and skipped if taken. On a collision the counter
+    jumps straight past the highest roll in the class rather than probing one
+    number at a time — an imported class of sixty is one extra query, not sixty.
     """
     scope = f'{session.pk}:{academic_class.pk}:{section.pk if section else 0}'
-    number, _ = next_number(
-        branch=branch, kind=NumberSequence.Kind.ROLL, scope=scope, width=3,
+    taken = roll_scope(branch=branch, session=session,
+                       academic_class=academic_class, section=section)
+    while True:
+        number, _ = next_number(
+            branch=branch, kind=NumberSequence.Kind.ROLL, scope=scope, width=3,
+        )
+        if not taken.filter(roll=number).exists():
+            return number
+        highest = taken.aggregate(highest=Max('roll'))['highest'] or 0
+        if highest > number:
+            # Still inside `next_number`'s lock: this transaction holds the
+            # counter row until it commits, so nobody is issued a number
+            # between this jump and the next reservation.
+            NumberSequence.objects.filter(
+                branch=branch, kind=NumberSequence.Kind.ROLL, scope=scope,
+            ).update(last_number=highest)
+
+
+class RollTaken(Exception):
+    """The roll asked for already belongs to another student in the class.
+
+    Carries the holder so the screen can name them and offer the swap — "roll 3
+    belongs to Bilal — swap?" is a question an office clerk can answer; "that
+    would duplicate something" is not.
+    """
+
+    def __init__(self, holder):
+        super().__init__(f'Roll {holder.roll} is taken')
+        self.holder = holder
+
+
+#: The value a row parks on during a swap. Never issued: `next_roll()` starts
+#: at 1 and `change_roll()` refuses anything below 1, while the column is a
+#: PositiveIntegerField, so 0 is still legal to the database for the instant
+#: it is held.
+_SWAP_PARKING_ROLL = 0
+
+
+@transaction.atomic
+def change_roll(enrolment, *, roll, swap=False, updated_by=None):
+    """Give *enrolment* a new roll within its own class (and section).
+
+    Returns `(enrolment, swapped_with)` — `swapped_with` is the other student's
+    enrolment when a swap happened, else None.
+
+    * **The series is the class.** Only rows sharing this enrolment's
+      (session, class, section) are read or written, so "roll 3" here means
+      roll 3 *in this class*. Class Two's roll 3 is a different number.
+    * **Taken, without `swap`:** raises `RollTaken` naming the holder, and
+      nothing is written.
+    * **Taken, with `swap`:** the two students exchange rolls in one
+      transaction. Three writes through a parking value, because the unique
+      constraints are checked per statement and are not deferrable — a direct
+      exchange would collide with itself halfway through.
+
+    Every enrolment in the series is locked with `SELECT … FOR UPDATE`, in
+    primary-key order, before anything is decided. Locking the whole series
+    rather than two rows is what makes two clerks renumbering the same class at
+    once safe: they queue, instead of each swapping against a holder the other
+    has already moved — and the fixed order means they queue rather than
+    deadlock.
+    """
+    try:
+        roll = int(roll)
+    except (TypeError, ValueError):
+        roll = 0
+    if roll < 1:
+        raise ValidationError({
+            'roll': 'A roll is a whole number from 1 · রোল ১ বা তার বেশি হতে হবে।',
+        })
+
+    series = roll_scope(
+        branch=enrolment.branch_id, session=enrolment.session_id,
+        academic_class=enrolment.academic_class_id, section=enrolment.section_id,
     )
-    return number
+    locked = {row.pk: row for row in series.select_for_update().order_by('pk')}
+    enrolment = locked[enrolment.pk]
+
+    if enrolment.roll == roll:
+        return enrolment, None
+
+    holder = next((row for row in locked.values()
+                   if row.roll == roll and row.pk != enrolment.pk), None)
+
+    if holder is None:
+        try:
+            # A savepoint, so a collision with a row inserted after the lock
+            # was taken — an admission allocating that very number — becomes
+            # a named answer rather than a broken transaction and a 500.
+            with transaction.atomic():
+                _set_roll(enrolment, roll, updated_by)
+        except IntegrityError:
+            holder = series.filter(roll=roll).exclude(pk=enrolment.pk).first()
+            if holder is None:
+                raise
+            raise RollTaken(holder)
+        return enrolment, None
+
+    if not swap:
+        raise RollTaken(holder)
+
+    previous = enrolment.roll
+    _set_roll(enrolment, _SWAP_PARKING_ROLL, updated_by)
+    _set_roll(holder, previous, updated_by)
+    _set_roll(enrolment, roll, updated_by)
+    return enrolment, holder
+
+
+def _set_roll(enrolment, roll, updated_by):
+    enrolment.roll = roll
+    enrolment.updated_by = updated_by
+    enrolment.save(update_fields=['roll', 'updated_by', 'updated_at'])
 
 
 @transaction.atomic

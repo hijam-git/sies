@@ -26,10 +26,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.permissions import BasePermission
 
-from accounts.permissions import HasResourcePermission
-from accounts.services import ActivityLogMixin
+from accounts.models import ActivityAction
+from accounts.permissions import HasResourcePermission, has_permission
+from accounts.services import ActivityLogMixin, log_activity
 from core.middleware import ALL_BRANCHES, get_branch
 from core.viewsets import BranchScopedViewSet, writable_branch
 
@@ -37,11 +39,70 @@ from .models import (AcademicClass, ClassRoutine, Enrolment, Period, Section,
                      Subject, SubjectAssignment)
 from .serializers import (AcademicClassSerializer, ClassRoutineSerializer,
                           EnrolmentSerializer, PeriodSerializer,
-                          SectionSerializer, SubjectAssignmentSerializer,
-                          SubjectSerializer)
-from .services import (day_index, enrol_student, routine_access_key,
-                       sync_routine_access, teacher_for_user)
+                          RollChangeSerializer, SectionSerializer,
+                          SubjectAssignmentSerializer, SubjectSerializer)
+from .services import (RollTaken, change_roll, day_index, enrol_student,
+                       routine_access_key, sync_routine_access,
+                       teacher_for_user)
 from .viewsets import TeacherScopedMixin
+
+
+#: Any one of these lets a person renumber a class. Each is held by someone
+#: who legitimately keeps the class list: the office (students), whoever
+#: edits the academic frame (academics), and the admission desk that issued
+#: the roll in the first place (admissions).
+ROLL_CHANGE_PERMISSIONS = (
+    ('students', 'update'),
+    ('academics', 'update'),
+    ('admissions', 'update'),
+)
+
+
+class CanChangeRoll(BasePermission):
+    """`students.update` OR `academics.update` OR `admissions.update`.
+
+    Its own class because `HasResourcePermission` names one resource, and the
+    roll belongs equally to three. Which *class* the caller may renumber is not
+    decided here — the teacher scope on the queryset decides that, as a 404.
+    """
+
+    message = 'You do not have permission to do this.'
+    code = 'permission_denied'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:
+            return False
+        return any(has_permission(user, resource, verb)
+                   for resource, verb in ROLL_CHANGE_PERMISSIONS)
+
+
+class RollTakenError(APIException):
+    """400 `roll_taken`, naming the student who holds the roll.
+
+    The holder travels in `errors` because that is the one place the project's
+    error shape carries structured detail (`core.exception_handlers`). The
+    screen reads `holder_name` to ask "swap?"; anything else just shows the
+    sentence in `roll`.
+    """
+
+    status_code = 400
+    default_code = 'roll_taken'
+
+    def __init__(self, holder):
+        student = holder.student
+        label = student.name_bn or student.name
+        super().__init__({
+            'roll': [
+                f'Roll {holder.roll} belongs to {student.name} ({student.student_id}) · '
+                f'রোল {holder.roll} {label}-এর ({student.student_id})।'
+            ],
+            'holder_enrolment': [str(holder.pk)],
+            'holder_name': [student.name],
+            'holder_name_bn': [student.name_bn or ''],
+            'holder_code': [student.student_id],
+            'holder_active': ['true' if holder.is_active else 'false'],
+        })
 
 
 
@@ -273,6 +334,73 @@ class EnrolmentViewSet(TeacherScopedMixin, AcademicsViewSet):
                         'is_hostel', 'is_transport', 'is_active']
     search_fields = ['admission_number', 'student__name', 'student__name_bn']
     ordering_fields = ['roll', 'admission_number', 'enrolled_on', 'created_at']
+
+    def get_permissions(self):
+        # Changing a roll is not an admission, so `admissions.update` alone is
+        # the wrong gate for it: the people who renumber a class are whoever
+        # keeps the student records or the academic frame.
+        if getattr(self, 'action', None) == 'change_roll':
+            return [IsAuthenticated(), CanChangeRoll()]
+        return super().get_permissions()
+
+    @action(detail=True, methods=['post'], url_path='roll')
+    def change_roll(self, request, pk=None):
+        """`POST /api/enrolments/{id}/roll/` `{roll, swap?}` — renumber one student.
+
+        The roll is the student's number *in this class*, so the move and any
+        swap stay inside the enrolment's own (session, class, section).
+
+        `get_object()` is the gate for both scopes: another institution's
+        enrolment and a class outside a teacher's own are filtered out of the
+        queryset, and both answer 404 (CLAUDE.md §5, docs/08 D6).
+
+        A roll somebody else holds is a 400 with code `roll_taken` and the
+        holder named in `errors`, so the screen can ask "swap?" and resend with
+        `swap: true`. It is never the database's IntegrityError surfacing as
+        "duplicate".
+        """
+        enrolment = self.get_object()
+        body = RollChangeSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        before = enrolment.roll
+
+        try:
+            enrolment, swapped = change_roll(
+                enrolment,
+                roll=body.validated_data['roll'],
+                swap=body.validated_data['swap'],
+                updated_by=request.user,
+            )
+        except RollTaken as taken:
+            raise RollTakenError(taken.holder)
+
+        if enrolment.roll != before:
+            name = enrolment.student.name
+            other = (f' (swapped with {swapped.student.name}, now {swapped.roll})'
+                     if swapped else '')
+            log_activity(
+                action=ActivityAction.UPDATE,
+                user=request.user,
+                request=request,
+                obj=enrolment,
+                model='Enrolment',
+                object_label=f'{name} · {enrolment.academic_class.name}',
+                summary=f'Changed roll of {name} from {before} to {enrolment.roll}{other}',
+                summary_bn=f'{name}-এর রোল {before} থেকে {enrolment.roll} করা হয়েছে',
+                before={'roll': before},
+                after={
+                    'roll': enrolment.roll,
+                    'swapped_with': ({'enrolment': swapped.pk,
+                                      'student': swapped.student_id,
+                                      'roll': swapped.roll} if swapped else None),
+                },
+                atomic=False,
+            )
+
+        return Response({
+            'enrolment': self.get_serializer(enrolment).data,
+            'swapped_with': self.get_serializer(swapped).data if swapped else None,
+        })
 
     def save_new(self, serializer):
         """`save_new` and not `perform_create`, so `ActivityLogMixin` still logs.

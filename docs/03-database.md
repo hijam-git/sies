@@ -304,6 +304,21 @@ Enrolment is that person in a class, in a section, in a session.
 
 `unique_together (branch, session, academic_class, section, roll)`.
 
+**The roll is the student's class roll (শ্রেণি রোল)**, and it lives here rather
+than on `Student` because it belongs to one class in one session: Class One
+numbers 1, 2, 3 and Class Two starts again at 1. It is unique per section when
+the student is in one and per class otherwise — the two partial constraints
+`enrolment_unique_roll_per_section` / `enrolment_unique_roll_per_class`.
+
+- **Issued** by `academics.services.next_roll()` as the next free roll in that
+  series. It skips any number already held (a roll typed at admission, imported,
+  or changed later), so an admission never dies on the unique constraint.
+- **Changed** only through `academics.services.change_roll()` —
+  `POST /api/enrolments/{id}/roll/ {roll, swap}`. A roll somebody holds answers
+  400 `roll_taken` naming them; `swap: true` exchanges the two in one
+  transaction under `SELECT … FOR UPDATE` on the whole series.
+- **Read** in this order by every attendance roster — `(section, roll, name)`.
+
 **The brief's "admission history" is simply `student.enrolments.all()`.** No
 separate history table, no duplicated data, no drift.
 
