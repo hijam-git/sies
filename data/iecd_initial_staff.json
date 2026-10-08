@@ -1,0 +1,16 @@
+{
+  "_about": "Teachers and staff of Islamic Education Center Desherbari (IECD), as given by the owner on 2026-10-08 and loaded onto siesbd.com the same day. IDs are the ones siesbd.com issued. No logins were created (no phone numbers were given), except that Md. Bazlur Rashid's record is linked to his existing login.",
+  "institution": {"code": "IECD", "name": "Islamic Education Center Desherbari"},
+  "teachers": [
+    {"teacher_id": "TCH-IECD-0001", "name": "Aslam Bin Akram", "name_bn": "আসলাম বিন আকরাম", "designation": "Director", "designation_bn": "পরিচালক"},
+    {"teacher_id": "TCH-IECD-0002", "name": "Md. Abdullah Bin Abdul Khalek", "name_bn": "মোঃ আব্দুল্লাহ বিন আব্দুল খালেক", "designation": "Assistant Director", "designation_bn": "সহকারী পরিচালক"},
+    {"teacher_id": "TCH-IECD-0003", "name": "Md. Mostafizur Rahman Mostafa", "name_bn": "মোঃ মোস্তাফিজুর রহমান মোস্তফা", "designation": "Teacher", "designation_bn": "শিক্ষক"},
+    {"teacher_id": "TCH-IECD-0004", "name": "Md. Bazlur Rashid", "name_bn": "মোঃ বজলুর রশিদ", "designation": "Teacher & Accounts Officer", "designation_bn": "শিক্ষক ও হিসাব-অ্যাকাউন্টসের দায়িত্বপ্রাপ্ত", "login_phone": "01795161544"},
+    {"teacher_id": "TCH-IECD-0005", "name": "Md. Abu Bakkar Siddiq", "name_bn": "মোঃ আবু বক্কর সিদ্দিক", "designation": "Teacher", "designation_bn": "শিক্ষক"},
+    {"teacher_id": "TCH-IECD-0006", "name": "Md. Al-Amin", "name_bn": "মোঃ আল-আমিন", "designation": "Teacher", "designation_bn": "শিক্ষক"},
+    {"teacher_id": "TCH-IECD-0007", "name": "Md. Sakhawat Hossain Sakhawat", "name_bn": "মোঃ সাখাওয়াত হোসেন সাখাওয়াত", "designation": "Teacher", "designation_bn": "শিক্ষক"}
+  ],
+  "staff": [
+    {"employee_id": "EMP-IECD-0001", "name": "Md. Musa", "name_bn": "মোঃ মুসা", "designation": "Cook & Support Staff", "designation_bn": "বাবুর্চি ও বিভিন্ন সহযোগিতামূলক দায়িত্বে নিয়োজিত"}
+  ]
+}
