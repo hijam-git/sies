@@ -695,6 +695,7 @@ export interface Enrolment {
   is_transport: boolean;
   is_active: boolean;
   student_name: string;
+  student_name_bn: string;
   class_name: string;
 }
 

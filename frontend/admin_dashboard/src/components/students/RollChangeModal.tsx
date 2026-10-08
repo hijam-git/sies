@@ -61,7 +61,7 @@ export default function RollChangeModal({
     if (!swap) {
       const local = peers.find((p) => p.roll === target && p.id !== enrolment.id);
       if (local) {
-        setHolder({ enrolment: local.id, name: local.student_name });
+        setHolder({ enrolment: local.id, name: local.student_name_bn || local.student_name });
         return;
       }
     }
@@ -75,7 +75,7 @@ export default function RollChangeModal({
           ? t('Rolls swapped: {a} is now {x}, {b} is now {y}.')
               .replace('{a}', studentName)
               .replace('{x}', String(result.enrolment.roll))
-              .replace('{b}', other.student_name)
+              .replace('{b}', other.student_name_bn || other.student_name)
               .replace('{y}', String(other.roll))
           : t('{a} is now roll {x}.')
               .replace('{a}', studentName)

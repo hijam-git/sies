@@ -188,6 +188,17 @@ export default function StudentsTab({
     [sections],
   );
 
+  // The enrolment carries only the English class name; the Bangla one is on
+  // the class list this screen already has.
+  const classLabel = useCallback(
+    (e: Enrolment) => {
+      const c = classes.find((x) => x.id === e.academic_class);
+      const section = sectionName(e.section);
+      return `${c ? c.name_bn || c.name : e.class_name}${section ? ` · ${section}` : ''}`;
+    },
+    [classes, sectionName],
+  );
+
   const sectionsOfClass = useMemo(
     () => (classFilter ? sections.filter((s) => String(s.academic_class) === classFilter) : sections),
     [sections, classFilter],
@@ -220,8 +231,7 @@ export default function StudentsTab({
       render: (s) => {
         const e = enrolmentOf.get(s.id);
         if (!e) return <span className="text-gray-400">{t('Not enrolled')}</span>;
-        const section = sectionName(e.section);
-        return `${e.class_name}${section ? ` · ${section}` : ''}`;
+        return classLabel(e);
       },
     },
     {
@@ -446,11 +456,7 @@ export default function StudentsTab({
         <RollChangeModal
           enrolment={rollTarget.enrolment}
           studentName={rollTarget.student.name_bn || rollTarget.student.name}
-          classLabel={`${rollTarget.enrolment.class_name}${
-            rollTarget.enrolment.section !== null
-              ? ` · ${sectionName(rollTarget.enrolment.section)}`
-              : ''
-          }`}
+          classLabel={classLabel(rollTarget.enrolment)}
           peers={enrolments.filter(
             (e) =>
               e.academic_class === rollTarget.enrolment.academic_class &&

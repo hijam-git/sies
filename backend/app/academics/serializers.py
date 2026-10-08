@@ -245,6 +245,7 @@ class EnrolmentSerializer(serializers.ModelSerializer):
     """
 
     student_name = serializers.CharField(source='student.name', read_only=True)
+    student_name_bn = serializers.CharField(source='student.name_bn', read_only=True)
     class_name = serializers.CharField(source='academic_class.name', read_only=True)
 
     class Meta:
@@ -252,7 +253,8 @@ class EnrolmentSerializer(serializers.ModelSerializer):
         fields = ['id', 'student', 'session', 'academic_class', 'section',
                   'roll', 'admission_number', 'status', 'enrolled_on', 'left_on',
                   'is_hostel', 'is_transport', 'is_active',
-                  'student_name', 'class_name', 'created_at', 'updated_at']
+                  'student_name', 'student_name_bn', 'class_name',
+                  'created_at', 'updated_at']
         read_only_fields = ['id', 'roll', 'admission_number', 'created_at', 'updated_at']
 
     def validate(self, attrs):
