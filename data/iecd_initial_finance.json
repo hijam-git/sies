@@ -1,0 +1,108 @@
+{
+  "_about": "Income and expense categories of Islamic Education Center Desherbari (IECD), as given by the owner on 2026-10-08 and applied to siesbd.com the same day. The owner's categories are listed in their order and shown first; the platform's seeded categories the owner did not list (Session Fee, Hostel, Transport, Electricity, Rent...) are kept active after them — Session, Hostel and Transport are linked to fee categories and must stay. existing_code marks a category that already existed under another name.",
+  "institution": {
+    "code": "IECD",
+    "name": "Islamic Education Center Desherbari"
+  },
+  "income_categories": [
+    {
+      "owner_name": "Salary",
+      "code": "INC-MON",
+      "name": "Monthly Fee",
+      "name_bn": "মাসিক বেতন",
+      "note": "Students' monthly tuition (বেতন)"
+    },
+    {
+      "owner_name": "Exam",
+      "code": "INC-EXM",
+      "name": "Examination Fee",
+      "name_bn": "পরীক্ষার ফি"
+    },
+    {
+      "owner_name": "Book",
+      "code": "INC-BOK",
+      "name": "Book Sale",
+      "name_bn": "বই বিক্রয়"
+    },
+    {
+      "owner_name": "Admission",
+      "code": "INC-ADM",
+      "name": "Admission Fee",
+      "name_bn": "ভর্তি ফি"
+    },
+    {
+      "owner_name": "Donation",
+      "code": "INC-DON",
+      "name": "Donation",
+      "name_bn": "অনুদান"
+    },
+    {
+      "owner_name": "Late Fee / Fine",
+      "code": "INC-FINE",
+      "name": "Late Fee / Fine",
+      "name_bn": "বিলম্ব ফি / জরিমানা"
+    },
+    {
+      "owner_name": "Mahfil",
+      "code": "INC-MAH",
+      "name": "Mahfil",
+      "name_bn": "মাহফিল"
+    },
+    {
+      "owner_name": "Iftar",
+      "code": "INC-IFT",
+      "name": "Iftar",
+      "name_bn": "ইফতার"
+    },
+    {
+      "owner_name": "Other",
+      "code": "INC-OTH",
+      "name": "Other Income",
+      "name_bn": "অন্যান্য আয়"
+    }
+  ],
+  "expense_categories": [
+    {
+      "owner_name": "বোর্ডিং",
+      "code": "EXP-BRD",
+      "name": "Boarding",
+      "name_bn": "বোর্ডিং"
+    },
+    {
+      "owner_name": "শিক্ষক বা ব্যক্তি",
+      "code": "EXP-PERS",
+      "name": "Teacher / Individual",
+      "name_bn": "শিক্ষক বা ব্যক্তি"
+    },
+    {
+      "owner_name": "আসবাব পত্র",
+      "code": "EXP-FURN",
+      "name": "Furniture",
+      "name_bn": "আসবাব পত্র"
+    },
+    {
+      "owner_name": "নির্মাণাধীন",
+      "code": "EXP-CONS",
+      "name": "Construction",
+      "name_bn": "নির্মাণাধীন"
+    },
+    {
+      "owner_name": "ম্যানেজমেন্ট",
+      "code": "EXP-MGMT",
+      "name": "Management",
+      "name_bn": "ম্যানেজমেন্ট"
+    },
+    {
+      "owner_name": "খাবার",
+      "code": "EXP-FOOD",
+      "name": "Food",
+      "name_bn": "খাবার"
+    },
+    {
+      "owner_name": "ইত্যাদি",
+      "code": "EXP-OTH",
+      "name": "Other Expense",
+      "name_bn": "অন্যান্য খরচ"
+    }
+  ]
+}
