@@ -327,6 +327,51 @@ adds the assignment screen. A single FK per class assumes **one** responsible
 teacher — if an institution needs a co-class-teacher, that becomes a
 `ClassTeacher` table in V2.
 
+### Update 2026-10-08 — the routine is the source of truth; the Assignments screen is removed
+
+> *"In the class routine we assign the teacher, so why is this needed?"* — the
+> owner, about Teachers → Assignments.
+
+He was right. Once the routine (D7) existed, an admin said who teaches what
+twice: once on the timetable and again on the Assignments board. The board is
+gone, and access is now set in two places only:
+
+| Who | Set on |
+|-----|--------|
+| **Class teacher** (`AcademicClass.class_teacher`) | Academics → Classes, the class form |
+| **Section in charge** (`Section.in_charge`) | Academics → Sections, the section form |
+| **Subject teacher** (`SubjectAssignment`) | Academics → Routine. Each cell's teacher × subject × class × section |
+
+`SubjectAssignment` keeps its table, its meaning for access and its read API.
+What changed is that the routine maintains it, in
+`academics.services.sync_routine_access()`, inside the same transaction as the
+cell write:
+
+- **Placing** a teacher in an active cell grants the assignment for that exact
+  key, reactivating a previously deactivated row rather than adding a second
+  one.
+- **Deleting a cell, changing its teacher or subject, or switching it off**
+  deactivates the *old* key's assignment (`is_active = False`). This happens
+  only if no other active cell still covers the same session × teacher ×
+  subject × class × section. A teacher with Arabic on Saturday and Monday keeps
+  it when Monday's cell goes.
+- **Deactivated, never deleted.** Nothing references a `SubjectAssignment`. A
+  mark records who entered it on the `Mark` row itself, so marks are never
+  touched. The row stays as the record that this teacher taught this subject
+  this session.
+- Class responsibility is never touched by a routine edit.
+- Existing rows are not migrated or cleaned up. A row made on the old board
+  stays active until a cell with exactly its key is moved away.
+
+**The trade-off, stated plainly.** The original grant (D6 above, and the first
+version of `grant_from_routine`) deliberately did *not* revoke on removal,
+because a teacher who covered a period may still have marks to enter for it.
+With the routine as the source of truth, that teacher loses marks entry for the
+subject when their last cell for it is removed. The remedy is to keep their
+cell in the routine until marks are in, or for the principal or office (who are
+not teacher-scoped) to enter the marks. An institution where this bites
+constantly can turn off `restrict_teachers_to_assigned_classes`.
+
 ---
 
 ## D7 · The teacher's panel is a live "today's classes" board

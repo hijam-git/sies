@@ -16,7 +16,8 @@ from django.db import transaction
 from core.models import NumberSequence
 from core.services import format_number, next_number
 
-from .models import AcademicClass, Enrolment, EnrolmentStatus, Section, SubjectAssignment
+from .models import (AcademicClass, ClassRoutine, Enrolment, EnrolmentStatus,
+                     Section, SubjectAssignment)
 
 # The Bangladeshi week, indexed the way `DayOfWeek` stores it: Saturday is 0.
 # Python's `date.weekday()` puts Monday at 0, so the conversion is a rotation and
@@ -34,34 +35,90 @@ def day_index(on_date):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def routine_access_key(routine):
+    """The `SubjectAssignment` a routine cell stands for, as a lookup dict.
+
+    None for a cell that grants nothing — one switched off with `is_active`, or
+    (defensively) one missing its teacher or subject. A dict rather than a
+    tuple because both callers feed it straight into an ORM filter.
+    """
+    if (routine is None or not routine.is_active
+            or routine.teacher_id is None or routine.subject_id is None):
+        return None
+    return {
+        'branch_id': routine.branch_id,
+        'session_id': routine.session_id,
+        'teacher_id': routine.teacher_id,
+        'subject_id': routine.subject_id,
+        'academic_class_id': routine.academic_class_id,
+        'section_id': routine.section_id,
+    }
+
+
 def grant_from_routine(routine):
     """Make sure a routine placement carries its own access grant.
 
     Putting a teacher in a routine cell and *then* being told they cannot open
     the register is the system knowing two things and believing the wrong one.
-    A SubjectAssignment is what a teacher's reach is built from (D6), so
-    the timetable creates it rather than asking an admin to say the same thing
-    twice on another screen.
+    A SubjectAssignment is what a teacher's reach is built from (D6), so the
+    timetable creates it — the routine is the only screen where an admin says
+    who teaches what (D6, 2026-10 update).
 
     Idempotent, and never widens beyond what the cell already says: same
-    session, same class, same section, same subject, same teacher. Removing the
-    cell does **not** revoke it — a teacher who covered a period still has
-    marks to enter for it, and revoking access is a deliberate act on the
-    Assignments board.
+    session, same class, same section, same subject, same teacher. A row that
+    an earlier removal deactivated is switched back on rather than duplicated,
+    which the unique constraint would refuse anyway.
     """
-    if routine.teacher_id is None or routine.subject_id is None:
+    key = routine_access_key(routine)
+    if key is None:
         return None
 
-    assignment, _ = SubjectAssignment.objects.get_or_create(
-        branch=routine.branch,
-        session=routine.session,
-        teacher_id=routine.teacher_id,
-        subject_id=routine.subject_id,
-        academic_class_id=routine.academic_class_id,
-        section_id=routine.section_id,
-        defaults={'is_active': True},
+    assignment, created = SubjectAssignment.objects.get_or_create(
+        **key, defaults={'is_active': True},
     )
+    if not created and not assignment.is_active:
+        assignment.is_active = True
+        assignment.save(update_fields=['is_active', 'updated_at'])
     return assignment
+
+
+def revoke_if_uncovered(key):
+    """Deactivate the assignment *key* names, unless a routine cell still needs it.
+
+    "Still needs it" is any other **active** routine cell with the same session,
+    teacher, subject, class and section — a teacher who takes Arabic in Class 5
+    on Saturday and Monday keeps the subject when Monday's cell is deleted.
+
+    Deactivated, never deleted. Nothing references a `SubjectAssignment` — marks
+    record who entered them on the `Mark` row itself — but the row is the record
+    that this teacher taught this subject this session, and a deactivated row is
+    reactivated by `grant_from_routine` when the cell comes back.
+    """
+    if key is None:
+        return 0
+    if ClassRoutine.objects.filter(is_active=True, **key).exists():
+        return 0
+    return SubjectAssignment.objects.filter(is_active=True, **key).update(is_active=False)
+
+
+@transaction.atomic
+def sync_routine_access(*, previous_key, routine=None):
+    """Keep `SubjectAssignment` in step with one routine cell's write.
+
+    *previous_key* is `routine_access_key()` of the cell **before** the write
+    (None for a create); *routine* is the cell after it (None for a delete). The
+    write itself must already be saved, or the cell would count as still
+    covering its own old key.
+
+    The routine is the source of truth for subject access (D6, 2026-10 update):
+    placing a teacher grants, moving or removing the last cell that places them
+    there revokes. Class responsibility — `class_teacher`, `in_charge` — is set on
+    the class and section forms and is never touched here.
+    """
+    granted = grant_from_routine(routine) if routine is not None else None
+    if previous_key is not None and previous_key != routine_access_key(routine):
+        revoke_if_uncovered(previous_key)
+    return granted
 
 
 def teacher_for_user(user):

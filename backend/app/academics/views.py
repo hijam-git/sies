@@ -9,7 +9,7 @@ Two viewsets are deliberately **not** teacher-scoped:
 
 * `PeriodViewSet` — the bell schedule is institution-wide by construction and a
   teacher needs to read all of it to render their own day; and
-* `SubjectAssignmentViewSet` — it is the assignment *screen*, an admin tool. A
+* `SubjectAssignmentViewSet` — its rows are the access grants themselves. A
   teacher scoping their own access grants would be circular.
 
 All of them share the `academics` permission resource, because docs/02 §2.1 puts
@@ -39,8 +39,8 @@ from .serializers import (AcademicClassSerializer, ClassRoutineSerializer,
                           EnrolmentSerializer, PeriodSerializer,
                           SectionSerializer, SubjectAssignmentSerializer,
                           SubjectSerializer)
-from .services import (day_index, enrol_student, grant_from_routine,
-                       teacher_for_user)
+from .services import (day_index, enrol_student, routine_access_key,
+                       sync_routine_access, teacher_for_user)
 from .viewsets import TeacherScopedMixin
 
 
@@ -124,18 +124,28 @@ class ClassRoutineViewSet(TeacherScopedMixin, AcademicsViewSet):
     search_fields = ['room', 'subject__name', 'teacher__name']
     ordering_fields = ['day_of_week', 'period', 'created_at']
 
-    # Placing a teacher in a cell is also the moment they are given the class
-    # (docs/08 D6). Doing it in both hooks rather than in the serializer keeps
-    # the grant on the write path only — a dry  grants nothing.
+    # The routine is the only place an admin says who teaches what (docs/08 D6,
+    # 2026-10 update), so every write to a cell keeps the teacher's access in
+    # step: placing grants, moving or removing the last covering cell revokes.
+    # In the hooks rather than the serializer so a validation-only pass grants
+    # nothing, and in the same transaction as the write so the two cannot drift.
     def perform_create(self, serializer):
         with transaction.atomic():
             super().perform_create(serializer)
-            grant_from_routine(serializer.instance)
+            sync_routine_access(previous_key=None, routine=serializer.instance)
 
     def perform_update(self, serializer):
+        # Read before the save: the serializer mutates the instance in place.
+        previous_key = routine_access_key(serializer.instance)
         with transaction.atomic():
             super().perform_update(serializer)
-            grant_from_routine(serializer.instance)
+            sync_routine_access(previous_key=previous_key, routine=serializer.instance)
+
+    def perform_destroy(self, instance):
+        previous_key = routine_access_key(instance)
+        with transaction.atomic():
+            super().perform_destroy(instance)
+            sync_routine_access(previous_key=previous_key, routine=None)
 
     @action(detail=False, methods=['get'], url_path='today')
     def today(self, request):
@@ -280,10 +290,15 @@ class EnrolmentViewSet(TeacherScopedMixin, AcademicsViewSet):
 
 
 class SubjectAssignmentViewSet(AcademicsViewSet):
-    """Staff → Assignments (docs/08 D6).
+    """Subject assignments (docs/08 D6).
 
-    Not teacher-scoped: this is the admin screen that *grants* the scope, and a
-    teacher filtering their own grants would be circular. It is gated on
+    The rows are written by the routine (`services.sync_routine_access`). The
+    Teachers → Assignments board that used to edit them directly was removed
+    (D6, 2026-10 update). The endpoint stays for reading and for repair, and
+    stays writable so that nothing already calling it breaks.
+
+    Not teacher-scoped: these rows *are* the scope, and a teacher filtering
+    their own grants would be circular. It is gated on
     `academics` like the rest of this app, so only someone who can edit the
     academic frame can widen what a teacher reaches.
     """

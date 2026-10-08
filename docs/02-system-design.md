@@ -178,8 +178,11 @@ see the whole institution. `Branch.restrict_teachers_to_assigned_classes`
 (default **on**) lets a small institution where everyone covers everything turn
 it off.
 
-Assignments are made by the admin on **Staff → Assignments**: pick a session,
-set each class's class teacher and each subject's teacher.
+Assignments are made by the admin where the facts already live (`08` D6,
+2026-10-08 update). The class teacher is set on the class form, the section in
+charge on the section form, and each subject's teacher on the **routine**.
+Placing a teacher in a routine cell grants the subject. Removing the last cell
+that places them there revokes it. There is no separate assignment screen.
 
 ### 2.5 Self-service is not a permission
 

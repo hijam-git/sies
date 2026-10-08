@@ -335,7 +335,9 @@ class Command(BaseCommand):
         """A clash-free week. The teacher constraint refuses double-booking, so
         this walks a teacher cursor rather than assigning at random and retrying."""
         from academics.models import ClassRoutine, SubjectAssignment
+        from academics.services import grant_from_routine
 
+        assignments_before = SubjectAssignment.objects.filter(branch=branch).count()
         # 0 = Saturday … 4 = Wednesday. Thursday and Friday are the weekend here.
         for day in range(0, 5):
             cursor = 0
@@ -346,7 +348,7 @@ class Command(BaseCommand):
                     teacher = teachers[cursor % len(teachers)]
                     cursor += 1
 
-                    _, made = ClassRoutine.objects.get_or_create(
+                    cell, made = ClassRoutine.objects.get_or_create(
                         branch=branch, session=session,
                         academic_class=entry['class'], section=entry['section'],
                         day_of_week=day, period=period,
@@ -355,12 +357,14 @@ class Command(BaseCommand):
                     )
                     self.count('routine slots', int(made))
 
-                    _, made = SubjectAssignment.objects.get_or_create(
-                        branch=branch, session=session, teacher=teacher,
-                        subject=subject, academic_class=entry['class'],
-                        defaults={'section': entry['section']},
-                    )
-                    self.count('subject assignments', int(made))
+                    # Through the same service the routine screen uses, so the
+                    # grant is keyed exactly as a later edit of this cell will
+                    # look for it (docs/08 D6).
+                    grant_from_routine(cell)
+
+        self.count('subject assignments',
+                   SubjectAssignment.objects.filter(branch=branch).count()
+                   - assignments_before)
 
         # Every class needs someone in charge — that is half of D6's scope.
         for i, entry in enumerate(classes):

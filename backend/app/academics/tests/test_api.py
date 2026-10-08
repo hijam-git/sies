@@ -136,7 +136,7 @@ class AcademicsBranchIsolationTests(TestCase):
 
     def test_placing_a_teacher_in_the_routine_grants_the_subject(self):
         """An admin who fills the timetable should not have to say the same
-        thing again on the Assignments board before the teacher can open their
+        thing again on another screen before the teacher can open their
         own register (docs/08 D6)."""
         from academics.models import SubjectAssignment
         teacher = make_teacher(self.a, name='Dhaka Teacher')

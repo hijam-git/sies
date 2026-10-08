@@ -318,6 +318,11 @@ The other half is class responsibility (`AcademicClass.class_teacher`,
 `Section.in_charge`). Validation rejects a teacher from another branch, or a
 class from another session.
 
+**Maintained by the routine** (`08` D6, 2026-10-08 update). A `ClassRoutine`
+write grants the row for its exact key. Removing or moving the last active
+cell with that key sets `is_active = False`, never deletes the row. Scope
+readers count only active rows.
+
 | `branch`, `session`, `teacher` → Teacher, `subject` → Subject, `academic_class`, `section` |
 
 ---
