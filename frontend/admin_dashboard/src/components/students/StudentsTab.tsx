@@ -12,9 +12,10 @@ import ResponsiveTable, { cellTapCls } from '../common/ResponsiveTable';
 import type { Column } from '../common/ResponsiveTable';
 import { FormError } from '../common/Field';
 import StatusDot from '../common/StatusDot';
-import { btnPrimary, btnSecondary } from '../common/styles';
+import { btnPrimary, btnRowAction, btnSecondary } from '../common/styles';
 import StudentFormModal from './StudentFormModal';
 import StudentDetailModal from './StudentDetailModal';
+import RollChangeModal from './RollChangeModal';
 
 /**
  * The student roll.
@@ -33,7 +34,12 @@ import StudentDetailModal from './StudentDetailModal';
  *    by the session's enrolments, an intersection the API has no way to express.
  *    The (already loaded) enrolments decide the set and the list is paged here,
  *    so the count and the page numbers still describe what is on screen instead
- *    of a page filtered down to three rows.
+ *    of a page filtered down to three rows. Read in **roll order** then, since
+ *    a class list is read the way the register is called.
+ *
+ * The roll column is the class roll (শ্রেণি রোল), and it is where a roll is
+ * changed: tap it, type the new number, and if somebody in the class already
+ * has it the dialog offers to swap the two.
  */
 
 const STATUSES = [
@@ -69,6 +75,10 @@ export default function StudentsTab({
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
   const [enrolments, setEnrolments] = useState<Enrolment[]>([]);
+  /** Bumped to re-read the register after a roll changes. */
+  const [enrolmentsRev, setEnrolmentsRev] = useState(0);
+  const [rollTarget, setRollTarget] = useState<{ student: Student; enrolment: Enrolment } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -77,6 +87,10 @@ export default function StudentsTab({
 
   const mayCreate = can('students', 'create');
   const mayUpdate = can('students', 'update');
+  // The server accepts any one of the three: the office keeps the records, the
+  // academic side keeps the classes, the admission desk issued the roll.
+  const mayChangeRoll =
+    can('students', 'update') || can('academics', 'update') || can('admissions', 'update');
 
   const sessionId =
     sessionChoice || String((sessions.find((s) => s.is_current) ?? sessions[0])?.id ?? '');
@@ -91,7 +105,7 @@ export default function StudentsTab({
       // Not silently empty: this is what puts a class and a section beside
       // every name, and a blank Class column reads like "not enrolled".
       .catch((err) => setLoadError(apiErrorText(err, t, t('Could not load the class list.'))));
-  }, [sessionId, t]);
+  }, [sessionId, enrolmentsRev, t]);
 
   const enrolmentOf = useMemo(() => {
     const byStudent = new Map<number, Enrolment>();
@@ -131,6 +145,19 @@ export default function StudentsTab({
         const all = await apiClient.listAll<Student>('/students/', `?${filters}`);
         if (!req.isCurrent(mine)) return;
         const matching = all.filter((s) => byClassSection.has(s.id));
+        // Roll order — section first, because rolls restart per section and a
+        // whole-class list would otherwise read A-1, B-1, A-2.
+        const sectionOrder = (id: number | null) =>
+          id === null ? '' : (sections.find((x) => x.id === id)?.name ?? '');
+        matching.sort((a, b) => {
+          const ea = enrolmentOf.get(a.id);
+          const eb = enrolmentOf.get(b.id);
+          const bySection = sectionOrder(ea?.section ?? null).localeCompare(
+            sectionOrder(eb?.section ?? null),
+          );
+          if (bySection !== 0) return bySection;
+          return (ea?.roll ?? Number.MAX_SAFE_INTEGER) - (eb?.roll ?? Number.MAX_SAFE_INTEGER);
+        });
         setTotal(matching.length);
         setRows(matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
       } else {
@@ -145,7 +172,7 @@ export default function StudentsTab({
     } finally {
       if (req.isCurrent(mine)) setLoading(false);
     }
-  }, [page, search, streamFilter, statusFilter, byClassSection, req, t]);
+  }, [page, search, streamFilter, statusFilter, byClassSection, enrolmentOf, sections, req, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250);
@@ -199,9 +226,29 @@ export default function StudentsTab({
     },
     {
       key: 'roll',
-      label: t('Roll'),
-      hideOnNarrow: true,
-      render: (s) => enrolmentOf.get(s.id)?.roll ?? '—',
+      label: t('Class roll'),
+      render: (s) => {
+        const e = enrolmentOf.get(s.id);
+        if (!e) return '—';
+        if (!mayChangeRoll) return e.roll ?? '—';
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              // The row opens the student; this opens the roll and nothing else.
+              event.stopPropagation();
+              setNotice(null);
+              setRollTarget({ student: s, enrolment: e });
+            }}
+            className={btnRowAction}
+            title={t('Change class roll')}
+            aria-label={`${t('Change class roll')} — ${s.name_bn || s.name}`}
+          >
+            <span className="font-semibold tabular-nums">{e.roll ?? '—'}</span>
+            <span aria-hidden="true" className="text-gray-400">✎</span>
+          </button>
+        );
+      },
     },
     {
       key: 'guardian',
@@ -366,6 +413,11 @@ export default function StudentsTab({
       </FilterBar>
 
       {loadError && <FormError message={loadError} />}
+      {notice && (
+        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {notice}
+        </p>
+      )}
 
       <ResponsiveTable
         columns={columns}
@@ -386,6 +438,28 @@ export default function StudentsTab({
             if (!mayUpdate) return;
             setDetailId(null);
             setFormTarget(student);
+          }}
+        />
+      )}
+
+      {rollTarget && (
+        <RollChangeModal
+          enrolment={rollTarget.enrolment}
+          studentName={rollTarget.student.name_bn || rollTarget.student.name}
+          classLabel={`${rollTarget.enrolment.class_name}${
+            rollTarget.enrolment.section !== null
+              ? ` · ${sectionName(rollTarget.enrolment.section)}`
+              : ''
+          }`}
+          peers={enrolments.filter(
+            (e) =>
+              e.academic_class === rollTarget.enrolment.academic_class &&
+              e.section === rollTarget.enrolment.section,
+          )}
+          onClose={() => setRollTarget(null)}
+          onSaved={(message) => {
+            setNotice(message);
+            setEnrolmentsRev((n) => n + 1);
           }}
         />
       )}

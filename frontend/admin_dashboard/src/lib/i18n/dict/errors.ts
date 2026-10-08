@@ -29,5 +29,7 @@ const errors: Record<string, string> = {
     'অন্য তথ্য এটির সঙ্গে যুক্ত, তাই এটি ডিলিট করা যাবে না। বরং নিষ্ক্রিয় করে দিন।',
 
   'Something went wrong. Please try again.': 'কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন।',
+  'That roll already belongs to another student in this class.':
+    'এই শ্রেণিতে রোলটি অন্য একজন শিক্ষার্থীর।',
 };
 export default errors;

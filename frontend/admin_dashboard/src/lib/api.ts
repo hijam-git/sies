@@ -698,6 +698,35 @@ export interface Enrolment {
   class_name: string;
 }
 
+/** What `changeRoll()` answers: the moved enrolment, and the other student's
+ *  when the change was a swap. */
+export interface RollChangeResult {
+  enrolment: Enrolment;
+  swapped_with: Enrolment | null;
+}
+
+/** Who holds a roll, as a `roll_taken` refusal names them. */
+export interface RollHolder {
+  enrolment: number;
+  name: string;
+  name_bn: string;
+  code: string;
+  active: boolean;
+}
+
+/** The holder out of a `roll_taken` error, or null for any other failure. */
+export function rollHolder(err: unknown): RollHolder | null {
+  if (!(err instanceof ApiError) || err.code !== 'roll_taken' || !err.errors) return null;
+  const first = (key: string) => err.errors?.[key]?.[0] ?? '';
+  return {
+    enrolment: Number(first('holder_enrolment')),
+    name: first('holder_name'),
+    name_bn: first('holder_name_bn'),
+    code: first('holder_code'),
+    active: first('holder_active') !== 'false',
+  };
+}
+
 /**
  * Which teacher teaches which subject to which class (`docs/08` D6).
  *
@@ -762,7 +791,13 @@ export interface RegisterStudent {
   enrolment: number;
   name: string;
   name_bn: string;
+  /** The class roll — the order the register is read in. */
   roll: number | null;
+  /** Rolls restart per section, so the whole-class view needs these to say
+   *  which roll 7 a row is. */
+  section: number | null;
+  section_name: string;
+  section_name_bn: string;
   /** Keyed by ISO date. A date with no key was never marked. */
   cells: Record<string, RegisterCell>;
   present: number;
@@ -813,6 +848,9 @@ export interface RosterStudent {
   name: string;
   name_bn: string;
   roll: number | null;
+  section: number | null;
+  section_name: string;
+  section_name_bn: string;
   status: AttendanceStatus;
   remarks: string;
   taken_by: number | null;
@@ -2157,6 +2195,20 @@ class ApiClient {
    *  and admissions have no destroy route at all; they deactivate instead. */
   destroy(path: string, id: number): Promise<void> {
     return this.request<void>(`${path}${id}/`, { method: 'DELETE' });
+  }
+
+  /**
+   * Give a student a new roll in their class — `POST /enrolments/{id}/roll/`.
+   *
+   * Without `swap`, a roll somebody else holds is refused with code
+   * `roll_taken` and the holder in `errors` (`rollHolder()` reads it). Sending
+   * it again with `swap: true` exchanges the two rolls in one transaction.
+   */
+  changeRoll(enrolmentId: number, roll: number, swap = false): Promise<RollChangeResult> {
+    return this.request<RollChangeResult>(`/enrolments/${enrolmentId}/roll/`, {
+      method: 'POST',
+      body: JSON.stringify({ roll, swap }),
+    });
   }
 
   /**

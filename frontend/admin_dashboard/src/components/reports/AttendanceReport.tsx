@@ -54,6 +54,8 @@ interface DefaulterRow {
   name: string;
   code: string;
   className: string;
+  /** Class roll — shown beside the class, which is what gives it meaning. */
+  roll: number | null;
   present: number;
   absent: number;
   marked: number;
@@ -196,6 +198,7 @@ export default function AttendanceReport({
             name: s.name_bn || s.name,
             code: s.student_code,
             className: className(register.class),
+            roll: s.roll,
             present: s.present,
             absent: s.absent,
             marked: s.marked_days,
@@ -293,11 +296,12 @@ export default function AttendanceReport({
             <ExportCsvButton
               filename={`attendance-defaulters-${month}.csv`}
               rows={() => [
-                [t('Student'), t('Student ID'), t('Class'), t('Present'), t('Absent'), t('Attendance')],
+                [t('Student'), t('Student ID'), t('Class'), t('Class roll'), t('Present'), t('Absent'), t('Attendance')],
                 ...defaulters.map((r) => [
                   r.name,
                   r.code,
                   r.className,
+                  r.roll ?? '',
                   r.present,
                   r.absent,
                   formatPercent(r.percent),
@@ -310,6 +314,7 @@ export default function AttendanceReport({
               { key: 'student', label: t('Student'), primary: true, render: (r: DefaulterRow) => r.name },
               { key: 'code', label: t('Student ID'), hideOnNarrow: true, render: (r: DefaulterRow) => r.code },
               { key: 'class', label: t('Class'), render: (r: DefaulterRow) => r.className },
+              { key: 'roll', label: t('Class roll'), render: (r: DefaulterRow) => r.roll ?? '—' },
               { key: 'absent', label: t('Absent'), render: (r: DefaulterRow) => formatNumber(r.absent) },
               { key: 'percent', label: t('Attendance'), render: (r: DefaulterRow) => formatPercent(r.percent) },
             ]}

@@ -41,6 +41,9 @@ export const API_ERROR_MESSAGES: Record<string, string> = {
   duplicate: 'Something with this name or number already exists.',
   protected_reference:
     'Other records point at this one, so it cannot be deleted. Switch it off instead.',
+  // The roll dialog reads the holder out of `errors` and asks "swap?"; this
+  // sentence is for anywhere else the code surfaces.
+  roll_taken: 'That roll already belongs to another student in this class.',
 };
 
 /** The stable code, or null when the failure was not an API error at all. */

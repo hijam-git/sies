@@ -19,6 +19,7 @@ import { FormError } from '../common/Field';
 import { btnPrimary, btnSecondary } from '../common/styles';
 import { currentMonthInDhaka, todayInDhaka } from '../../lib/timezone';
 import Picker from '../common/Picker';
+import RollAndId from '../common/RollAndId';
 import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import {
   KEY_TO_STATUS,
@@ -365,6 +366,15 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
 
   const dayReason = (d: RegisterDay) => (lang === 'bn' ? d.reason_text_bn : d.reason_text);
 
+  /** The section beside a roll, only when the rows span more than one section
+   *  — there rolls restart per section, and "roll 7" is two students. Inside
+   *  one section it would be the same letter on every row. */
+  const mixedSections = new Set(register?.students.map((s) => s.section) ?? []).size > 1;
+  const rowSection = (student: RegisterStudent) =>
+    mixedSections && student.section_name
+      ? (lang === 'bn' && student.section_name_bn) || student.section_name
+      : undefined;
+
   const renderGrid = (keyboard: boolean) => register && (
     // The one container allowed to scroll sideways — the body never does
     // (`CLAUDE.md` §7a rule 1).
@@ -411,12 +421,22 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
             <tr key={student.student} className="border-b border-gray-100 last:border-0">
               {/* Frozen first column: the student stays readable while thirty
                   day columns scroll under the thumb (`CLAUDE.md` §7a). */}
-              <th className="sticky left-0 z-10 min-w-[9rem] border-r border-gray-200 bg-white px-3 py-1 text-left">
-                <span className="block truncate text-sm font-medium text-gray-900">
-                  {studentName(student)}
+              <th className="sticky left-0 z-10 border-r border-gray-200 bg-white px-3 py-1 text-left font-normal">
+                {/* A width on the inner block, not the cell: a cell's own width
+                    is a suggestion the table overrides, and this column has to
+                    stay narrow enough to leave a phone some day columns. */}
+                <span className="block w-36 md:w-48">
+                  <span className="block truncate text-sm font-medium text-gray-900">
+                    {studentName(student)}
+                  </span>
+                  <RollAndId
+                    roll={student.roll}
+                    code={student.student_code}
+                    section={rowSection(student)}
+                    className="text-[11px]"
+                  />
                 </span>
                 <span className="flex items-center gap-2 text-[11px] text-gray-400">
-                  <span>{student.roll ?? student.student_code}</span>
                   <button
                     type="button"
                     disabled={!mayEdit}
@@ -537,17 +557,22 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
           return (
             <li key={student.student} className="px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-gray-900">
                     {studentName(student)}
                   </span>
-                  <span className="block text-xs text-gray-400">
-                    {student.roll ?? student.student_code}
-                    {' · '}
-                    {totals.perStudent.get(student.student) === null
-                      ? '—'
-                      : `${totals.perStudent.get(student.student)}%`}
-                  </span>
+                  <RollAndId
+                    roll={student.roll}
+                    code={student.student_code}
+                    section={rowSection(student)}
+                    className="text-xs"
+                  >
+                    <span className="shrink-0 text-gray-400">
+                      {totals.perStudent.get(student.student) === null
+                        ? '—'
+                        : `${totals.perStudent.get(student.student)}%`}
+                    </span>
+                  </RollAndId>
                 </span>
                 <span className="flex shrink-0 gap-1">
                   {STATUSES.slice(0, 4).map((s) => (
@@ -667,7 +692,7 @@ export default function MonthRegisterTab({ classes, sections, onSectionsNeeded }
               const who = register?.students.find((s) => s.student === row.student);
               return (
                 <li key={`${row.student}|${row.date}`}>
-                  {`${who ? studentName(who) : row.student} · ${row.date} — ${
+                  {`${who ? `${t('Roll')} ${who.roll ?? '—'} ${studentName(who)}` : row.student} · ${row.date} — ${
                     lang === 'bn' ? row.reason_text_bn : row.reason_text
                   }`}
                 </li>

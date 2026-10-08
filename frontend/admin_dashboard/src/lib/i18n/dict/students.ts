@@ -150,6 +150,25 @@ const students: Record<string, string> = {
   'The papers were not stored — your role may admit but may not file documents. Ask an administrator to add them to the student record.':
     'কাগজগুলো সংরক্ষণ করা হয়নি — আপনার ভূমিকা ভর্তি করতে পারে, কিন্তু কাগজপত্র জমা দিতে পারে না। প্রশাসককে বলে শিক্ষার্থীর রেকর্ডে যুক্ত করান।',
   'Could not load the class list.': 'শ্রেণি তালিকা আনা যায়নি।',
+
+  // ── The class roll ─────────────────────────────────────────────────────
+  // শ্রেণি রোল: the number is per class, and saying so is what stops "roll 3"
+  // being read as a number the student carries from class to class.
+  'Class roll': 'শ্রেণি রোল',
+  'ID': 'আইডি',
+  'Change class roll': 'শ্রেণি রোল পরিবর্তন',
+  'Current roll': 'বর্তমান রোল',
+  'New roll in this class': 'এই শ্রেণিতে নতুন রোল',
+  'The roll is counted inside this class, so roll 3 here is unrelated to roll 3 in another class.':
+    'রোল প্রতিটি শ্রেণিতে আলাদা গোনা হয়, তাই এখানকার রোল ৩ অন্য শ্রেণির রোল ৩ নয়।',
+  'Roll {x} already belongs to {b}.': 'রোল {x} ইতিমধ্যে {b}-এর।',
+  'Swap them? {b} will get roll {y}.': 'অদলবদল করবেন? {b} পাবে রোল {y}।',
+  'Choose another roll': 'অন্য রোল দিন',
+  'Swap rolls': 'রোল অদলবদল করুন',
+  'Rolls swapped: {a} is now {x}, {b} is now {y}.':
+    'রোল অদলবদল হয়েছে: {a} এখন {x}, {b} এখন {y}।',
+  '{a} is now roll {x}.': '{a}-এর রোল এখন {x}।',
+  'Could not change the roll.': 'রোল পরিবর্তন করা যায়নি।',
 };
 
 export default students;

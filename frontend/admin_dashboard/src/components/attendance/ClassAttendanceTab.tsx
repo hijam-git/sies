@@ -18,6 +18,7 @@ import type { MyDayPeriod } from '../../lib/api';
 import { btnPrimary, btnSecondary } from '../common/styles';
 import { todayInDhaka } from '../../lib/timezone';
 import Picker from '../common/Picker';
+import RollAndId from '../common/RollAndId';
 import { preferredClassId, useOwnTeacherId } from '../../lib/defaults';
 import { STATUSES, studentName } from './shared';
 
@@ -247,6 +248,10 @@ export default function ClassAttendanceTab({
     setStatuses(new Map(roster.students.map((s) => [s.student, status])));
   };
 
+  /** Rolls restart per section, so a roster spanning two sections labels each
+   *  roll with its section; one section would be the same letter on every row. */
+  const mixedSections = new Set(roster?.students.map((s) => s.section) ?? []).size > 1;
+
   const presentCount = roster
     ? roster.students.filter((s) => {
         const v = statuses.get(s.student);
@@ -377,11 +382,19 @@ export default function ClassAttendanceTab({
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-medium">{`${t('Not saved')}: ${skipped.length}`}</p>
           <ul className="mt-1 space-y-0.5">
-            {skipped.map((row) => (
-              <li key={`${row.student}|${row.date}`}>
-                {`${row.student} · ${row.date} — ${lang === 'bn' ? row.reason_text_bn : row.reason_text}`}
-              </li>
-            ))}
+            {skipped.map((row) => {
+              // Named by roll and name, not by the primary key the API keys it
+              // on — a teacher can act on "Roll 7 Bilal", not on "412".
+              const who = roster?.students.find((s) => s.student === row.student);
+              const label = who
+                ? `${t('Roll')} ${who.roll ?? '—'} ${studentName(who)}`
+                : String(row.student);
+              return (
+                <li key={`${row.student}|${row.date}`}>
+                  {`${label} · ${row.date} — ${lang === 'bn' ? row.reason_text_bn : row.reason_text}`}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -426,14 +439,24 @@ export default function ClassAttendanceTab({
               return (
                 <li key={student.student} className="px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-gray-900">
                         {studentName(student)}
                       </span>
-                      <span className="block text-xs text-gray-400">
-                        {student.roll ?? student.student_code}
-                        {student.is_taken ? ` · ${t('Already recorded')}` : ''}
-                      </span>
+                      <RollAndId
+                        roll={student.roll}
+                        code={student.student_code}
+                        section={
+                          mixedSections && student.section_name
+                            ? (lang === 'bn' && student.section_name_bn) || student.section_name
+                            : undefined
+                        }
+                        className="text-xs"
+                      >
+                        {student.is_taken && (
+                          <span className="shrink-0 text-gray-400">{t('Already recorded')}</span>
+                        )}
+                      </RollAndId>
                     </span>
                     <span className="flex shrink-0 gap-1">
                       {STATUSES.slice(0, 4).map((s) => (
