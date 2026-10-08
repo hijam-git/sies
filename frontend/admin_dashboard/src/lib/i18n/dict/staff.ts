@@ -1,4 +1,4 @@
-// Bangla for the Staff screens: teachers, other employees, and assignments.
+// Bangla for the Staff screens: teachers and other employees.
 //
 // শিক্ষক and কর্মচারী are kept strictly apart, as the two models are (docs/08
 // D5) — an institution says one or the other and never means both.
@@ -61,36 +61,11 @@ const staff: Record<string, string> = {
   'Emergency contact': 'জরুরি যোগাযোগ',
   'Other address details': 'ঠিকানার অন্যান্য বিবরণ',
 
-  // ── Assignments (docs/08 D6) ───────────────────────────────────────────
-  'An assignment is what a teacher can reach: attendance and marks are limited to the classes named here.':
-    'দায়িত্ব বণ্টনই শিক্ষকের নাগাল ঠিক করে — হাজিরা ও নম্বর কেবল এখানে দেওয়া শ্রেণিতেই সীমাবদ্ধ।',
-  'Choose a class to set its teachers.': 'শিক্ষক নির্ধারণ করতে একটি শ্রেণি বাছুন।',
+  // ── Assignment wording still used by the class, section and routine screens
   'Class teacher': 'শ্রেণিশিক্ষক',
-  'Owns the daily register for this class and may correct a cell somebody else filled in.':
-    'এই শ্রেণির দৈনিক হাজিরার দায়িত্ব তাঁর, এবং অন্যের দেওয়া ঘরও তিনি সংশোধন করতে পারেন।',
-  'Subject teachers': 'বিষয়শিক্ষক',
+  'class teacher': 'শ্রেণিশিক্ষক',
   'Not assigned': 'নির্ধারিত নয়',
   'assigned': 'নির্ধারিত',
-  'Could not load the assignments.': 'দায়িত্ব বণ্টন আনা যায়নি।',
-  'Could not save this assignment.': 'দায়িত্বটি সংরক্ষণ করা যায়নি।',
-  'Could not save the class teacher.': 'শ্রেণিশিক্ষক সংরক্ষণ করা যায়নি।',
-
-  // ── The assignment board ───────────────────────────────────────────────
-  'class teacher': 'শ্রেণিশিক্ষক',
-  'Unassigned work': 'দায়িত্বহীন কাজ',
-  'Nobody covers these yet.': 'এগুলোর দায়িত্বে এখনও কেউ নেই।',
-  'Everything is assigned.': 'সব দায়িত্ব বণ্টন হয়েছে।',
-  'Nothing assigned yet.': 'এখনও কোনো দায়িত্ব নেই।',
-  'Nobody yet': 'এখনও কেউ নয়',
-  'No class teacher yet': 'শ্রেণিশিক্ষক এখনও নেই',
-  'Every class has a class teacher.': 'প্রতিটি শ্রেণিতে শ্রেণিশিক্ষক আছেন।',
-  'Drag a card onto a teacher — or tap the card, then tap the teacher.':
-    'কার্ডটি শিক্ষকের ওপর টেনে আনুন — অথবা কার্ডে চাপ দিয়ে তারপর শিক্ষকে চাপ দিন।',
-  'assign here': 'এখানে দিন',
-  'Now tap a teacher.': 'এবার একজন শিক্ষকে চাপ দিন।',
-  'picked up. Choose a teacher.': 'হাতে নেওয়া হয়েছে। একজন শিক্ষক বাছুন।',
-  'Cancelled.': 'বাতিল করা হয়েছে।',
-  'That did not save — the card went back.': 'সংরক্ষণ হয়নি — কার্ডটি ফিরিয়ে দেওয়া হয়েছে।',
 };
 
 export default staff;

@@ -585,7 +585,7 @@ flowchart LR
 
     D --> N1["<b>Academics</b><br/>Classes · Sections<br/>Subjects · Sessions"]
     D --> N2["<b>Students</b><br/>All students · Admissions<br/>Enrolment · Documents"]
-    D --> N3["<b>Staff</b><br/>Teachers · Employees<br/>Assignments"]
+    D --> N3["<b>Staff</b><br/>Teachers · Employees"]
     D --> N4["<b>Attendance</b><br/><b>Month register</b> · Class attendance<br/>Daily register · Staff"]
     D --> N5["<b>Fees</b><br/><b>Collect fee</b> · Invoices<br/>Dues · Fee setup"]
     D --> N6["<b>Accounts</b><br/>Income · Expenses<br/>Ledger"]

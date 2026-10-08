@@ -313,7 +313,7 @@ ones that do not.
   as a shorter list rather than an error.
 - The dashboard shows a teacher **their** classes: today's attendance not yet
   taken, marks not yet entered.
-- New UI: **Staff → Assignments** — pick a session, then set each class's class
+- New UI: **Staff → Assignments** *(removed 2026-10-08, see the update below)* — pick a session, then set each class's class
   teacher and each subject's teacher. One screen, and it is what makes the
   scoping above meaningful.
 - A `SubjectAssignment` referencing a teacher from another branch, or a class

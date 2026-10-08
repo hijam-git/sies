@@ -99,17 +99,9 @@ export const NAV_ITEMS: NavItem[] = [
       { tab: 'admissions', label: 'Admissions', anyOf: [['admissions', 'view']] },
     ],
   },
-  {
-    path: '/teachers',
-    label: 'Teachers',
-    icon: 'staff',
-    resource: 'teachers',
-    phase: 2,
-    children: [
-      { tab: 'list', label: 'Teachers', anyOf: [['teachers', 'view']] },
-      { tab: 'assignments', label: 'Assignments', anyOf: [['academics', 'view']] },
-    ],
-  },
+  // No children: the Assignments tab is gone (docs/08 D6, 2026-10-08). Subject
+  // teachers are set on Academics → Routine, class teachers on the class form.
+  { path: '/teachers', label: 'Teachers', icon: 'staff', resource: 'teachers', phase: 2 },
   { path: '/staff', label: 'Staff', icon: 'employees', resource: 'employees', phase: 2 },
   {
     path: '/academics',

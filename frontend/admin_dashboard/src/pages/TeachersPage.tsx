@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../lib/api';
-import type { AcademicClass, Session, Stream, Teacher } from '../lib/api';
+import type { Stream } from '../lib/api';
 import { useAuth, usePermissions } from '../lib/auth-context';
 import { useT } from '../lib/i18n';
-import { useTabParam } from '../lib/useTabParam';
-import TabStrip from '../components/common/TabStrip';
-import type { TabDef } from '../components/common/TabStrip';
 import TeachersTab from '../components/staff/TeachersTab';
-import AssignmentsTab from '../components/staff/AssignmentsTab';
 
 /**
- * Teachers — the roster, and which classes each one covers.
+ * Teachers — the roster.
  *
  * Its own top-level section rather than a tab under a combined "Staff", which
  * is how the data already sees it: `Teacher` and `Employee` are separate models
@@ -20,50 +16,27 @@ import AssignmentsTab from '../components/staff/AssignmentsTab';
  * salary. Merging them in the sidebar hid a distinction the rest of the system
  * makes everywhere.
  *
- * Assignments lives here and not under Academics because it is about a
- * *person's* work — and because it is the screen that decides what a teacher
- * can reach (`docs/08` D6), which is a fact about the teacher.
+ * There is no Assignments tab any more (`docs/08` D6, 2026-10-08 update). Who
+ * teaches what is set on Academics → Routine, and the class teacher on the
+ * class form. A second screen saying the same thing only let the two disagree.
+ * An old `?tab=assignments` link just opens the roster.
  */
-
-type Tab = 'list' | 'assignments';
-
-const TABS: Tab[] = ['list', 'assignments'];
-
 export default function TeachersPage() {
   const { t } = useT();
   const { canView } = usePermissions();
   const { activeBranchId } = useAuth();
-  const [tab, setTab] = useTabParam<Tab>(TABS, 'list');
 
   const [streams, setStreams] = useState<Stream[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [classes, setClasses] = useState<AcademicClass[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
 
   const maySeeTeachers = canView('teachers');
-  const maySeeAssignments = canView('academics');
 
   useEffect(() => {
     if (maySeeTeachers) {
       void apiClient.listStreams(activeBranchId).then(setStreams).catch(() => setStreams([]));
     }
-    if (maySeeAssignments) {
-      void apiClient.listSessions(activeBranchId).then(setSessions).catch(() => setSessions([]));
-      void apiClient
-        .listAll<AcademicClass>('/classes/', '?is_active=true')
-        .then(setClasses)
-        .catch(() => setClasses([]));
-      // The whole teacher list, because the assignment board's every card is a
-      // drop target over it — twenty selects each fetching their own options is
-      // twenty requests for one list.
-      void apiClient
-        .listAll<Teacher>('/teachers/', '?is_active=true')
-        .then(setTeachers)
-        .catch(() => setTeachers([]));
-    }
-  }, [activeBranchId, maySeeTeachers, maySeeAssignments]);
+  }, [activeBranchId, maySeeTeachers]);
 
-  if (!maySeeTeachers && !maySeeAssignments) {
+  if (!maySeeTeachers) {
     return (
       <div className="mx-auto max-w-lg rounded-xl border border-gray-100 bg-white p-8 text-center shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">{t('Teachers')}</h1>
@@ -72,23 +45,5 @@ export default function TeachersPage() {
     );
   }
 
-  const tabs: TabDef<Tab>[] = [
-    ...(maySeeTeachers ? ([{ key: 'list', label: t('Teachers') }] as TabDef<Tab>[]) : []),
-    ...(maySeeAssignments ? ([{ key: 'assignments', label: t('Assignments') }] as TabDef<Tab>[]) : []),
-  ];
-
-  // Somebody holding only `academics` lands on Assignments rather than on an
-  // empty roster they cannot fill.
-  const active = tabs.some((x) => x.key === tab) ? tab : tabs[0].key;
-
-  return (
-    <div className="space-y-3">
-      {tabs.length > 1 && <TabStrip tabs={tabs} active={active} onChange={setTab} heading={t('Teachers')} />}
-
-      {active === 'list' && maySeeTeachers && <TeachersTab streams={streams} />}
-      {active === 'assignments' && maySeeAssignments && (
-        <AssignmentsTab sessions={sessions} classes={classes} teachers={teachers} />
-      )}
-    </div>
-  );
+  return <TeachersTab streams={streams} />;
 }

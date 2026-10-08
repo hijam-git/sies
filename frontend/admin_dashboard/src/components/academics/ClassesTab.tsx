@@ -433,7 +433,11 @@ export default function ClassesTab({ data }: { data: AcademicsData }) {
                 />
               </Field>
 
-              <Field label={t('Class teacher')} error={fieldErrors.class_teacher}>
+              <Field
+                label={t('Class teacher')}
+                error={fieldErrors.class_teacher}
+                hint={t('Takes this class’s daily attendance and sees its students.')}
+              >
                 <select
                   value={draft.class_teacher}
                   onChange={(e) => setDraft({ ...draft, class_teacher: e.target.value })}

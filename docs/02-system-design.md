@@ -514,7 +514,7 @@ language toggle, branch switcher for the platform admin.
 Overview
 Academics ─ Classes · Sections · Subjects · Sessions · **Routine**
 Students  ─ All students · Admissions · Enrolment · Documents
-Staff     ─ Teachers · Employees · **Assignments**
+Staff     ─ Teachers · Employees   (who teaches what is set on Academics → Routine, 08 D6)
 Attendance─ **Month register** · Class attendance · Daily register · Reports
 Fees      ─ Fee structure · Invoices · Collect fee · Dues · Discounts
 Accounts  ─ Income · Expenses · Salary · Ledger

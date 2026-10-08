@@ -29,6 +29,11 @@ const academics: Record<string, string> = {
   'Add section': 'শাখা যোগ করুন',
   'Edit section': 'শাখা সম্পাদনা',
   'Room': 'কক্ষ',
+  // Who-teaches-what is set here and on the class form only (docs/08 D6, 2026-10-08).
+  'The teacher placed here can take this class’s attendance and enter this subject’s marks.':
+    'এখানে বসানো শিক্ষক এই ক্লাসের হাজিরা নিতে ও এই বিষয়ের নম্বর দিতে পারবেন।',
+  'Takes this class’s daily attendance and sees its students.':
+    'এই শ্রেণির দৈনিক হাজিরা নেন ও শিক্ষার্থীদের দেখতে পান।',
   'In charge': 'দায়িত্বপ্রাপ্ত',
   'This class has no sections yet.': 'এই শ্রেণিতে কোনো শাখা নেই।',
   'Choose a class to see its sections.': 'শাখা দেখতে একটি শ্রেণি বাছুন।',

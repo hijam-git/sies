@@ -538,7 +538,12 @@ export default function RoutineTab({ data }: { data: AcademicsData }) {
               </select>
             </Field>
 
-            <Field label={t('Teacher')} error={fieldErrors.teacher} required>
+            <Field
+              label={t('Teacher')}
+              error={fieldErrors.teacher}
+              required
+              hint={t('The teacher placed here can take this class’s attendance and enter this subject’s marks.')}
+            >
               <select
                 value={draft.teacher}
                 onChange={(e) => setDraft({ ...draft, teacher: e.target.value })}
