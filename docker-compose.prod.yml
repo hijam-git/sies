@@ -255,9 +255,15 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=sies-network"
+      # Every router below answers on DOMAIN and on the optional ALT_DOMAIN — a
+      # second name for the same site. It exists for the day the main domain is
+      # unreachable at the registry (siesbd.com was put on clientHold on
+      # 2026-10-09): ALT_DOMAIN=<ip-with-dashes>.sslip.io resolves to this box
+      # with no DNS of ours, and Traefik issues it its own certificate. Unset, it
+      # falls back to DOMAIN and the rule is DOMAIN twice — nothing changes.
       # Backend owns /api, /admin (Django admin), /static and /media.
       # Priority 100 beats the SPA's catch-all below — see traefik/README.md.
-      - "traefik.http.routers.sies-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))"
+      - "traefik.http.routers.sies-api.rule=(Host(`${DOMAIN}`) || Host(`${ALT_DOMAIN:-${DOMAIN}}`)) && (PathPrefix(`/api`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`))"
       - "traefik.http.routers.sies-api.entrypoints=websecure"
       - "traefik.http.routers.sies-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-api.priority=100"
@@ -267,7 +273,7 @@ services:
       # students' photos and voucher scans, and a shared office browser must
       # not keep them for the next person. Only reached when R2 is not set —
       # with R2 the links point at the bucket, not here.
-      - "traefik.http.routers.sies-media.rule=Host(`${DOMAIN}`) && PathPrefix(`/media`)"
+      - "traefik.http.routers.sies-media.rule=(Host(`${DOMAIN}`) || Host(`${ALT_DOMAIN:-${DOMAIN}}`)) && PathPrefix(`/media`)"
       - "traefik.http.routers.sies-media.entrypoints=websecure"
       - "traefik.http.routers.sies-media.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-media.priority=110"
@@ -429,7 +435,7 @@ services:
       # fallback answers with index.html, and the browser refuses HTML as a
       # script: a blank dashboard. Dev never shows this because Vite's dev
       # server understands `base` itself. Same shape as awliaa's admin router.
-      - "traefik.http.routers.sies-admin.rule=Host(`${DOMAIN}`) && PathPrefix(`/myadmin`)"
+      - "traefik.http.routers.sies-admin.rule=(Host(`${DOMAIN}`) || Host(`${ALT_DOMAIN:-${DOMAIN}}`)) && PathPrefix(`/myadmin`)"
       - "traefik.http.routers.sies-admin.entrypoints=websecure"
       - "traefik.http.routers.sies-admin.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-admin.priority=50"
@@ -446,7 +452,7 @@ services:
       # rewritten to /landing/ on its way in. The browser's URL stays `/`.
       # Priority 1: anything more specific (the backend's 100, /myadmin's 50)
       # wins. Any other unclaimed path is Traefik's plain 404.
-      - "traefik.http.routers.sies-root.rule=Host(`${DOMAIN}`) && Path(`/`)"
+      - "traefik.http.routers.sies-root.rule=(Host(`${DOMAIN}`) || Host(`${ALT_DOMAIN:-${DOMAIN}}`)) && Path(`/`)"
       - "traefik.http.routers.sies-root.entrypoints=websecure"
       - "traefik.http.routers.sies-root.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sies-root.priority=1"

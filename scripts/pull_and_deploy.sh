@@ -462,7 +462,10 @@ step 9 "Verifying the deployed release"
 
 PUBLIC_OK=0
 for _ in $(seq 1 15); do
-  if curl -fsS -m 10 "https://${DOMAIN}/api/health/" >/dev/null 2>&1; then
+  # --resolve: ask THIS box, with the real name and certificate, rather than
+  # whatever public DNS says. A domain held at the registry is not a broken
+  # release, and must not roll a healthy one back.
+  if curl -fsS -m 10 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}/api/health/" >/dev/null 2>&1; then
     PUBLIC_OK=1; break
   fi
   sleep 2
@@ -473,7 +476,7 @@ else
   fail "the site does not answer over HTTPS after the deploy"
 fi
 
-if curl -fsS -m 10 -o /dev/null -w '%{http_code}' "https://${DOMAIN}/myadmin" 2>/dev/null | grep -qE '^(200|30[128])$'; then
+if curl -fsS -m 10 --resolve "${DOMAIN}:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://${DOMAIN}/myadmin" 2>/dev/null | grep -qE '^(200|30[128])$'; then
   ok "https://${DOMAIN}/myadmin serves the SPA"
 else
   warn "/myadmin did not answer as expected — the API is up, the dashboard may not be"
